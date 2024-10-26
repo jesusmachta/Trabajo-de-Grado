@@ -1,10 +1,16 @@
 from flask import Flask, request, jsonify
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
+import os
 
 app = Flask(__name__)
 
 rekognition = boto3.client('rekognition', region_name='us-west-2')  # Cambia 'us-west-2' por tu región
+
+@app.route('/')
+def hello_world():
+    return 'Hello, Catalina!'
+
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     if 'image' not in request.files:
@@ -34,4 +40,4 @@ def analyze_image():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port = 5001)
+    app.run(debug=True, host='0.0.0.0', port=5001)
