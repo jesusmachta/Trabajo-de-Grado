@@ -3,6 +3,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 import os
 from datetime import datetime
+import database
 
 app = Flask(__name__)
 
@@ -45,6 +46,24 @@ def analyze_image():
             'NumberOfFaces': len(filtered_faces),
             'Faces': filtered_faces
         }
+
+        # Insertar en MongoDB
+        for face in filtered_faces:
+            emotions = face['Emotions']
+            primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
+            document = {
+                "id": 1,  # Asigna un ID único según tu lógica
+                "date": datetime.utcnow(),
+                "time": datetime.utcnow().strftime("%H:%M:%S"),
+                "id_camara": 1,  # Asigna el ID de la cámara según tu lógica
+                "gender": face['Gender']['Value'],
+                "age_range": {
+                    "low": face['AgeRange']['Low'],
+                    "high": face['AgeRange']['High']
+                },
+                "emotions": primary_emotion
+            }
+            database.collections['Persona_AR'].insert_one(document)
 
         return jsonify(result)
 
