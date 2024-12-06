@@ -1,7 +1,7 @@
 from flask import request, jsonify
-from aws import analyze_image
+from backend.aws import analyze_image
 from datetime import datetime
-from database import collections
+from backend.database import collections
 import pymongo
 
 def get_next_sequence_value(sequence_name, app):
