@@ -4,3 +4,4 @@ boto3
 pymongo
 tensorflow
 tensorflow-hub
+Pillow
