@@ -2,3 +2,5 @@ Flask==2.2.5
 gunicorn
 boto3
 pymongo
+tensorflow
+tensorflow-hub
