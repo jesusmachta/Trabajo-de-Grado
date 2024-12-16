@@ -1,5 +1,3 @@
-Flask==2.2.5
-gunicorn
 fastapi
 uvicorn
 boto3
