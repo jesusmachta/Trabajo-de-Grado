@@ -1,7 +1,10 @@
 Flask==2.2.5
 gunicorn
+fastapi
+uvicorn
 boto3
 pymongo
 tensorflow
 tensorflow-hub
 Pillow
+python-multipart

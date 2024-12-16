@@ -34,9 +34,4 @@ def enhance_image(image_bytes):
     enhanced_image.save(buffer, format='JPEG')
     enhanced_image_bytes = buffer.getvalue()
 
-    # Guardar la imagen mejorada para inspección
-    if not os.path.exists("enhanced_images"):
-        os.makedirs("enhanced_images")
-    enhanced_image.save(os.path.join("enhanced_images", "enhanced_image.jpg"))
-
     return enhanced_image_bytes
