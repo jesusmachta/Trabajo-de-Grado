@@ -6,6 +6,7 @@ tensorflow
 tensorflow-hub
 Pillow
 python-multipart
+torch
 torchvision==0.14.1
 basicsr>=1.3.3.11
 facexlib>=0.2.0.3
