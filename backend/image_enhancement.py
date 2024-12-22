@@ -1,37 +1,39 @@
-import tensorflow as tf
-import tensorflow_hub as hub
+import os
 import numpy as np
 from PIL import Image
 import io
-import os
+from basicsr.archs.rrdbnet_arch import RRDBNet
+from realesrgan import RealESRGANer
 
-# Cargar el modelo preentrenado de superresolución de imágenes desde el sistema de archivos
-model = hub.load("models/esrgan-tf2")
+# Configurar el modelo de Real-ESRGAN
+model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+netscale = 4
+model_path = os.path.join("Real-ESRGAN/weights", "RealESRGAN_x4plus.pth")
+upsampler = RealESRGANer(
+    scale=netscale,
+    model_path=model_path,
+    model=model,
+    tile=0,
+    tile_pad=10,
+    pre_pad=0,
+    half=True
+)
 
 def enhance_image(image_bytes):
     # Cargar la imagen desde los bytes
     image = Image.open(io.BytesIO(image_bytes))
     image = image.convert('RGB')  # Asegurarse de que la imagen esté en formato RGB
 
-    # Convertir la imagen a un tensor
-    image_tensor = tf.convert_to_tensor(np.array(image), dtype=tf.float32)
-    image_tensor = tf.expand_dims(image_tensor, axis=0)  # Añadir una dimensión para el batch
+    # Convertir la imagen a un array de numpy
+    img = np.array(image)
 
-    # Normalizar la imagen
-    image_tensor = (image_tensor / 127.5) - 1.0
+    # Mejorar la imagen utilizando Real-ESRGAN
+    output, _ = upsampler.enhance(img, outscale=4)
+    output_image = Image.fromarray(output)
 
-    # Aplicar el modelo a la imagen
-    enhanced_image_tensor = model(image_tensor)
-
-    # Desnormalizar la imagen
-    enhanced_image_tensor = (enhanced_image_tensor + 1.0) * 127.5
-    enhanced_image_tensor = tf.clip_by_value(enhanced_image_tensor, 0, 255)
-    enhanced_image_tensor = tf.cast(enhanced_image_tensor, tf.uint8)
-
-    # Convertir el tensor mejorado de vuelta a bytes
-    enhanced_image = Image.fromarray(tf.squeeze(enhanced_image_tensor).numpy())
+    # Convertir la imagen mejorada a bytes
     buffer = io.BytesIO()
-    enhanced_image.save(buffer, format='JPEG')
+    output_image.save(buffer, format='JPEG')
     enhanced_image_bytes = buffer.getvalue()
 
     return enhanced_image_bytes

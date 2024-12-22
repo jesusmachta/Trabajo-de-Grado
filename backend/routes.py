@@ -5,6 +5,8 @@ from datetime import datetime
 from backend.database import collections
 import pymongo
 import os
+import io
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -26,7 +28,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello, Catalina!"}
+    return {"message": "Hello, World!"}
 
 @router.post("/analyze-image")
 async def analyze_image_route(image: UploadFile = File(...)):
@@ -88,3 +90,22 @@ async def analyze_image_route(image: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+# Nueva ruta para mejorar la imagen
+@router.post("/enhance-image/")
+async def enhance_image_endpoint(file: UploadFile = File(...)):
+    try:
+        # Leer el archivo subido
+        image_bytes = await file.read()
+
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Empty image file provided")
+
+        # Mejorar la imagen
+        enhanced_image_bytes = enhance_image(image_bytes)
+
+        # Devolver la imagen mejorada como respuesta
+        return StreamingResponse(io.BytesIO(enhanced_image_bytes), media_type="image/jpeg")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
