@@ -8,7 +8,7 @@ from realesrgan import RealESRGANer
 # Configurar el modelo de Real-ESRGAN
 model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
 netscale = 4
-model_path = os.path.join("Real-ESRGAN/weights", "RealESRGAN_x4plus.pth")
+model_path = os.path.join("Real-ESRGAN-weights", "RealESRGAN_x4plus.pth")  # Actualiza la ruta del modelo
 upsampler = RealESRGANer(
     scale=netscale,
     model_path=model_path,
