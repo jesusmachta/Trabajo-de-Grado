@@ -1,4 +1,9 @@
 import os
+
+# Deshabilitar el uso del proxy
+os.environ['http_proxy'] = ''
+os.environ['https_proxy'] = ''
+
 from fastapi import FastAPI
 from backend.routes import initialize_routes
 
