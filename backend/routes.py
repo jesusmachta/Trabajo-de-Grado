@@ -7,8 +7,13 @@ import pymongo
 import os
 import io
 from fastapi.responses import StreamingResponse
+import logging
 
 router = APIRouter()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_next_sequence_value(sequence_name):
     try:
@@ -21,6 +26,7 @@ def get_next_sequence_value(sequence_name):
             raise Exception("Sequence document not found")
         return sequence_document["seq"]
     except Exception as e:
+        logger.error(f"Error al obtener el siguiente valor de secuencia: {e}")
         raise HTTPException(status_code=500, detail=f"Error al obtener el siguiente valor de secuencia: {e}")
 
 def initialize_routes(app):
@@ -28,7 +34,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello cambio en image, World!"}
+    return {"message": "Hello cambio en routes 502, World!"}
 
 @router.post("/analyze-image")
 async def analyze_image_route(image: UploadFile = File(...)):
@@ -84,14 +90,15 @@ async def analyze_image_route(image: UploadFile = File(...)):
                 },
                 "emotions": primary_emotion
             }
+            logger.info(f"Inserting document into MongoDB: {document}")
             collections['Persona_AR'].insert_one(document)
 
         return result
 
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
-# Nueva ruta para mejorar la imagen
 @router.post("/enhance-image/")
 async def enhance_image_endpoint(file: UploadFile = File(...)):
     try:
@@ -108,4 +115,5 @@ async def enhance_image_endpoint(file: UploadFile = File(...)):
         return StreamingResponse(io.BytesIO(enhanced_image_bytes), media_type="image/jpeg")
 
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
