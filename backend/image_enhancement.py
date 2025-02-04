@@ -6,9 +6,11 @@ import torch
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from realesrgan import RealESRGANer
 import logging
-# Configurar el modelo de Real-ESRGAN
-logging.basicConfig(level=logging.ERROR)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 # Configurar el modelo de Real-ESRGAN
 model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
 netscale = 4
@@ -42,6 +44,10 @@ def enhance_image(image_bytes):
         buffer = io.BytesIO()
         output_image.save(buffer, format='JPEG')
         enhanced_image_bytes = buffer.getvalue()
+
+        # Liberar memoria
+        del image, img, output, output_image, buffer
+        torch.cuda.empty_cache()
 
         return enhanced_image_bytes
     except Exception as e:

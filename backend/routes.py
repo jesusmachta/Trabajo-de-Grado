@@ -8,6 +8,7 @@ import os
 import io
 from fastapi.responses import StreamingResponse
 import logging
+import torch
 
 router = APIRouter()
 
@@ -92,6 +93,10 @@ async def analyze_image_route(image: UploadFile = File(...)):
             }
             logger.info(f"Inserting document into MongoDB: {document}")
             collections['Persona_AR'].insert_one(document)
+
+        # Liberar memoria
+        del image_bytes, enhanced_image, response, filtered_faces, result
+        torch.cuda.empty_cache()
 
         return result
 
