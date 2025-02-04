@@ -28,7 +28,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello, World!"}
+    return {"message": "Hello vuelta a mongo, World!"}
 
 @router.post("/analyze-image")
 async def analyze_image_route(image: UploadFile = File(...)):
