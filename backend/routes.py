@@ -122,3 +122,19 @@ async def enhance_image_endpoint(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/upload-image/")
+async def upload_image_endpoint(file: UploadFile = File(...)):
+    try:
+        # Leer el archivo subido
+        image_bytes = await file.read()
+
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Empty image file provided")
+
+        # Devolver la imagen sin procesar como respuesta
+        return StreamingResponse(io.BytesIO(image_bytes), media_type="image/jpeg")
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
