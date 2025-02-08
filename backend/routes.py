@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from backend.aws import analyze_image
 from backend.image_enhancement import enhance_image
 from datetime import datetime
@@ -6,9 +6,9 @@ from backend.database import collections
 import pymongo
 import os
 import io
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import logging
-import torch
+import json
 
 router = APIRouter()
 
@@ -35,29 +35,78 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello u´load, World!"}
+    return {"message": "Hello endpoints para cada, World!"}
 
-@router.post("/analyze-image")
-async def analyze_image_route(image: UploadFile = File(...)):
+@router.post("/upload-image/")
+async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     try:
-        image_bytes = await image.read()
+        # Leer el archivo subido
+        image_bytes = await file.read()
 
         if not image_bytes:
             raise HTTPException(status_code=400, detail="Empty image file provided")
 
-        # Crear el directorio enhanced_images si no existe
-        if not os.path.exists("enhanced_images"):
-            os.makedirs("enhanced_images")
+        # Guardar la imagen en un archivo temporal
+        temp_image_path = "temp_image.jpg"
+        with open(temp_image_path, "wb") as f:
+            f.write(image_bytes)
 
-        # Mejorar la calidad de la imagen
-        enhanced_image = enhance_image(image_bytes)
+        # Llamar al siguiente endpoint en segundo plano
+        background_tasks.add_task(enhance_image_endpoint, temp_image_path)
 
-        # Guardar la imagen mejorada para inspección
-        with open("enhanced_images/enhanced_image.jpg", "wb") as f:
-            f.write(enhanced_image)
+        return {"message": "Image uploaded successfully, processing started."}
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def enhance_image_endpoint(image_path: str):
+    try:
+        # Leer la imagen desde el archivo temporal
+        with open(image_path, "rb") as f:
+            image_bytes = f.read()
+
+        # Mejorar la imagen
+        enhanced_image_bytes = enhance_image(image_bytes)
+
+        # Guardar la imagen mejorada en un archivo temporal
+        enhanced_image_path = "enhanced_image.jpg"
+        with open(enhanced_image_path, "wb") as f:
+            f.write(enhanced_image_bytes)
+
+        # Llamar al siguiente endpoint
+        await analyze_image_endpoint(enhanced_image_path)
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def analyze_image_endpoint(image_path: str):
+    try:
+        # Leer la imagen mejorada desde el archivo temporal
+        with open(image_path, "rb") as f:
+            enhanced_image_bytes = f.read()
 
         # Analizar la imagen mejorada con AWS Rekognition
-        response = analyze_image(enhanced_image)
+        response = analyze_image(enhanced_image_bytes)
+
+        # Guardar los resultados del análisis en un archivo temporal
+        analysis_result_path = "analysis_result.json"
+        with open(analysis_result_path, "w") as f:
+            json.dump(response, f)
+
+        # Llamar al siguiente endpoint
+        await save_to_db_endpoint(analysis_result_path)
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def save_to_db_endpoint(result_path: str):
+    try:
+        # Leer los resultados del análisis desde el archivo temporal
+        with open(result_path, "r") as f:
+            response = json.load(f)
 
         # Filtrando los resultados para solo obtener AgeRange, Gender y Emotions
         filtered_faces = []
@@ -68,12 +117,6 @@ async def analyze_image_route(image: UploadFile = File(...)):
                 'Emotions': face_detail.get('Emotions')
             }
             filtered_faces.append(filtered_face)
-
-        # Estructurar la respuesta
-        result = {
-            'NumberOfFaces': len(filtered_faces),
-            'Faces': filtered_faces
-        }
 
         # Insertar en MongoDB
         for face in filtered_faces:
@@ -94,46 +137,7 @@ async def analyze_image_route(image: UploadFile = File(...)):
             logger.info(f"Inserting document into MongoDB: {document}")
             collections['Persona_AR'].insert_one(document)
 
-        # Liberar memoria
-        del image_bytes, enhanced_image, response, filtered_faces, result
-        torch.cuda.empty_cache()
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
-
-@router.post("/enhance-image/")
-async def enhance_image_endpoint(file: UploadFile = File(...)):
-    try:
-        # Leer el archivo subido
-        image_bytes = await file.read()
-
-        if not image_bytes:
-            raise HTTPException(status_code=400, detail="Empty image file provided")
-
-        # Mejorar la imagen
-        enhanced_image_bytes = enhance_image(image_bytes)
-
-        # Devolver la imagen mejorada como respuesta
-        return StreamingResponse(io.BytesIO(enhanced_image_bytes), media_type="image/jpeg")
-
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@router.post("/upload-image/")
-async def upload_image_endpoint(file: UploadFile = File(...)):
-    try:
-        # Leer el archivo subido
-        image_bytes = await file.read()
-
-        if not image_bytes:
-            raise HTTPException(status_code=400, detail="Empty image file provided")
-
-        # Devolver la imagen sin procesar como respuesta
-        return StreamingResponse(io.BytesIO(image_bytes), media_type="image/jpeg")
+        return {"message": "Data saved to database successfully."}
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
