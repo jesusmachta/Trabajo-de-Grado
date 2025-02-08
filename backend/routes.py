@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from backend.aws import analyze_image
-from backend.image_enhancement import enhance_image
 from datetime import datetime
 from backend.database import collections
 import pymongo
@@ -35,7 +34,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello endpoints para cada, World!"}
+    return {"message": "Hello endpoints para cada excepto mejorar, World!"}
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
@@ -52,7 +51,7 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadF
             f.write(image_bytes)
 
         # Llamar al siguiente endpoint en segundo plano
-        background_tasks.add_task(enhance_image_endpoint, temp_image_path)
+        background_tasks.add_task(analyze_image_endpoint, temp_image_path)
 
         return {"message": "Image uploaded successfully, processing started."}
 
@@ -60,35 +59,14 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadF
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def enhance_image_endpoint(image_path: str):
+async def analyze_image_endpoint(image_path: str):
     try:
         # Leer la imagen desde el archivo temporal
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
-        # Mejorar la imagen
-        enhanced_image_bytes = enhance_image(image_bytes)
-
-        # Guardar la imagen mejorada en un archivo temporal
-        enhanced_image_path = "enhanced_image.jpg"
-        with open(enhanced_image_path, "wb") as f:
-            f.write(enhanced_image_bytes)
-
-        # Llamar al siguiente endpoint
-        await analyze_image_endpoint(enhanced_image_path)
-
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-async def analyze_image_endpoint(image_path: str):
-    try:
-        # Leer la imagen mejorada desde el archivo temporal
-        with open(image_path, "rb") as f:
-            enhanced_image_bytes = f.read()
-
-        # Analizar la imagen mejorada con AWS Rekognition
-        response = analyze_image(enhanced_image_bytes)
+        # Analizar la imagen con AWS Rekognition
+        response = analyze_image(image_bytes)
 
         # Guardar los resultados del análisis en un archivo temporal
         analysis_result_path = "analysis_result.json"
