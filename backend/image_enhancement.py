@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import io
 import torch
+import requests
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from realesrgan import RealESRGANer
 import logging
@@ -11,20 +12,32 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Directorio donde se almacenará el modelo
+model_dir = "Real-ESRGAN-weights"
+model_path = os.path.join(model_dir, "RealESRGAN_x4plus.pth")
+
+# Verificar si el modelo existe, si no, descargarlo
+if not os.path.exists(model_path):
+    logger.info("Modelo no encontrado. Descargando...")
+    os.makedirs(model_dir, exist_ok=True)
+    url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
+    r = requests.get(url, allow_redirects=True)
+    with open(model_path, 'wb') as f:
+        f.write(r.content)
+    logger.info("Modelo descargado exitosamente.")
+
 # Configurar el modelo de Real-ESRGAN
 model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
 netscale = 4
-model_path = os.path.join("Real-ESRGAN-weights", "RealESRGAN_x4plus.pth")  # Actualiza la ruta del modelo
 
-# Cargar el modelo en la CPU y desactivar el uso de precisión Half
 upsampler = RealESRGANer(
     scale=netscale,
     model_path=model_path,
     model=model,
-    tile=0,
+    tile=512,  # prueba para reducir el consumo de memoria
     tile_pad=10,
     pre_pad=0,
-    half=False  # Asegúrate de que esto esté configurado en False
+    half=False  
 )
 
 def enhance_image(image_bytes):
@@ -45,7 +58,7 @@ def enhance_image(image_bytes):
         output_image.save(buffer, format='JPEG')
         enhanced_image_bytes = buffer.getvalue()
 
-        # Liberar memoria
+        # Para liberar memoria por si ese es el problema:
         del image, img, output, output_image, buffer
         torch.cuda.empty_cache()
 

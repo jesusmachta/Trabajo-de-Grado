@@ -34,7 +34,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello endpoints para cada excepto mejorar, World!"}
+    return {"message": "Hello supuesto codigo que catalina hizo, World!"}
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
