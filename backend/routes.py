@@ -8,12 +8,73 @@ import io
 from fastapi.responses import StreamingResponse, JSONResponse
 import logging
 import json
+import numpy as np
+from PIL import Image
+import torch
+import requests
+from basicsr.archs.rrdbnet_arch import RRDBNet
+from realesrgan import RealESRGANer
 
 router = APIRouter()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Directorio donde se almacenará el modelo
+model_dir = "Real-ESRGAN-weights"
+model_path = os.path.join(model_dir, "RealESRGAN_x4plus.pth")
+
+# Verificar si el modelo existe, si no, descargarlo
+if not os.path.exists(model_path):
+    logger.info("Modelo no encontrado. Descargando...")
+    os.makedirs(model_dir, exist_ok=True)
+    url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
+    r = requests.get(url, allow_redirects=True)
+    with open(model_path, 'wb') as f:
+        f.write(r.content)
+    logger.info("Modelo descargado exitosamente.")
+
+# Configurar el modelo de Real-ESRGAN
+model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+netscale = 4
+
+upsampler = RealESRGANer(
+    scale=netscale,
+    model_path=model_path,
+    model=model,
+    tile=512,  # prueba para reducir el consumo de memoria
+    tile_pad=10,
+    pre_pad=0,
+    half=False  
+)
+
+def enhance_image(image_bytes):
+    try:
+        # Cargar la imagen desde los bytes
+        image = Image.open(io.BytesIO(image_bytes))
+        image = image.convert('RGB')  # Asegurarse de que la imagen esté en formato RGB
+
+        # Convertir la imagen a un array de numpy
+        img = np.array(image)
+
+        # Mejorar la imagen utilizando Real-ESRGAN
+        output, _ = upsampler.enhance(img, outscale=4)
+        output_image = Image.fromarray(output)
+
+        # Convertir la imagen mejorada a bytes
+        buffer = io.BytesIO()
+        output_image.save(buffer, format='JPEG')
+        enhanced_image_bytes = buffer.getvalue()
+
+        # Para liberar memoria por si ese es el problema:
+        del image, img, output, output_image, buffer
+        torch.cuda.empty_cache()
+
+        return enhanced_image_bytes
+    except Exception as e:
+        logger.error(f"Error enhancing image: {e}")
+        raise
 
 def get_next_sequence_value(sequence_name):
     try:
@@ -51,7 +112,7 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadF
             f.write(image_bytes)
 
         # Llamar al siguiente endpoint en segundo plano
-        background_tasks.add_task(analyze_image_endpoint, temp_image_path)
+        background_tasks.add_task(enhance_image_endpoint, temp_image_path)
 
         return {"message": "Image uploaded successfully, processing started."}
 
@@ -59,14 +120,35 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadF
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def analyze_image_endpoint(image_path: str):
+async def enhance_image_endpoint(image_path: str):
     try:
         # Leer la imagen desde el archivo temporal
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
-        # Analizar la imagen con AWS Rekognition
-        response = analyze_image(image_bytes)
+        # Mejorar la imagen
+        enhanced_image_bytes = enhance_image(image_bytes)
+
+        # Guardar la imagen mejorada en un archivo temporal
+        enhanced_image_path = "enhanced_image.jpg"
+        with open(enhanced_image_path, "wb") as f:
+            f.write(enhanced_image_bytes)
+
+        # Llamar al siguiente endpoint
+        await analyze_image_endpoint(enhanced_image_path)
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def analyze_image_endpoint(image_path: str):
+    try:
+        # Leer la imagen mejorada desde el archivo temporal
+        with open(image_path, "rb") as f:
+            enhanced_image_bytes = f.read()
+
+        # Analizar la imagen mejorada con AWS Rekognition
+        response = analyze_image(enhanced_image_bytes)
 
         # Guardar los resultados del análisis en un archivo temporal
         analysis_result_path = "analysis_result.json"
