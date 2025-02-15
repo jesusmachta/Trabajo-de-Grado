@@ -103,7 +103,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hello supuesto codigo que catalina hizo y no nos sirve, World!"}
+    return {"message": "Hola Mundo"}
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
@@ -130,6 +130,8 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadF
 
 async def enhance_image_endpoint(image_path: str):
     try:
+
+        logger.info("Starting image enhancement process")
         # Leer la imagen desde el archivo temporal
         with open(image_path, "rb") as f:
             image_bytes = f.read()
@@ -142,8 +144,11 @@ async def enhance_image_endpoint(image_path: str):
         with open(enhanced_image_path, "wb") as f:
             f.write(enhanced_image_bytes)
 
+        logger.info("Image enhancement completed, calling analyze_image_endpoint")
+
         # Llamar al siguiente endpoint
         await analyze_image_endpoint(enhanced_image_path)
+        return {"message": "Image enhancement completed successfully, processing started."}
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
@@ -165,6 +170,8 @@ async def analyze_image_endpoint(image_path: str):
 
         # Llamar al siguiente endpoint
         await save_to_db_endpoint(analysis_result_path)
+
+        return {"message": "Image analysis completed successfully, processing started."}
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
