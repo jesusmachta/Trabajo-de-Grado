@@ -66,6 +66,14 @@ def enhance_image(image_bytes):
         if img.shape[2] != 3:
             raise ValueError(f"Expected image to have 3 channels, but got {img.shape[2]} channels instead")
 
+        # Reordenar las dimensiones de la imagen para que sean [C, H, W]
+        img = np.transpose(img, (2, 0, 1))
+        logger.info(f"Image transposed to shape {img.shape}")
+
+        # Añadir una dimensión adicional para el batch size
+        img = np.expand_dims(img, axis=0)
+        logger.info(f"Image expanded to shape {img.shape}")
+
         # Mejorar la imagen utilizando Real-ESRGAN
         output, _ = upsampler.enhance(img, outscale=4)
         logger.info("Image enhancement completed")
@@ -87,7 +95,7 @@ def enhance_image(image_bytes):
     except Exception as e:
         logger.error(f"Error enhancing image: {e}")
         raise
-
+    
 def get_next_sequence_value(sequence_name):
     try:
         sequence_document = collections['counters'].find_one_and_update(
