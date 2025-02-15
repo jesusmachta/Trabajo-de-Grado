@@ -60,7 +60,11 @@ def enhance_image(image_bytes):
 
         # Convertir la imagen a un array de numpy
         img = np.array(image)
-        logger.info("Image converted to numpy array")
+        logger.info(f"Image converted to numpy array with shape {img.shape}")
+
+        # Verificar que la imagen tenga 3 canales
+        if img.shape[2] != 3:
+            raise ValueError(f"Expected image to have 3 channels, but got {img.shape[2]} channels instead")
 
         # Mejorar la imagen utilizando Real-ESRGAN
         output, _ = upsampler.enhance(img, outscale=4)
@@ -103,7 +107,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hola Mundo"}
+    return {"message": "Hola Mundo!!"}
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
