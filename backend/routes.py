@@ -78,6 +78,16 @@ def enhance_image(image_bytes):
         output, _ = upsampler.enhance(img, outscale=4)
         logger.info("Image enhancement completed")
 
+        # Convertir la salida del modelo a un formato manejable por PIL
+        output = output.squeeze().transpose(1, 2, 0)
+        logger.info(f"Output image shape after squeezing and transposing: {output.shape}")
+
+        # Asegurarse de que los valores estén en el rango [0, 255]
+        output = np.clip(output, 0, 255)
+
+        # Convertir la salida del modelo a uint8
+        output = output.astype(np.uint8)
+
         output_image = Image.fromarray(output)
 
         # Convertir la imagen mejorada a bytes
