@@ -3,10 +3,10 @@ import numpy as np
 from PIL import Image
 import io
 import torch
-import requests
-from basicsr.archs.rrdbnet_arch import RRDBNet
-from realesrgan import RealESRGANer
+from backend.real_esrgan.rrdbnet_arch import RRDBNet
+from backend.real_esrgan.realesrgan import RealESRGANer
 import logging
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,25 +42,33 @@ upsampler = RealESRGANer(
 
 def enhance_image(image_bytes):
     try:
+        logger.info("Starting image enhancement process")
+
         # Cargar la imagen desde los bytes
         image = Image.open(io.BytesIO(image_bytes))
         image = image.convert('RGB')  # Asegurarse de que la imagen esté en formato RGB
+        logger.info("Image loaded and converted to RGB")
 
         # Convertir la imagen a un array de numpy
         img = np.array(image)
+        logger.info("Image converted to numpy array")
 
         # Mejorar la imagen utilizando Real-ESRGAN
         output, _ = upsampler.enhance(img, outscale=4)
+        logger.info("Image enhancement completed")
+
         output_image = Image.fromarray(output)
 
         # Convertir la imagen mejorada a bytes
         buffer = io.BytesIO()
         output_image.save(buffer, format='JPEG')
         enhanced_image_bytes = buffer.getvalue()
+        logger.info("Enhanced image converted to bytes")
 
-        # Para liberar memoria por si ese es el problema:
+        # Liberar memoria
         del image, img, output, output_image, buffer
         torch.cuda.empty_cache()
+        logger.info("Memory cleared")
 
         return enhanced_image_bytes
     except Exception as e:
