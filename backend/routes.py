@@ -105,7 +105,7 @@ def enhance_image(image_bytes):
     except Exception as e:
         logger.error(f"Error enhancing image: {e}")
         raise
-    
+
 def get_next_sequence_value(sequence_name):
     try:
         sequence_document = collections['counters'].find_one_and_update(
@@ -130,6 +130,7 @@ def hello_world():
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     try:
+        logger.info("Starting upload_image_endpoint")
         # Leer el archivo subido
         image_bytes = await file.read()
 
@@ -141,19 +142,20 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadF
         with open(temp_image_path, "wb") as f:
             f.write(image_bytes)
 
+        logger.info("Image saved to temporary file, calling enhance_image_endpoint")
+
         # Llamar al siguiente endpoint en segundo plano
         background_tasks.add_task(enhance_image_endpoint, temp_image_path)
 
         return {"message": "Image uploaded successfully, processing started."}
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in upload_image_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def enhance_image_endpoint(image_path: str):
     try:
-
-        logger.info("Starting image enhancement process")
+        logger.info("Starting enhance_image_endpoint")
         # Leer la imagen desde el archivo temporal
         with open(image_path, "rb") as f:
             image_bytes = f.read()
@@ -170,40 +172,52 @@ async def enhance_image_endpoint(image_path: str):
 
         # Llamar al siguiente endpoint
         await analyze_image_endpoint(enhanced_image_path)
+        logger.info("analyze_image_endpoint called successfully")
+
         return {"message": "Image enhancement completed successfully, processing started."}
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in enhance_image_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def analyze_image_endpoint(image_path: str):
     try:
+        logger.info("Starting analyze_image_endpoint")
+
         # Leer la imagen mejorada desde el archivo temporal
         with open(image_path, "rb") as f:
             enhanced_image_bytes = f.read()
 
         # Analizar la imagen mejorada con AWS Rekognition
         response = analyze_image(enhanced_image_bytes)
+        logger.info("Image analyzed successfully")
 
         # Guardar los resultados del análisis en un archivo temporal
         analysis_result_path = "analysis_result.json"
         with open(analysis_result_path, "w") as f:
             json.dump(response, f)
+        logger.info("Analysis results saved to temporary file")
+
+        logger.info("Image analysis completed, calling save_to_db_endpoint")
 
         # Llamar al siguiente endpoint
         await save_to_db_endpoint(analysis_result_path)
+        logger.info("save_to_db_endpoint called successfully")
 
         return {"message": "Image analysis completed successfully, processing started."}
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in analyze_image_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def save_to_db_endpoint(result_path: str):
     try:
+        logger.info("Starting save_to_db_endpoint")
+
         # Leer los resultados del análisis desde el archivo temporal
         with open(result_path, "r") as f:
             response = json.load(f)
+        logger.info("Analysis results loaded from temporary file")
 
         # Filtrando los resultados para solo obtener AgeRange, Gender y Emotions
         filtered_faces = []
@@ -234,8 +248,9 @@ async def save_to_db_endpoint(result_path: str):
             logger.info(f"Inserting document into MongoDB: {document}")
             collections['Persona_AR'].insert_one(document)
 
+        logger.info("Data saved to database successfully")
         return {"message": "Data saved to database successfully."}
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in save_to_db_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
