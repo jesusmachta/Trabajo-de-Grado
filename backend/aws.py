@@ -1,7 +1,7 @@
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
-rekognition = boto3.client('rekognition', region_name='us-west-2')  # Cambia 'us-west-2' por tu región
+rekognition = boto3.client('rekognition', region_name='us-west-2')  
 
 def analyze_image(image_bytes):
     try:
