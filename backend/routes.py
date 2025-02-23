@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from backend.aws import analyze_image
 from datetime import datetime
@@ -6,7 +6,6 @@ from backend.database import collections
 import pymongo
 import os
 import io
-from fastapi.responses import StreamingResponse, JSONResponse
 import logging
 import json
 import numpy as np
@@ -236,6 +235,8 @@ async def save_to_db_endpoint(result_path: str):
                 'Emotions': face_detail.get('Emotions')
             }
             filtered_faces.append(filtered_face)
+
+        logger.info(f"Filtered faces: {filtered_faces}")
 
         # Insertar en MongoDB
         for face in filtered_faces:
