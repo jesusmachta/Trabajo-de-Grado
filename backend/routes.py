@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 from backend.aws import analyze_image
 from datetime import datetime
 from backend.database import collections
@@ -12,6 +13,7 @@ import numpy as np
 from PIL import Image
 import torch
 import requests
+import base64
 from backend.real_esrgan.rrdbnet_arch import RRDBNet
 from backend.real_esrgan.realesrgan import RealESRGANer
 
@@ -48,6 +50,9 @@ upsampler = RealESRGANer(
     pre_pad=0,
     half=False  
 )
+
+class ImagePayload(BaseModel):
+    image_base64: str
 
 def enhance_image(image_bytes):
     try:
@@ -128,14 +133,17 @@ def hello_world():
     return {"message": "Hola Mundo!!"}
 
 @router.post("/upload-image/")
-async def upload_image_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
     try:
         logger.info("Starting upload_image_endpoint")
-        # Leer el archivo subido
-        image_bytes = await file.read()
+        # Leer la imagen en formato Base64
+        image_base64 = payload.image_base64
 
-        if not image_bytes:
+        if not image_base64:
             raise HTTPException(status_code=400, detail="Empty image file provided")
+
+        # Convertir la imagen de Base64 a bytes
+        image_bytes = base64.b64decode(image_base64)
 
         # Guardar la imagen en un archivo temporal
         temp_image_path = "temp_image.jpg"
