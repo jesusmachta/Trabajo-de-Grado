@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from backend.aws import analyze_image
+from backend.aws import analyze_image, upload_image_to_s3
 from datetime import datetime
 from backend.database import collections
 import pymongo
@@ -130,7 +130,7 @@ def initialize_routes(app):
 
 @router.get("/")
 def hello_world():
-    return {"message": "Hola Mundo!!"}
+    return {"message": "Hola Mundo s3!!"}
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
@@ -178,6 +178,12 @@ async def enhance_image_endpoint(image_path: str, id_camara: int):
             f.write(enhanced_image_bytes)
 
         logger.info("Image enhancement completed, calling analyze_image_endpoint")
+
+        # Subir la imagen mejorada a S3
+        current_time = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        file_name = f"{current_time}_{id_camara}.jpeg"
+        s3_url = upload_image_to_s3(enhanced_image_bytes, file_name)
+        logger.info(f"Image uploaded to S3: {s3_url}")
 
         # Llamar al siguiente endpoint
         await analyze_image_endpoint(enhanced_image_path, id_camara)
