@@ -164,13 +164,16 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
 
 async def enhance_image_endpoint(image_path: str, id_camara: int):
     try:
+
+        
         logger.info("Starting enhance_image_endpoint")
         # Leer la imagen desde el archivo temporal
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
         # Mejorar la imagen
-        enhanced_image_bytes = enhance_image(image_bytes)
+        # enhanced_image_bytes = enhance_image(image_bytes)
+        enhanced_image_bytes = image_bytes
 
         # Guardar la imagen mejorada en un archivo temporal
         enhanced_image_path = "enhanced_image.jpg"
