@@ -164,16 +164,14 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
 
 async def enhance_image_endpoint(image_path: str, id_camara: int):
     try:
-
-        
         logger.info("Starting enhance_image_endpoint")
         # Leer la imagen desde el archivo temporal
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
         # Mejorar la imagen
-        # enhanced_image_bytes = enhance_image(image_bytes)
-        enhanced_image_bytes = image_bytes
+        enhanced_image_bytes = enhance_image(image_bytes)
+        logger.info(f"Enhanced image size: {len(enhanced_image_bytes)} bytes")
 
         # Guardar la imagen mejorada en un archivo temporal
         enhanced_image_path = "enhanced_image.jpg"
@@ -249,6 +247,20 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
 
         logger.info(f"Filtered faces: {filtered_faces}")
 
+        # Obtener el tipo_producto correspondiente al id_camara
+        tipo_producto_zona_camara = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara})
+        if not tipo_producto_zona_camara:
+            raise HTTPException(status_code=404, detail="Id_Camara not found in Tipo_Producto_Zona_Camara")
+
+        tipo_producto = tipo_producto_zona_camara['Tipo_Producto']
+
+        # Obtener el id_producto correspondiente al tipo_producto
+        tipo_producto_doc = collections['Tipo_Producto'].find_one({"tipo_producto": tipo_producto})
+        if not tipo_producto_doc:
+            raise HTTPException(status_code=404, detail="Tipo_Producto not found in Tipo_Producto")
+
+        id_producto = tipo_producto_doc['id_producto']
+
         # Insertar en MongoDB
         for face in filtered_faces:
             emotions = face['Emotions']
@@ -257,7 +269,8 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
                 "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
                 "date": datetime.utcnow(),
                 "time": datetime.utcnow().strftime("%H:%M:%S"),
-                "id_camara": id_camara,  
+                "id_camara": id_camara,
+                "id_producto": id_producto,  # Agregar id_producto
                 "gender": face['Gender']['Value'],
                 "age_range": {
                     "low": face['AgeRange']['Low'],
