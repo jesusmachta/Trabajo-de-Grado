@@ -53,8 +53,18 @@ def enhance_image(image_bytes):
         img = np.array(image)
         logger.info(f"Image converted to numpy array with shape {img.shape}")
 
-        # Mejorar la imagen utilizando Real-ESRGAN
-        output, _ = upsampler.enhance(img, outscale=4)
+        # Convertir a tensor PyTorch con la forma correcta
+        img_tensor = torch.from_numpy(img).float()
+        # Cambiar de [H, W, C] a [1, C, H, W] - formato que espera PyTorch
+        img_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0)
+        logger.info(f"Tensor shape after permute: {img_tensor.shape}")
+        
+        # Aplicar el modelo directamente
+        with torch.no_grad():
+            output = upsampler.model(img_tensor)
+        
+        # Convertir el resultado de vuelta a numpy
+        output = output.squeeze().permute(1, 2, 0).cpu().numpy()
         logger.info("Image enhancement completed")
 
         # Asegurarse de que los valores estén en el rango correcto [0, 255]
@@ -70,7 +80,7 @@ def enhance_image(image_bytes):
         logger.info("Enhanced image converted to bytes")
 
         # Liberar memoria
-        del image, img, output, output_image, buffer
+        del image, img, img_tensor, output, output_image, buffer
         torch.cuda.empty_cache()
         logger.info("Memory cleared")
 
