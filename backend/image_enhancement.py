@@ -37,8 +37,7 @@ upsampler = RealESRGANer(
     tile=512,  # prueba para reducir el consumo de memoria
     tile_pad=10,
     pre_pad=0,
-    half=False,
-    face_enhance=False  # Desactivar mejora específica de rostros para conservar colores originales
+    half=False  # Mantener en False para mejor precisión de color
 )
 
 def enhance_image(image_bytes):
@@ -55,7 +54,6 @@ def enhance_image(image_bytes):
         logger.info(f"Image converted to numpy array with shape {img.shape}")
 
         # Mejorar la imagen utilizando Real-ESRGAN
-        # La función enhance espera imágenes en formato [H, W, C]
         output, _ = upsampler.enhance(img, outscale=4)
         logger.info("Image enhancement completed")
 
@@ -64,11 +62,6 @@ def enhance_image(image_bytes):
         
         # Crear una imagen desde el array
         output_image = Image.fromarray(output)
-        
-        # Opcional: Ajustar saturación para evitar tintes de color no deseados
-        # from PIL import ImageEnhance
-        # converter = ImageEnhance.Color(output_image)
-        # output_image = converter.enhance(1.0)  # 1.0 mantiene la saturación original
         
         # Convertir la imagen mejorada a bytes
         buffer = io.BytesIO()
