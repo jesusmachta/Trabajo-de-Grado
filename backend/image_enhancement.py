@@ -37,8 +37,7 @@ upsampler = RealESRGANer(
     tile=512,  # prueba para reducir el consumo de memoria
     tile_pad=10,
     pre_pad=0,
-    half=False,  # Mantener en False para mejor precisión de color
-    device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    half=False  # Mantener en False para mejor precisión de color
 )
 
 def enhance_image(image_bytes):
@@ -54,9 +53,10 @@ def enhance_image(image_bytes):
         original_img = np.array(image)
         logger.info(f"Image converted to numpy array with shape {original_img.shape}")
 
-        # Usar el método enhance de RealESRGANer pero con la configuración correcta
+        # Usar el método enhance de RealESRGANer con un factor de escala menor
         try:
-            # Intentar usar el método de la biblioteca directamente
+            # Intentar usar el método de la biblioteca directamente con un factor de escala de 2
+            # Un factor menor puede ayudar a preservar mejor los colores
             output, _ = upsampler.enhance(original_img, outscale=2)
             logger.info("Successfully enhanced image using upsampler.enhance method")
         except Exception as e:
@@ -67,8 +67,6 @@ def enhance_image(image_bytes):
             img_tensor = torch.from_numpy(original_img.astype(np.float32) / 255.0)
             # Cambiar de [H, W, C] a [1, C, H, W] - formato que espera PyTorch
             img_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0)
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            img_tensor = img_tensor.to(device)
             
             logger.info(f"Tensor shape after permute: {img_tensor.shape}")
             
