@@ -37,7 +37,8 @@ upsampler = RealESRGANer(
     tile=512,  # prueba para reducir el consumo de memoria
     tile_pad=10,
     pre_pad=0,
-    half=False  # Mantener en False para mejor precisión de color
+    half=False,  # Mantener en False para mejor precisión de color
+    device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 )
 
 def enhance_image(image_bytes):
@@ -49,22 +50,37 @@ def enhance_image(image_bytes):
         image = image.convert('RGB')  # Asegurarse de que la imagen esté en formato RGB
         logger.info("Image loaded and converted to RGB")
 
-        # Convertir la imagen a un array de numpy
-        img = np.array(image)
-        logger.info(f"Image converted to numpy array with shape {img.shape}")
+        # Guardar información de color original
+        original_img = np.array(image)
+        logger.info(f"Image converted to numpy array with shape {original_img.shape}")
 
-        # Convertir a tensor PyTorch con la forma correcta
-        img_tensor = torch.from_numpy(img).float()
-        # Cambiar de [H, W, C] a [1, C, H, W] - formato que espera PyTorch
-        img_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0)
-        logger.info(f"Tensor shape after permute: {img_tensor.shape}")
-        
-        # Aplicar el modelo directamente
-        with torch.no_grad():
-            output = upsampler.model(img_tensor)
-        
-        # Convertir el resultado de vuelta a numpy
-        output = output.squeeze().permute(1, 2, 0).cpu().numpy()
+        # Usar el método enhance de RealESRGANer pero con la configuración correcta
+        try:
+            # Intentar usar el método de la biblioteca directamente
+            output, _ = upsampler.enhance(original_img, outscale=2)
+            logger.info("Successfully enhanced image using upsampler.enhance method")
+        except Exception as e:
+            logger.warning(f"Error using upsampler.enhance: {e}, falling back to manual approach")
+            
+            # Enfoque manual si el anterior falla
+            # Convertir a tensor PyTorch con la forma correcta
+            img_tensor = torch.from_numpy(original_img.astype(np.float32) / 255.0)
+            # Cambiar de [H, W, C] a [1, C, H, W] - formato que espera PyTorch
+            img_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0)
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            img_tensor = img_tensor.to(device)
+            
+            logger.info(f"Tensor shape after permute: {img_tensor.shape}")
+            
+            # Aplicar el modelo
+            with torch.no_grad():
+                output_tensor = upsampler.model(img_tensor)
+            
+            # Convertir de vuelta a numpy
+            output = output_tensor.squeeze().permute(1, 2, 0).cpu().numpy()
+            # Escalar de vuelta a 0-255
+            output = (output * 255.0).round()
+
         logger.info("Image enhancement completed")
 
         # Asegurarse de que los valores estén en el rango correcto [0, 255]
@@ -80,7 +96,11 @@ def enhance_image(image_bytes):
         logger.info("Enhanced image converted to bytes")
 
         # Liberar memoria
-        del image, img, img_tensor, output, output_image, buffer
+        del image, original_img, output, output_image, buffer
+        if 'img_tensor' in locals():
+            del img_tensor
+            if 'output_tensor' in locals():
+                del output_tensor
         torch.cuda.empty_cache()
         logger.info("Memory cleared")
 
