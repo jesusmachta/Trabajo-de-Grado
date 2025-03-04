@@ -82,7 +82,7 @@ async def enhance_image_endpoint(image_path: str, id_camara: int):
         with open(image_path, "rb") as f:
             image_bytes = f.read()
 
-        # Mejorar la imagen
+        # Mejorar la imagen usando el submodulo Real-ESRGAN
         enhanced_image_bytes = enhance_image(image_bytes)
         logger.info(f"Enhanced image size: {len(enhanced_image_bytes)} bytes")
 

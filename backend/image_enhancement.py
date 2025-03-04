@@ -55,9 +55,9 @@ def enhance_image(image_bytes):
 
         # Usar el método enhance de RealESRGANer con un factor de escala menor
         try:
-            # Intentar usar el método de la biblioteca directamente con un factor de escala de 2
-            # Un factor menor puede ayudar a preservar mejor los colores
-            output, _ = upsampler.enhance(original_img, outscale=2)
+            # Usar un factor de escala menor (2 en lugar de 4) para preservar mejor los colores
+            # Desactivar face_enhance para evitar cambios de color no deseados
+            output, _ = upsampler.enhance(original_img, outscale=2, face_enhance=False)
             logger.info("Successfully enhanced image using upsampler.enhance method")
         except Exception as e:
             logger.warning(f"Error using upsampler.enhance: {e}, falling back to manual approach")
@@ -86,6 +86,11 @@ def enhance_image(image_bytes):
         
         # Crear una imagen desde el array
         output_image = Image.fromarray(output)
+        
+        # Verificar si es necesario ajustar los colores por comparación
+        if output_image.size != image.size:
+            # Redimensionar la original para comparación si los tamaños difieren
+            image = image.resize(output_image.size, Image.LANCZOS)
         
         # Convertir la imagen mejorada a bytes
         buffer = io.BytesIO()
