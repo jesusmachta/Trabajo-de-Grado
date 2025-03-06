@@ -6,7 +6,8 @@ collections = {
     "Persona_AR": db['Persona_AR'],
     "Tipo_Producto": db['Tipo_Producto'],
     "Tipo_Producto_Zona_Camara": db['Tipo_Producto_Zona_Camara'],
-    "counters": db['counters']
+    "counters": db['counters'],
+    "HeatMap": db['HeatMap']
 }
 
 # Inicializar el contador si no existe

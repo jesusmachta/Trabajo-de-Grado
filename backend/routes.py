@@ -13,6 +13,7 @@ from PIL import Image
 import torch
 import base64
 from backend.image_enhancement import enhance_image
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -23,6 +24,20 @@ logger = logging.getLogger(__name__)
 class ImagePayload(BaseModel):
     image_base64: str
     id_camara: int
+
+# Nuevos modelos de datos para el endpoint de Bluetooth
+class BluetoothDevice(BaseModel):
+    address: str
+    rssi: int
+    name: str
+    timestamp: int
+
+class BluetoothScanPayload(BaseModel):
+    devices: List[BluetoothDevice]
+    location: str
+    x: Optional[int] = 0
+    y: Optional[int] = 0
+    scan_time: int
 
 def get_next_sequence_value(sequence_name):
     try:
@@ -73,6 +88,65 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
 
     except Exception as e:
         logger.error(f"Unexpected error in upload_image_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Nuevo endpoint para recibir datos de escaneo Bluetooth
+@router.post("/bluetooth-data/")
+async def bluetooth_data_endpoint(payload: BluetoothScanPayload):
+    try:
+        logger.info("Starting bluetooth_data_endpoint")
+        logger.info(f"Received data from location: {payload.location}")
+        logger.info(f"Number of devices detected: {len(payload.devices)}")
+        
+        # Verificar si existe el contador para heatmap_id, si no, crearlo
+        if collections['counters'].count_documents({"_id": "heatmap_id"}) == 0:
+            collections['counters'].insert_one({"_id": "heatmap_id", "seq": 0})
+            logger.info("Created heatmap_id counter")
+        
+        # Obtener timestamp actual para todos los registros
+        current_datetime = datetime.utcnow()
+        current_date = current_datetime.strftime("%Y-%m-%d")
+        current_time = current_datetime.strftime("%H:%M:%S")
+        
+        # Procesar y almacenar cada dispositivo detectado
+        devices_saved = 0
+        for device in payload.devices:
+            try:
+                # Crear documento para MongoDB
+                document = {
+                    "id": get_next_sequence_value("heatmap_id"),
+                    "date": current_datetime,
+                    "date_str": current_date,
+                    "time": current_time,
+                    "mac_address": device.address,
+                    "device_name": device.name,
+                    "rssi": device.rssi,
+                    "esp_location": payload.location,
+                    "esp_position_x": payload.x,
+                    "esp_position_y": payload.y,
+                    "device_timestamp": device.timestamp,
+                    "scan_duration": payload.scan_time
+                }
+                
+                # Insertar en la colección HeatMap
+                result = collections['HeatMap'].insert_one(document)
+                logger.info(f"Inserted device {device.address} with ID: {result.inserted_id}")
+                devices_saved += 1
+                
+            except Exception as device_error:
+                logger.error(f"Error saving device {device.address}: {device_error}")
+                # Continuar con el siguiente dispositivo en caso de error
+                continue
+        
+        logger.info(f"Successfully saved {devices_saved} of {len(payload.devices)} devices to HeatMap collection")
+        return {
+            "message": "Bluetooth scan data processed successfully",
+            "devices_received": len(payload.devices),
+            "devices_saved": devices_saved
+        }
+
+    except Exception as e:
+        logger.error(f"Unexpected error in bluetooth_data_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def enhance_image_endpoint(image_path: str, id_camara: int):
