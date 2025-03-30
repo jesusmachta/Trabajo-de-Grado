@@ -10,9 +10,8 @@ import logging
 import json
 import numpy as np
 from PIL import Image
-import torch
 import base64
-from backend.image_enhancement import enhance_image
+import cv2  # Importar OpenCV
 from typing import List, Optional
 
 router = APIRouter()
@@ -74,15 +73,30 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         # Convertir la imagen de Base64 a bytes
         image_bytes = base64.b64decode(image_base64)
 
-        # Guardar la imagen en un archivo temporal
-        temp_image_path = "temp_image.jpg"
-        with open(temp_image_path, "wb") as f:
-            f.write(image_bytes)
+        # Convertir los bytes a formato JPEG
+        image = Image.open(io.BytesIO(image_bytes))
+        image = image.convert("RGB")  # Asegurarse de que esté en formato RGB
+        jpeg_buffer = io.BytesIO()
+        image.save(jpeg_buffer, format="JPEG")
+        jpeg_bytes = jpeg_buffer.getvalue()
 
-        logger.info("Image saved to temporary file, calling enhance_image_endpoint")
+        # Mejorar la imagen utilizando OpenCV
+        logger.info("Starting image enhancement with OpenCV")
+        np_image = np.frombuffer(jpeg_bytes, np.uint8)  # Convertir a un array de NumPy
+        cv_image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)  # Decodificar la imagen
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])  # Crear el kernel de nitidez
+        sharpened_image = cv2.filter2D(cv_image, -1, kernel)  # Aplicar el filtro de nitidez
+        _, enhanced_image_bytes = cv2.imencode('.jpg', sharpened_image)  # Codificar la imagen mejorada a bytes
+        logger.info("Image enhancement with OpenCV completed")
 
-        # Llamar al siguiente endpoint en segundo plano
-        background_tasks.add_task(enhance_image_endpoint, temp_image_path, id_camara)
+        # Subir la imagen mejorada a S3
+        current_time = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        file_name = f"{current_time}_{id_camara}.jpeg"
+        s3_url = upload_image_to_s3(enhanced_image_bytes.tobytes(), file_name)
+        logger.info(f"Image uploaded to S3: {s3_url}")
+
+        # Llamar al siguiente endpoint para analizar la imagen
+        background_tasks.add_task(analyze_image_endpoint, enhanced_image_bytes.tobytes(), id_camara)
 
         return {"message": "Image uploaded successfully, processing started."}
 
@@ -90,109 +104,12 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         logger.error(f"Unexpected error in upload_image_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Nuevo endpoint para recibir datos de escaneo Bluetooth
-@router.post("/bluetooth-data/")
-async def bluetooth_data_endpoint(payload: BluetoothScanPayload):
-    try:
-        logger.info("Starting bluetooth_data_endpoint")
-        logger.info(f"Received data from location: {payload.location}")
-        logger.info(f"Number of devices detected: {len(payload.devices)}")
-        
-        # Verificar si existe el contador para heatmap_id, si no, crearlo
-        if collections['counters'].count_documents({"_id": "heatmap_id"}) == 0:
-            collections['counters'].insert_one({"_id": "heatmap_id", "seq": 0})
-            logger.info("Created heatmap_id counter")
-        
-        # Obtener timestamp actual para todos los registros
-        current_datetime = datetime.utcnow()
-        current_date = current_datetime.strftime("%Y-%m-%d")
-        current_time = current_datetime.strftime("%H:%M:%S")
-        
-        # Procesar y almacenar cada dispositivo detectado
-        devices_saved = 0
-        for device in payload.devices:
-            try:
-                # Crear documento para MongoDB
-                document = {
-                    "id": get_next_sequence_value("heatmap_id"),
-                    "date": current_datetime,
-                    "date_str": current_date,
-                    "time": current_time,
-                    "mac_address": device.address,
-                    "device_name": device.name,
-                    "rssi": device.rssi,
-                    "esp_location": payload.location,
-                    "esp_position_x": payload.x,
-                    "esp_position_y": payload.y,
-                    "device_timestamp": device.timestamp,
-                    "scan_duration": payload.scan_time
-                }
-                
-                # Insertar en la colección HeatMap
-                result = collections['HeatMap'].insert_one(document)
-                logger.info(f"Inserted device {device.address} with ID: {result.inserted_id}")
-                devices_saved += 1
-                
-            except Exception as device_error:
-                logger.error(f"Error saving device {device.address}: {device_error}")
-                # Continuar con el siguiente dispositivo en caso de error
-                continue
-        
-        logger.info(f"Successfully saved {devices_saved} of {len(payload.devices)} devices to HeatMap collection")
-        return {
-            "message": "Bluetooth scan data processed successfully",
-            "devices_received": len(payload.devices),
-            "devices_saved": devices_saved
-        }
-
-    except Exception as e:
-        logger.error(f"Unexpected error in bluetooth_data_endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-async def enhance_image_endpoint(image_path: str, id_camara: int):
-    try:
-        logger.info("Starting enhance_image_endpoint")
-        # Leer la imagen desde el archivo temporal
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
-
-        # Mejorar la imagen usando el submodulo Real-ESRGAN
-        enhanced_image_bytes = enhance_image(image_bytes)
-        logger.info(f"Enhanced image size: {len(enhanced_image_bytes)} bytes")
-
-        # Guardar la imagen mejorada en un archivo temporal
-        enhanced_image_path = "enhanced_image.jpg"
-        with open(enhanced_image_path, "wb") as f:
-            f.write(enhanced_image_bytes)
-
-        logger.info("Image enhancement completed, calling analyze_image_endpoint")
-
-        # Subir la imagen mejorada a S3
-        current_time = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"{current_time}_{id_camara}.jpeg"
-        s3_url = upload_image_to_s3(enhanced_image_bytes, file_name)
-        logger.info(f"Image uploaded to S3: {s3_url}")
-
-        # Llamar al siguiente endpoint
-        await analyze_image_endpoint(enhanced_image_path, id_camara)
-        logger.info("analyze_image_endpoint called successfully")
-
-        return {"message": "Image enhancement completed successfully, processing started."}
-
-    except Exception as e:
-        logger.error(f"Unexpected error in enhance_image_endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-async def analyze_image_endpoint(image_path: str, id_camara: int):
+async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
     try:
         logger.info("Starting analyze_image_endpoint")
 
-        # Leer la imagen mejorada desde el archivo temporal
-        with open(image_path, "rb") as f:
-            enhanced_image_bytes = f.read()
-
-        # Analizar la imagen mejorada con AWS Rekognition
-        response = analyze_image(enhanced_image_bytes)
+        # Analizar la imagen con AWS Rekognition
+        response = analyze_image(image_bytes)
         logger.info("Image analyzed successfully")
 
         # Guardar los resultados del análisis en un archivo temporal
@@ -234,22 +151,6 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
 
         logger.info(f"Filtered faces: {filtered_faces}")
 
-        # Obtener el tipo_producto correspondiente al id_camara
-        tipo_producto_zona_camara = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara})
-        if not tipo_producto_zona_camara:
-            raise HTTPException(status_code=404, detail="Id_Camara not found in Tipo_Producto_Zona_Camara")
-
-        tipo_producto = tipo_producto_zona_camara['Tipo_Producto']
-        logger.info(f"Found tipo_producto: {tipo_producto}")
-
-        # Obtener el Categoria_Producto correspondiente al tipo_producto
-        tipo_producto_doc = collections['Tipo_Producto'].find_one({"Tipo_Producto": tipo_producto})
-        if not tipo_producto_doc:
-            raise HTTPException(status_code=404, detail="Tipo_Producto not found in Tipo_Producto")
-
-        categoria_producto = tipo_producto_doc['Categoria_Producto']
-        logger.info(f"Found categoria_producto: {categoria_producto}")
-
         # Insertar en MongoDB
         for face in filtered_faces:
             emotions = face['Emotions']
@@ -259,7 +160,6 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
                 "date": datetime.utcnow(),
                 "time": datetime.utcnow().strftime("%H:%M:%S"),
                 "id_camara": id_camara,
-                "categoria_producto": categoria_producto,  # Agregar categoria_producto
                 "gender": face['Gender']['Value'],
                 "age_range": {
                     "low": face['AgeRange']['Low'],
