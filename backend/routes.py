@@ -24,20 +24,6 @@ class ImagePayload(BaseModel):
     image_base64: str
     id_camara: int
 
-# Nuevos modelos de datos para el endpoint de Bluetooth
-class BluetoothDevice(BaseModel):
-    address: str
-    rssi: int
-    name: str
-    timestamp: int
-
-class BluetoothScanPayload(BaseModel):
-    devices: List[BluetoothDevice]
-    location: str
-    x: Optional[int] = 0
-    y: Optional[int] = 0
-    scan_time: int
-
 def get_next_sequence_value(sequence_name):
     try:
         sequence_document = collections['counters'].find_one_and_update(
@@ -84,8 +70,17 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         logger.info("Starting image enhancement with OpenCV")
         np_image = np.frombuffer(jpeg_bytes, np.uint8)  # Convertir a un array de NumPy
         cv_image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)  # Decodificar la imagen
-        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])  # Crear el kernel de nitidez
-        sharpened_image = cv2.filter2D(cv_image, -1, kernel)  # Aplicar el filtro de nitidez
+
+        # Escalar la imagen para aumentar su tamaño
+        scale_factor = 1.5  # Escalar la imagen un 50% más grande
+        new_width = int(cv_image.shape[1] * scale_factor)
+        new_height = int(cv_image.shape[0] * scale_factor)
+        resized_image = cv2.resize(cv_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+        logger.info(f"Image resized to {new_width}x{new_height}")
+
+        # Crear un kernel de nitidez más agresivo
+        kernel = np.array([[0, -1, 0], [-1, 7, -1], [0, -1, 0]])  # Ajustar el kernel para mayor nitidez
+        sharpened_image = cv2.filter2D(resized_image, -1, kernel)  # Aplicar el filtro de nitidez
         _, enhanced_image_bytes = cv2.imencode('.jpg', sharpened_image)  # Codificar la imagen mejorada a bytes
         logger.info("Image enhancement with OpenCV completed")
 
