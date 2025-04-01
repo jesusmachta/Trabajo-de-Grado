@@ -72,22 +72,43 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         cv_image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)  # Decodificar la imagen
 
         # Escalar la imagen para aumentar su tamaño
-        scale_factor = 1.5  # Escalar la imagen un 50% más grande
+        scale_factor = 1.2  # Reducimos el factor de escala (era 1.5)
         new_width = int(cv_image.shape[1] * scale_factor)
         new_height = int(cv_image.shape[0] * scale_factor)
         resized_image = cv2.resize(cv_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
         logger.info(f"Image resized to {new_width}x{new_height}")
 
-        # Ajustar el brillo y el contraste
-        alpha = 1.2  # Contraste (1.0 = sin cambio, >1.0 = más contraste)
-        beta = 10    # Brillo (0 = sin cambio, >0 = más brillo)
-        adjusted_image = cv2.convertScaleAbs(resized_image, alpha=alpha, beta=beta)
+        # Convertir a escala de grises para análisis
+        gray_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
+
+        # Aplicar ecualización de histograma adaptativa para mejorar el contraste local
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        equalized_image = clahe.apply(gray_image)
+
+        # Convertir de nuevo a color
+        equalized_color = cv2.cvtColor(equalized_image, cv2.COLOR_GRAY2BGR)
+
+        # Mezclar la imagen original con la ecualizada para mantener información de color
+        enhanced_image = cv2.addWeighted(resized_image, 0.7, equalized_color, 0.3, 0)
+
+        # Ajustar el brillo y el contraste de manera más sutil
+        alpha = 1.1  # Contraste (1.0 = sin cambio, >1.0 = más contraste)
+        beta = 2     # Reducimos drásticamente el brillo (era 10)
+        adjusted_image = cv2.convertScaleAbs(enhanced_image, alpha=alpha, beta=beta)
         logger.info("Brightness and contrast adjusted")
 
+        # Reducir ruido con filtro bilateral (preserva bordes)
+        denoised_image = cv2.bilateralFilter(adjusted_image, 9, 75, 75)
+
         # Aplicar un filtro de nitidez moderado
-        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])  # Kernel de nitidez moderado
-        sharpened_image = cv2.filter2D(adjusted_image, -1, kernel)  # Aplicar el filtro de nitidez
-        _, enhanced_image_bytes = cv2.imencode('.jpg', sharpened_image)  # Codificar la imagen mejorada a bytes
+        kernel = np.array([[-1, -1, -1], 
+                           [-1,  9, -1], 
+                           [-1, -1, -1]])  # Kernel de nitidez mejorado
+        sharpened_image = cv2.filter2D(denoised_image, -1, kernel)  
+
+        # Ajuste final de calidad (control de calidad JPEG)
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]  # Calidad JPEG del 95%
+        _, enhanced_image_bytes = cv2.imencode('.jpg', sharpened_image, encode_param)  
         logger.info("Image enhancement with OpenCV completed")
 
         # Subir la imagen mejorada a S3
@@ -104,6 +125,7 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
     except Exception as e:
         logger.error(f"Unexpected error in upload_image_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
     try:
@@ -130,6 +152,7 @@ async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
     except Exception as e:
         logger.error(f"Unexpected error in analyze_image_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 async def save_to_db_endpoint(result_path: str, id_camara: int):
     try:
