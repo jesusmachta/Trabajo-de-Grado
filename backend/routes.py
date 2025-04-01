@@ -1,35 +1,24 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from backend.aws import analyze_image, upload_image_to_s3 # Asumiendo que estas funciones existen y funcionan
+from backend.aws import analyze_image, upload_image_to_s3
 from datetime import datetime
-from backend.database import collections # Asumiendo configuración de DB
+from backend.database import collections
 import pymongo
-# import os # No parece usarse directamente en el endpoint
+import os
 import io
 import logging
 import json
 import numpy as np
 from PIL import Image
 import base64
-import cv2  # Importar OpenCV
-# from typing import List, Optional # No parece usarse directamente en el endpoint
+import cv2
+from typing import List, Optional
 
 router = APIRouter()
 
 # Configure logging
-# Asegúrate de que 'name' esté definido o usa __name__
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__) # Usar __name__ es más estándar
-# --- Configuración de Logging Mejorada ---
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-if not logger.hasHandlers(): # Evitar añadir handlers múltiples veces si se recarga el módulo
-    logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-# -----------------------------------------
-
 
 class ImagePayload(BaseModel):
     image_base64: str
@@ -37,21 +26,17 @@ class ImagePayload(BaseModel):
 
 def get_next_sequence_value(sequence_name):
     try:
-        # Asegúrate de que la colección 'counters' exista y tenga el documento adecuado
         sequence_document = collections['counters'].find_one_and_update(
             {"_id": sequence_name},
             {"$inc": {"seq": 1}},
-            upsert=True, # Crea el contador si no existe la primera vez
             return_document=pymongo.ReturnDocument.AFTER
         )
-        # No necesitas verificar si es None después de upsert=True, a menos que haya un error grave
+        if sequence_document is None:
+            raise Exception("Sequence document not found")
         return sequence_document["seq"]
     except Exception as e:
-        logger.error(f"Error al obtener el siguiente valor de secuencia '{sequence_name}': {e}")
-        # Es mejor no lanzar HTTPException aquí, podría manejarse más arriba o devolver None/valor especial
-        # raise HTTPException(status_code=500, detail=f"Error al obtener el siguiente valor de secuencia: {e}")
-        # Propuesta: devolver un valor que indique error o propagar la excepción
-        raise Exception(f"Error al obtener el siguiente valor de secuencia: {e}") # Propagar para manejo centralizado
+        logger.error(f"Error al obtener el siguiente valor de secuencia: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener el siguiente valor de secuencia: {e}")
 
 def initialize_routes(app):
     app.include_router(router)
@@ -63,234 +48,162 @@ def hello_world():
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
     try:
-        logger.info("Iniciando upload_image_endpoint")
+        logger.info("Starting upload_image_endpoint")
+        # Leer la imagen en formato Base64
         image_base64 = payload.image_base64
         id_camara = payload.id_camara
 
         if not image_base64:
-            raise HTTPException(status_code=400, detail="Se proporcionó un archivo de imagen vacío")
+            raise HTTPException(status_code=400, detail="Empty image file provided")
 
         # Convertir la imagen de Base64 a bytes
-        try:
-            image_bytes = base64.b64decode(image_base64)
-        except base64.binascii.Error as e:
-            logger.error(f"Error decodificando Base64: {e}")
-            raise HTTPException(status_code=400, detail=f"Formato Base64 inválido: {e}")
+        image_bytes = base64.b64decode(image_base64)
 
-        # Convertir los bytes a imagen OpenCV (más directo que pasar por PIL y JPEG)
-        np_image = np.frombuffer(image_bytes, np.uint8)
+        # Convertir los bytes a formato JPEG
+        image = Image.open(io.BytesIO(image_bytes))
+        image = image.convert("RGB")  # Asegurarse de que esté en formato RGB
+        jpeg_buffer = io.BytesIO()
+        image.save(jpeg_buffer, format="JPEG")
+        jpeg_bytes = jpeg_buffer.getvalue()
+
+        # Mejorar la imagen utilizando OpenCV
+        logger.info("Starting image enhancement with OpenCV")
+        np_image = np.frombuffer(jpeg_bytes, np.uint8)
         cv_image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
-
-        if cv_image is None:
-            logger.error("No se pudo decodificar la imagen con OpenCV.")
-            raise HTTPException(status_code=400, detail="No se pudo decodificar la imagen. Formato inválido o corrupto.")
-
-        logger.info("Imagen decodificada a formato OpenCV.")
-
-        # --- Inicio Mejoramiento de Imagen con OpenCV ---
-        logger.info("Iniciando mejoramiento de imagen con OpenCV")
-
-        # 1. (Opcional) Reducción de Ruido
-        #    Ajusta 'h' y 'templateWindowSize', 'searchWindowSize' según sea necesario.
-        #    Puede ser costoso computacionalmente. Comenta si no es necesario o causa lentitud.
-        # denoised_image = cv2.fastNlMeansDenoisingColored(cv_image, None, h=10, hColor=10, templateWindowSize=7, searchWindowSize=21)
-        # logger.info("Reducción de ruido aplicada (opcional)")
-        # processed_image = denoised_image # Usar la imagen sin ruido para los siguientes pasos
-        processed_image = cv_image # Usar la imagen original si se omite la reducción de ruido
-
-        # 2. Convertir a espacio de color LAB
-        lab_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2LAB)
-        logger.info("Imagen convertida a espacio de color LAB")
-
-        # 3. Separar canales L, A, B
+        
+        # Convertir BGR a RGB (OpenCV carga imágenes en BGR por defecto)
+        cv_image_rgb = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        
+        # Escalar la imagen (opcional, dependiendo de los requisitos)
+        scale_factor = 1.0  # Sin escala para preservar la imagen original
+        if scale_factor != 1.0:
+            new_width = int(cv_image_rgb.shape[1] * scale_factor)
+            new_height = int(cv_image_rgb.shape[0] * scale_factor)
+            cv_image_rgb = cv2.resize(cv_image_rgb, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+            logger.info(f"Image resized to {new_width}x{new_height}")
+        
+        # Separar la imagen en canales L*a*b para preservar el color mientras mejoramos el brillo
+        lab_image = cv2.cvtColor(cv_image_rgb, cv2.COLOR_RGB2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab_image)
-
-        # 4. Aplicar CLAHE al canal L
-        #    Ajusta clipLimit (contraste) y tileGridSize (tamaño de la región local)
+        
+        # Aplicar CLAHE solo al canal L (luminosidad) para mejorar el contraste
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        cl = clahe.apply(l_channel)
-        logger.info("CLAHE aplicado al canal L")
-
-        # 5. Unir los canales de nuevo
-        merged_lab = cv2.merge((cl, a_channel, b_channel))
-
-        # 6. Convertir de vuelta a BGR
-        enhanced_image_bgr = cv2.cvtColor(merged_lab, cv2.COLOR_LAB2BGR)
-        logger.info("Imagen convertida de vuelta a BGR")
-
-        # 7. (Opcional) Aplicar Nitidez (Sharpening)
-        #    Puedes ajustar el kernel si necesitas más o menos nitidez.
-        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-        final_image = cv2.filter2D(enhanced_image_bgr, -1, kernel)
-        logger.info("Filtro de nitidez aplicado")
-        # Si no quieres nitidez, usa: final_image = enhanced_image_bgr
-
-        # 8. (Revisado) Redimensionamiento - Considera si es necesario
-        #    Si decides redimensionar, hazlo sobre 'final_image'.
-        #    Evalúa si el 'upscaling' es realmente beneficioso para Rekognition.
-        # scale_factor = 1.0 # Ejemplo: Sin redimensionamiento
-        # if scale_factor != 1.0:
-        #     new_width = int(final_image.shape[1] * scale_factor)
-        #     new_height = int(final_image.shape[0] * scale_factor)
-        #     # Usar INTER_AREA para reducir, INTER_CUBIC/LANCZOS4 para agrandar
-        #     interpolation = cv2.INTER_CUBIC if scale_factor > 1.0 else cv2.INTER_AREA
-        #     final_image = cv2.resize(final_image, (new_width, new_height), interpolation=interpolation)
-        #     logger.info(f"Imagen redimensionada (factor: {scale_factor}) a {new_width}x{new_height}")
-
-        # 9. Codificar la imagen final a bytes JPEG para S3 y Rekognition
-        #    Puedes ajustar la calidad del JPEG (0-100, por defecto suele ser 95)
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90] # Calidad 90
-        _, enhanced_image_bytes_buffer = cv2.imencode('.jpg', final_image, encode_param)
-        enhanced_image_bytes = enhanced_image_bytes_buffer.tobytes()
-        logger.info("Mejoramiento de imagen con OpenCV completado. Imagen codificada a JPEG.")
-        # --- Fin Mejoramiento de Imagen ---
-
+        enhanced_l_channel = clahe.apply(l_channel)
+        
+        # Reducir ruido manteniendo bordes en el canal de luminosidad
+        enhanced_l_channel = cv2.bilateralFilter(enhanced_l_channel, 5, 50, 50)
+        
+        # Ajuste sutil de contraste en el canal L
+        alpha = 1.1  # Contraste (1.0 = sin cambio)
+        beta = 0     # Brillo (0 = sin cambio)
+        enhanced_l_channel = cv2.convertScaleAbs(enhanced_l_channel, alpha=alpha, beta=beta)
+        
+        # Mejorar nitidez en el canal de luminosidad
+        kernel = np.array([[-0.5, -0.5, -0.5], 
+                          [-0.5,  5.0, -0.5], 
+                          [-0.5, -0.5, -0.5]])
+        enhanced_l_channel = cv2.filter2D(enhanced_l_channel, -1, kernel)
+        
+        # Reconstruir la imagen LAB con los canales de color originales
+        enhanced_lab_image = cv2.merge([enhanced_l_channel, a_channel, b_channel])
+        
+        # Convertir de vuelta a RGB
+        enhanced_rgb_image = cv2.cvtColor(enhanced_lab_image, cv2.COLOR_LAB2RGB)
+        
+        # Convertir a BGR para guardar con OpenCV
+        enhanced_bgr_image = cv2.cvtColor(enhanced_rgb_image, cv2.COLOR_RGB2BGR)
+        
+        # Ajuste final de calidad
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
+        _, enhanced_image_bytes = cv2.imencode('.jpg', enhanced_bgr_image, encode_param)
+        logger.info("Image enhancement with OpenCV completed")
 
         # Subir la imagen mejorada a S3
         current_time = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        # Considerar añadir un identificador único (UUID) por si dos imágenes llegan en el mismo segundo
         file_name = f"{current_time}_{id_camara}.jpeg"
-        # Asumo que upload_image_to_s3 espera bytes
-        s3_url = upload_image_to_s3(enhanced_image_bytes, file_name)
-        logger.info(f"Imagen subida a S3: {s3_url}") # Asegúrate de que s3_url no sea None o maneja el caso
+        s3_url = upload_image_to_s3(enhanced_image_bytes.tobytes(), file_name)
+        logger.info(f"Image uploaded to S3: {s3_url}")
 
         # Llamar al siguiente endpoint para analizar la imagen
-        # Pasar los bytes directamente es más eficiente que leerlos de nuevo
-        background_tasks.add_task(analyze_image_endpoint, enhanced_image_bytes, id_camara, s3_url) # Pasar s3_url si es necesario guardarlo
+        background_tasks.add_task(analyze_image_endpoint, enhanced_image_bytes.tobytes(), id_camara)
 
-        return {"message": "Imagen recibida y procesando en segundo plano.", "s3_url": s3_url}
+        return {"message": "Image uploaded successfully, processing started."}
 
-    # Captura de excepciones más específicas si es posible
-    except HTTPException as http_exc:
-        # Re-lanzar excepciones HTTP para que FastAPI las maneje
-        raise http_exc
     except Exception as e:
-        logger.exception(f"Error inesperado en upload_image_endpoint: {e}") # Usar logger.exception para incluir traceback
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor al procesar la imagen: {e}")
+        logger.error(f"Unexpected error in upload_image_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# Modificar analyze_image_endpoint para aceptar s3_url si lo necesitas guardar
-async def analyze_image_endpoint(image_bytes: bytes, id_camara: int, s3_url: str):
+
+async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
     try:
-        logger.info(f"Iniciando analyze_image_endpoint para cámara {id_camara}")
+        logger.info("Starting analyze_image_endpoint")
 
         # Analizar la imagen con AWS Rekognition
-        # analyze_image debería tomar bytes como entrada
         response = analyze_image(image_bytes)
-        logger.info("Análisis de imagen con Rekognition completado.")
+        logger.info("Image analyzed successfully")
 
-        # No es necesario guardar en archivo temporal, podemos pasar el 'response' directamente
-        # analysis_result_path = "analysis_result.json"
-        # with open(analysis_result_path, "w") as f:
-        #     json.dump(response, f)
-        # logger.info("Analysis results saved to temporary file")
+        # Guardar los resultados del análisis en un archivo temporal
+        analysis_result_path = "analysis_result.json"
+        with open(analysis_result_path, "w") as f:
+            json.dump(response, f)
+        logger.info("Analysis results saved to temporary file")
 
-        # Llamar al siguiente endpoint pasando el diccionario de respuesta directamente
-        # Asegúrate que la estructura de 'response' es la esperada por save_to_db_endpoint
-        background_tasks = BackgroundTasks() # Necesitas instanciar BackgroundTasks si lo usas aquí
-        background_tasks.add_task(save_to_db_endpoint, response, id_camara, s3_url)
-        # Nota: Si analyze_image_endpoint es llamado por background_tasks.add_task desde upload_image_endpoint,
-        # no puedes añadir otra tarea en segundo plano de esta forma fácilmente.
-        # Sería mejor llamar a save_to_db_endpoint directamente:
-        # await save_to_db_endpoint(response, id_camara, s3_url) # Llamada directa async
+        logger.info("Image analysis completed, calling save_to_db_endpoint")
 
-        logger.info(f"Llamando a save_to_db_endpoint para cámara {id_camara}")
-        await save_to_db_endpoint(response, id_camara, s3_url) # Llamada directa recomendada
+        # Llamar al siguiente endpoint
+        await save_to_db_endpoint(analysis_result_path, id_camara)
+        logger.info("save_to_db_endpoint called successfully")
 
-        # No deberías retornar un mensaje aquí si es una tarea en segundo plano,
-        # ya que la petición original ya retornó. Si es llamada directa, está bien.
-        # return {"message": "Análisis de imagen completado, guardando en BD."}
+        return {"message": "Image analysis completed successfully, processing started."}
 
     except Exception as e:
-        # El manejo de errores en tareas de segundo plano es complejo.
-        # El error no se propagará al cliente. Debes loggearlo bien.
-        logger.exception(f"Error inesperado en analyze_image_endpoint para cámara {id_camara}: {e}")
-        # Considera mecanismos de reintento o notificación si falla una tarea en segundo plano.
-        # No puedes lanzar HTTPException aquí si es una tarea en segundo plano.
+        logger.error(f"Unexpected error in analyze_image_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# Modificar save_to_db_endpoint para aceptar la respuesta de Rekognition (dict) y s3_url
-async def save_to_db_endpoint(rekognition_response: dict, id_camara: int, s3_url: str):
+async def save_to_db_endpoint(result_path: str, id_camara: int):
     try:
-        logger.info(f"Iniciando save_to_db_endpoint para cámara {id_camara}")
+        logger.info("Starting save_to_db_endpoint")
 
-        # Ya tenemos la respuesta, no hay que leer de archivo
-        # with open(result_path, "r") as f:
-        #     response = json.load(f)
-        # logger.info("Analysis results loaded from temporary file")
-        response = rekognition_response # Usar la respuesta pasada como argumento
-
-        if 'FaceDetails' not in response or not response['FaceDetails']:
-             logger.warning(f"No se detectaron caras en la imagen de la cámara {id_camara}. No se guardará nada.")
-             return # No hacer nada si no hay caras
+        # Leer los resultados del análisis desde el archivo temporal
+        with open(result_path, "r") as f:
+            response = json.load(f)
+        logger.info("Analysis results loaded from temporary file")
 
         # Filtrando los resultados para solo obtener AgeRange, Gender y Emotions
         filtered_faces = []
         for face_detail in response['FaceDetails']:
-            # Añadir verificación de existencia de claves por si acaso
-            age_range = face_detail.get('AgeRange', {'Low': None, 'High': None})
-            gender = face_detail.get('Gender', {'Value': 'Unknown'})
-            emotions = face_detail.get('Emotions', [])
-
             filtered_face = {
-                'AgeRange': age_range,
-                'Gender': gender,
-                'Emotions': emotions
+                'AgeRange': face_detail.get('AgeRange'),
+                'Gender': face_detail.get('Gender'),
+                'Emotions': face_detail.get('Emotions')
             }
             filtered_faces.append(filtered_face)
 
-        logger.info(f"Caras filtradas ({len(filtered_faces)}) para cámara {id_camara}")
+        logger.info(f"Filtered faces: {filtered_faces}")
 
         # Insertar en MongoDB
-        documents_to_insert = []
-        current_timestamp = datetime.utcnow() # Usar el mismo timestamp para todos los documentos de esta imagen
-
         for face in filtered_faces:
-            primary_emotion = 'Unknown'
-            if face['Emotions']: # Verificar si hay lista de emociones
-                # Encontrar la emoción con la mayor confianza
-                 primary_emotion_data = max(face['Emotions'], key=lambda x: x.get('Confidence', 0))
-                 primary_emotion = primary_emotion_data.get('Type', 'Unknown')
-
-
-            # Obtener ID único para CADA persona detectada
-            try:
-                 person_id = get_next_sequence_value("persona_id")
-            except Exception as seq_e:
-                 logger.error(f"No se pudo obtener ID para persona. Saltando inserción. Error: {seq_e}")
-                 continue # Saltar esta cara si no podemos obtener ID
-
+            emotions = face['Emotions']
+            primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
             document = {
-                "_id": person_id, # Usar el contador como _id principal es común
-                "fecha_registro": current_timestamp, # Guardar objeto datetime completo
-                # "time": current_timestamp.strftime("%H:%M:%S"), # Puedes derivarlo de fecha_registro si es necesario
+                "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
+                "date": datetime.utcnow(),
+                "time": datetime.utcnow().strftime("%H:%M:%S"),
                 "id_camara": id_camara,
-                "url_imagen": s3_url, # Guardar la URL de la imagen asociada
-                "genero": face['Gender'].get('Value', 'Unknown'), # Usar .get con default
-                "rango_edad": {
-                    "low": face['AgeRange'].get('Low'), # Usar .get
-                    "high": face['AgeRange'].get('High') # Usar .get
+                "gender": face['Gender']['Value'],
+                "age_range": {
+                    "low": face['AgeRange']['Low'],
+                    "high": face['AgeRange']['High']
                 },
-                "emocion_primaria": primary_emotion,
-                "detalles_rekognition": face # Opcional: guardar todos los detalles de esta cara
+                "emotions": primary_emotion
             }
-            documents_to_insert.append(document)
-            logger.debug(f"Documento preparado para inserción: {document}") # Log a nivel debug
+            logger.info(f"Inserting document into MongoDB: {document}")
+            collections['Persona_AR'].insert_one(document)
 
-        if documents_to_insert:
-             try:
-                 result = collections['Persona_AR'].insert_many(documents_to_insert)
-                 logger.info(f"Se insertaron {len(result.inserted_ids)} documentos en MongoDB para cámara {id_camara}.")
-             except pymongo.errors.BulkWriteError as bwe:
-                 logger.error(f"Error de escritura en lote en MongoDB: {bwe.details}")
-             except Exception as db_e:
-                 logger.exception(f"Error insertando documentos en MongoDB: {db_e}")
-        else:
-             logger.info(f"No se prepararon documentos para insertar en MongoDB para cámara {id_camara}.")
-
-
-        # No puedes retornar un mensaje HTTP si eres llamado desde una tarea en segundo plano
-        # return {"message": "Data saved to database successfully."}
+        logger.info("Data saved to database successfully")
+        return {"message": "Data saved to database successfully."}
 
     except Exception as e:
-        logger.exception(f"Error inesperado en save_to_db_endpoint para cámara {id_camara}: {e}")
-        # Manejo de errores para tareas en segundo plano (log, notificar, etc.)
+        logger.error(f"Unexpected error in save_to_db_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
