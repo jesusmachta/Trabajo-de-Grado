@@ -78,9 +78,15 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         resized_image = cv2.resize(cv_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
         logger.info(f"Image resized to {new_width}x{new_height}")
 
-        # Crear un kernel de nitidez más agresivo
-        kernel = np.array([[0, -1, 0], [-1, 7, -1], [0, -1, 0]])  # Ajustar el kernel para mayor nitidez
-        sharpened_image = cv2.filter2D(resized_image, -1, kernel)  # Aplicar el filtro de nitidez
+        # Ajustar el brillo y el contraste
+        alpha = 1.2  # Contraste (1.0 = sin cambio, >1.0 = más contraste)
+        beta = 10    # Brillo (0 = sin cambio, >0 = más brillo)
+        adjusted_image = cv2.convertScaleAbs(resized_image, alpha=alpha, beta=beta)
+        logger.info("Brightness and contrast adjusted")
+
+        # Aplicar un filtro de nitidez moderado
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])  # Kernel de nitidez moderado
+        sharpened_image = cv2.filter2D(adjusted_image, -1, kernel)  # Aplicar el filtro de nitidez
         _, enhanced_image_bytes = cv2.imencode('.jpg', sharpened_image)  # Codificar la imagen mejorada a bytes
         logger.info("Image enhancement with OpenCV completed")
 
