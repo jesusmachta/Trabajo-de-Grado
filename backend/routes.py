@@ -181,6 +181,22 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
             filtered_faces.append(filtered_face)
 
         logger.info(f"Filtered faces: {filtered_faces}")
+        
+        # Obtener el tipo_producto correspondiente al id_camara
+        tipo_producto_zona_camara = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara})
+        if not tipo_producto_zona_camara:
+            raise HTTPException(status_code=404, detail="Id_Camara not found in Tipo_Producto_Zona_Camara")
+
+        tipo_producto = tipo_producto_zona_camara['Tipo_Producto']
+        logger.info(f"Found tipo_producto: {tipo_producto}")
+
+        # Obtener el Categoria_Producto correspondiente al tipo_producto
+        tipo_producto_doc = collections['Tipo_Producto'].find_one({"Tipo_Producto": tipo_producto})
+        if not tipo_producto_doc:
+            raise HTTPException(status_code=404, detail="Tipo_Producto not found in Tipo_Producto")
+
+        categoria_producto = tipo_producto_doc['Categoria_Producto']
+        logger.info(f"Found categoria_producto: {categoria_producto}")
 
         # Insertar en MongoDB
         for face in filtered_faces:
@@ -191,6 +207,7 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
                 "date": datetime.utcnow(),
                 "time": datetime.utcnow().strftime("%H:%M:%S"),
                 "id_camara": id_camara,
+                "categoria_producto": categoria_producto,  # Agregar categoria_producto
                 "gender": face['Gender']['Value'],
                 "age_range": {
                     "low": face['AgeRange']['Low'],
