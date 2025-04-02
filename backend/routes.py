@@ -202,16 +202,18 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
         # Zona horaria de Venezuela
         venezuela_tz = timezone('America/Caracas')
 
-
         # Insertar en MongoDB
         for face in filtered_faces:
             emotions = face['Emotions']
             primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
             now_venezuela = datetime.now(venezuela_tz)  # Obtener la hora actual en Venezuela
+
+            # Convertir la fecha y hora a un objeto datetime.datetime
+            date_time_venezuela = now_venezuela.strftime("%Y-%m-%d %H:%M:%S")
+            
             document = {
                 "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
-                "date": now_venezuela.date(),  # Fecha en formato de Venezuela
-                "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato de Venezuela
+                "date": date_time_venezuela,  # Fecha y hora como cadena en formato ISO
                 "id_camara": id_camara,
                 "gender": face['Gender']['Value'],
                 "age_range": {
