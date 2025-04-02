@@ -13,6 +13,7 @@ from PIL import Image
 import base64
 import cv2
 from typing import List, Optional
+from pytz import timezone
 
 router = APIRouter()
 
@@ -197,17 +198,21 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
 
         categoria_producto = tipo_producto_doc['Categoria_Producto']
         logger.info(f"Found categoria_producto: {categoria_producto}")
+        
+        # Zona horaria de Venezuela
+        venezuela_tz = timezone('America/Caracas')
+
 
         # Insertar en MongoDB
         for face in filtered_faces:
             emotions = face['Emotions']
             primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
+            now_venezuela = datetime.now(venezuela_tz)  # Obtener la hora actual en Venezuela
             document = {
                 "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
-                "date": datetime.utcnow(),
-                "time": datetime.utcnow().strftime("%H:%M:%S"),
+                "date": now_venezuela.date(),  # Fecha en formato de Venezuela
+                "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato de Venezuela
                 "id_camara": id_camara,
-                "categoria_producto": categoria_producto,  # Agregar categoria_producto
                 "gender": face['Gender']['Value'],
                 "age_range": {
                     "low": face['AgeRange']['Low'],
