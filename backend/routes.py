@@ -208,15 +208,13 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
             primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
             now_venezuela = datetime.now(venezuela_tz)  # Obtener la hora actual en Venezuela
 
-            # Separar la fecha y la hora
-            date_venezuela = now_venezuela.strftime("%Y-%m-%d")  # Fecha en formato YYYY-MM-DD
-            time_venezuela = now_venezuela.strftime("%H:%M:%S")  # Hora en formato HH:MM:SS
+            # Convertir la fecha y hora a un objeto datetime.datetime
+            date_time_venezuela = now_venezuela.strftime("%Y-%m-%d %H:%M:%S")
             
             document = {
                 "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
-                "date": date_venezuela,  # Fecha como cadena en formato YYYY-MM-DD
-                "time": time_venezuela,  # Hora como cadena en formato HH:MM:SS
-                "id_camara": id_camara,
+                "date": datetime.utcnow(),
+                "time": datetime.utcnow().strftime("%H:%M:%S"),                "id_camara": id_camara,
                 "gender": face['Gender']['Value'],
                 "age_range": {
                     "low": face['AgeRange']['Low'],
