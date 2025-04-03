@@ -14,7 +14,7 @@ import base64
 import cv2
 from typing import List, Optional
 from pytz import timezone
-from backend.statistics.daily_traffic import get_peak_hours
+from backend.statistics.peak_hours import get_peak_hours
 
 router = APIRouter()
 
