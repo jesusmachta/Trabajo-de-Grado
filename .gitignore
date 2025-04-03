@@ -1,2 +1,4 @@
 /backend/__pycache__/
 enhanced_images
+analysis_result.json
+backend/statistics/__pycache__
