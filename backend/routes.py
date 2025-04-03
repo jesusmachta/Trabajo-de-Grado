@@ -47,7 +47,7 @@ def initialize_routes(app):
 def hello_world():
     return {"message": "Hola Mundo s3!!"}
 
-@router.get("/statistics/daily-traffic/")
+@router.get("/statistics/peak-hours/")
 def daily_traffic():
     """
     Endpoint para obtener las horas pico de los clientes por día de la semana.
