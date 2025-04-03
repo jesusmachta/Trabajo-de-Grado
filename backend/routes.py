@@ -15,7 +15,7 @@ import cv2
 from typing import List, Optional
 from pytz import timezone
 from backend.statistics.peak_hours import get_peak_hours
-
+from backend.statistics.least_busy_hours import get_least_busy_hours
 router = APIRouter()
 
 # Configure logging
@@ -54,6 +54,17 @@ def daily_traffic():
     """
     try:
         data = get_peak_hours()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/least-hours/")
+def daily_traffic():
+    """
+    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    """
+    try:
+        data = get_least_busy_hours()
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
