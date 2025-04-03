@@ -14,6 +14,7 @@ import base64
 import cv2
 from typing import List, Optional
 from pytz import timezone
+from backend.statistics.daily_traffic import get_peak_hours
 
 router = APIRouter()
 
@@ -45,6 +46,17 @@ def initialize_routes(app):
 @router.get("/")
 def hello_world():
     return {"message": "Hola Mundo s3!!"}
+
+@router.get("/statistics/daily-traffic/")
+def daily_traffic():
+    """
+    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    """
+    try:
+        data = get_peak_hours()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
@@ -198,7 +210,7 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
 
         categoria_producto = tipo_producto_doc['Categoria_Producto']
         logger.info(f"Found categoria_producto: {categoria_producto}")
-        
+
         # Zona horaria de Venezuela
         venezuela_tz = timezone('America/Caracas')
 
@@ -206,15 +218,16 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
         for face in filtered_faces:
             emotions = face['Emotions']
             primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
-            now_venezuela = datetime.now(venezuela_tz)  # Obtener la hora actual en Venezuela
-
-            # Convertir la fecha y hora a un objeto datetime.datetime
-            date_time_venezuela = now_venezuela.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Obtener la hora actual en la zona horaria de Venezuela
+            now_venezuela = datetime.now(venezuela_tz)
             
             document = {
                 "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
-                "date": datetime.utcnow(),
-                "time": datetime.utcnow().strftime("%H:%M:%S"),                "id_camara": id_camara,
+                "date": now_venezuela.strftime("%Y-%m-%d"),  # Fecha como cadena en formato YYYY-MM-DD
+                "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato HH:MM:SS
+                "id_camara": id_camara,
+                "categoria_producto": categoria_producto,  # Agregar categoria_producto
                 "gender": face['Gender']['Value'],
                 "age_range": {
                     "low": face['AgeRange']['Low'],
