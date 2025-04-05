@@ -25,6 +25,7 @@ from backend.statistics.most_frequent_emotions import get_most_frequent_emotions
 from backend.statistics.age_distribution import get_age_distribution
 from backend.statistics.gender_distribution import get_gender_distribution
 from backend.statistics.most_visited_category_historical import get_most_visited_category_historical
+from backend.statistics.least_visited_category_historical import get_least_visited_category_historical
 
 
 router = APIRouter()
@@ -108,8 +109,18 @@ def least_visited_category(period: str, date: Optional[str] = None):
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        # Llamar a la función con los parámetros proporcionados
         data = get_least_visited_category(period=period, date=date)
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/least-visited-historical/")
+def least_visited_category_historical():
+    """
+    Endpoint para obtener la categoría de producto menos visitada utilizando todos los datos históricos.
+    """
+    try:
+        data = get_least_visited_category_historical()
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -120,7 +131,6 @@ def most_visited_category(period: str, date: Optional[str] = None):
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        # Llamar a la función con los parámetros proporcionados
         data = get_most_visited_category(period=period, date=date)
         return {"message": "Success", "data": data}
     except Exception as e:
@@ -133,7 +143,6 @@ def most_visited_category_historical():
     Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
     """
     try:
-        # Llamar a la función que calcula la categoría más visitada históricamente
         data = get_most_visited_category_historical()
         return {"message": "Success", "data": data}
     except Exception as e:
