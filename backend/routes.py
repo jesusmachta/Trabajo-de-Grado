@@ -24,6 +24,7 @@ from backend.statistics.emotion_percentage_by_category import get_emotion_percen
 from backend.statistics.most_frequent_emotions import get_most_frequent_emotions
 from backend.statistics.age_distribution import get_age_distribution
 from backend.statistics.gender_distribution import get_gender_distribution
+from backend.statistics.most_visited_category_historical import get_most_visited_category_historical
 
 
 router = APIRouter()
@@ -121,6 +122,19 @@ def most_visited_category(period: str, date: Optional[str] = None):
     try:
         # Llamar a la función con los parámetros proporcionados
         data = get_most_visited_category(period=period, date=date)
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+@router.get("/statistics/most-visited-historical/")
+def most_visited_category_historical():
+    """
+    Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
+    """
+    try:
+        # Llamar a la función que calcula la categoría más visitada históricamente
+        data = get_most_visited_category_historical()
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
