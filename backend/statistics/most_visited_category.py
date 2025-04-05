@@ -3,7 +3,8 @@ from fastapi import FastAPI, HTTPException
 from typing import Optional
 from backend.database import collections  
 
-collection = collections["Tipo_Producto"]
+persona_collection = collections["Persona_AR"]
+tipo_producto_collection = collections["Tipo_Producto"]
 
 app = FastAPI()
 
@@ -35,21 +36,27 @@ def get_most_visited_category(period: str, date: Optional[str] = None):
             next_month = start_date.replace(day=28) + timedelta(days=4)  # Ir al próximo mes
             end_date = next_month.replace(day=1) - timedelta(days=1)  # Último día del mes actual
 
-        # Filtrar los documentos en el rango de fechas
-        categories = collection.find(
+        # Obtener todas las categorías disponibles de Tipo_Producto
+        categorias = tipo_producto_collection.find({}, {"Categoria_Producto": 1, "_id": 0})
+        categorias = [categoria["Categoria_Producto"] for categoria in categorias]
+
+        # Diccionario para contar las visitas por categoría
+        category_counts = {categoria: 0 for categoria in categorias}
+
+        # Filtrar los documentos de Persona_AR en el rango de fechas
+        personas = persona_collection.find(
             {"date": {"$gte": start_date.strftime("%Y-%m-%d"), "$lte": end_date.strftime("%Y-%m-%d")}},
-            {"category": 1}
+            {"categoria_producto": 1}
         )
 
         # Contar las visitas por categoría
-        category_counts = {}
-        for category in categories:
-            category_name = category.get("category")
-            if category_name:
-                category_counts[category_name] = category_counts.get(category_name, 0) + 1
+        for persona in personas:
+            category_name = persona.get("categoria_producto")
+            if category_name in category_counts:
+                category_counts[category_name] += 1
 
         # Verificar si hay datos
-        if not category_counts:
+        if all(count == 0 for count in category_counts.values()):
             return {"most_visited_category": None, "message": "No data available for the specified period."}
 
         # Encontrar la categoría más visitada

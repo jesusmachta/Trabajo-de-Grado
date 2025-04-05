@@ -13,7 +13,7 @@ def get_emotion_percentage_by_category():
     :return: JSON con las categorías de producto y el porcentaje de emociones detectadas.
     """
     try:
-        # Categorías de producto
+        # Obtener todas las categorías disponibles de Tipo_Producto
         categorias = tipo_producto_collection.find({}, {"Categoria_Producto": 1, "_id": 0})
         categorias = [categoria["Categoria_Producto"] for categoria in categorias]
 
@@ -21,18 +21,17 @@ def get_emotion_percentage_by_category():
         emotions_by_category = {categoria: {} for categoria in categorias}
 
         # Obtener todos los documentos de Persona_AR
-        personas = persona_collection.find({}, {"Categoria_Producto": 1, "emotions": 1})
+        personas = persona_collection.find({}, {"categoria_producto": 1, "emotions": 1})
 
         for persona in personas:
-            category_name = persona.get("Categoria_Producto")
-            emotions = persona.get("emotions", [])
+            category_name = persona.get("categoria_producto")  # Campo correcto en Persona_AR
+            emotion = persona.get("emotions")  # Emoción única
 
-            if category_name in emotions_by_category:
-                # Contar las emociones para la categoría
-                for emotion in emotions:
-                    emotions_by_category[category_name][emotion] = (
-                        emotions_by_category[category_name].get(emotion, 0) + 1
-                    )
+            if category_name in emotions_by_category and emotion:
+                # Contar la emoción para la categoría
+                emotions_by_category[category_name][emotion] = (
+                    emotions_by_category[category_name].get(emotion, 0) + 1
+                )
 
         # Calcular el porcentaje de emociones por categoría
         emotion_percentages = {}

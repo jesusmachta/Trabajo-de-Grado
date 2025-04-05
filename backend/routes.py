@@ -18,6 +18,14 @@ from backend.statistics.peak_hours import get_peak_hours
 from backend.statistics.least_busy_hours import get_least_busy_hours
 from backend.statistics.most_busy_day import get_most_busy_day
 from backend.statistics.least_busy_day import get_least_busy_day
+from backend.statistics.least_visited_category import get_least_visited_category
+from backend.statistics.most_visited_category import get_most_visited_category
+from backend.statistics.emotion_percentage_by_category import get_emotion_percentage_by_category
+from backend.statistics.most_frequent_emotions import get_most_frequent_emotions
+from backend.statistics.age_distribution import get_age_distribution
+from backend.statistics.gender_distribution import get_gender_distribution
+
+
 router = APIRouter()
 
 # Configure logging
@@ -92,7 +100,84 @@ def daily_traffic():
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/least-visited/")
+def least_visited_category(period: str, date: Optional[str] = None):
+    """
+    Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
+    """
+    try:
+        # Llamar a la función con los parámetros proporcionados
+        data = get_least_visited_category(period=period, date=date)
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/most-visited/")
+def most_visited_category(period: str, date: Optional[str] = None):
+    """
+    Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
+    """
+    try:
+        # Llamar a la función con los parámetros proporcionados
+        data = get_most_visited_category(period=period, date=date)
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
 
+@router.get("/statistics/emotion-percentage/")
+def emotion_percentage():
+    """
+    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    """
+    try:
+        data = get_emotion_percentage_by_category()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+@router.get("/statistics/most-frequent-emotions/")
+def most_frequent_emotions():
+    """
+    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    """
+    try:
+        data = get_most_frequent_emotions()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/age-distribution/")
+def age_distribution(period: str, date: Optional[str] = None):
+    """
+    Endpoint para obtener la distribución de visitantes por rango de edad en un período (semana o mes).
+    """
+    try:
+        # Llamar a la función con los parámetros proporcionados
+        data = get_age_distribution(period=period, date=date)
+        return {"message": "Success", "data": data}
+    except ValueError as ve:
+        return {"message": "Error", "error": str(ve)}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+@router.get("/statistics/gender-distribution/")
+def gender_distribution(period: str, date: Optional[str] = None):
+    """
+    Endpoint para obtener la distribución de visitantes por sexo en un período (semana o mes).
+    """
+    try:
+        # Llamar a la función con los parámetros proporcionados
+        data = get_gender_distribution(period=period, date=date)
+        return {"message": "Success", "data": data}
+    except ValueError as ve:
+        return {"message": "Error", "error": str(ve)}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
     try:
