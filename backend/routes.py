@@ -26,6 +26,11 @@ from backend.statistics.age_distribution import get_age_distribution
 from backend.statistics.gender_distribution import get_gender_distribution
 from backend.statistics.most_visited_category_historical import get_most_visited_category_historical
 from backend.statistics.least_visited_category_historical import get_least_visited_category_historical
+from backend.statistics.emotion_comparison import get_emotion_comparison
+from backend.statistics.preferred_category_by_gender import get_preferred_category_by_gender
+from backend.statistics.top_successful_categories import get_top_successful_categories
+from backend.statistics.emotional_differences_by_category import get_emotional_differences_by_category
+from backend.statistics.age_gender_distribution_by_category import get_age_gender_distribution_by_category
 
 
 router = APIRouter()
@@ -201,6 +206,70 @@ def gender_distribution(period: str, date: Optional[str] = None):
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
+@router.get("/statistics/emotion-comparison/")
+def emotion_comparison():
+    """
+    Endpoint para comparar emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
+    """
+    try:
+        # Llamar a la función para obtener los datos
+        data = get_emotion_comparison()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/preferred-category-by-gender/")
+def preferred_category_by_gender():
+    """
+    Endpoint para obtener las categorías de productos preferidas por género (hombres y mujeres).
+    """
+    try:
+        # Llamar a la función para obtener los datos
+        data = get_preferred_category_by_gender()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+@router.get("/statistics/top-successful-categories/")
+def top_successful_categories():
+    """
+    Endpoint para obtener el top de categorías que generan más emociones positivas (HAPPY).
+    """
+    try:
+        # Llamar a la función para obtener los datos
+        data = get_top_successful_categories()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+@router.get("/statistics/emotional-differences-by-category/")
+def emotional_differences_by_category():
+    """
+    Endpoint para obtener las emociones predominantes por género en cada categoría de productos.
+    """
+    try:
+        # Llamar a la función para obtener los datos
+        data = get_emotional_differences_by_category()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+@router.get("/statistics/age-gender-distribution-by-category/")
+def age_gender_distribution_by_category():
+    """
+    Endpoint para obtener las combinaciones de género y rango de edad más frecuentes por categoría de producto.
+    """
+    try:
+        # Llamar a la función para obtener los datos
+        data = get_age_gender_distribution_by_category()
+        return {"message": "Success", "data": data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
     try:
