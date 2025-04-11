@@ -4,9 +4,15 @@ services:
     env: python
     buildCommand: |
       git submodule update --init --recursive
+      curl -L https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.3-stable.tar.xz -o flutter.tar.xz
+      tar -xf flutter.tar.xz
+      export PATH="$PATH:`pwd`/flutter/bin"
+      flutter config --enable-web
       cd frontend
       flutter pub get
-      flutter build web
+      flutter build web --release
+      mkdir -p /opt/render/project/src/frontend/build/web/assets
+      cp -r build/web/* /opt/render/project/src/frontend/build/web/
       cd ..
       pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
