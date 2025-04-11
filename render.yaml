@@ -6,43 +6,10 @@ services:
       set -e # Exit immediately if a command exits with a non-zero status.
       echo "--- Starting build in $(pwd) ---"
       git submodule update --init --recursive
-      echo "--- Installing Flutter ---"
-      curl -L https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.3-stable.tar.xz -o flutter.tar.xz
-      tar -xf flutter.tar.xz
-      export PATH="$PATH:`pwd`/flutter/bin"
-      echo "--- Checking Flutter version ---"
-      flutter --version
-      echo "--- Enabling Flutter Web ---"
-      flutter config --enable-web
-      echo "--- Building Flutter Web in frontend directory ---"
-      cd frontend
-      echo "Current directory: $(pwd)"
-      flutter pub get
-      flutter build web --release
-      echo "--- Flutter build completed. Checking output: ---"
-      ls -la # List contents of frontend
-      echo "--- Checking build directory: ---"
-      ls -la build/
-      echo "--- Checking build/web directory: ---"
-      ls -la build/web/
-      echo "--- Checking build/web/assets directory: ---"
-      ls -la build/web/assets/ || echo "build/web/assets not found!"
-      cd .. # Back to project root (/opt/render/project/src)
-      echo "Current directory: $(pwd)"
-      echo "--- Ensuring target directory exists and copying files ---"
-      TARGET_DIR="frontend/build/web" # Relative to /opt/render/project/src
-      SOURCE_DIR="frontend/build/web" # Relative to /opt/render/project/src
-      echo "Source directory: $(pwd)/$SOURCE_DIR"
-      echo "Target directory: $(pwd)/$TARGET_DIR"
-      # Ensure the full target path exists
-      mkdir -p "$TARGET_DIR/assets"
-      echo "Copying contents from $SOURCE_DIR to $TARGET_DIR..."
-      # Use cp -a to preserve permissions and copy recursively
-      cp -a "$SOURCE_DIR"/* "$TARGET_DIR"/
-      echo "--- Contents of target directory $TARGET_DIR after copy: ---"
-      ls -la "$TARGET_DIR"/
-      echo "--- Contents of target assets directory $TARGET_DIR/assets after copy: ---"
-      ls -la "$TARGET_DIR/assets"
+      # Create necessary directory structure for FastAPI to run without errors
+      echo "--- Creating directory structure for Flutter web assets ---"
+      mkdir -p frontend/build/web/assets
+      # Install Python dependencies
       echo "--- Installing Python dependencies ---"
       pip install -r requirements.txt
       echo "--- Build finished ---"
