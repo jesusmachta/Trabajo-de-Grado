@@ -31,6 +31,8 @@ from backend.statistics.preferred_category_by_gender import get_preferred_catego
 from backend.statistics.top_successful_categories import get_top_successful_categories
 from backend.statistics.emotional_differences_by_category import get_emotional_differences_by_category
 from backend.statistics.age_gender_distribution_by_category import get_age_gender_distribution_by_category
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
 
 
 router = APIRouter()
@@ -38,6 +40,9 @@ router = APIRouter()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Ruta al directorio de archivos estáticos de Flutter web
+FLUTTER_WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "build", "web")
 
 class ImagePayload(BaseModel):
     image_base64: str
@@ -58,9 +63,30 @@ def get_next_sequence_value(sequence_name):
         raise HTTPException(status_code=500, detail=f"Error al obtener el siguiente valor de secuencia: {e}")
 
 def initialize_routes(app):
-    app.include_router(router)
+    # Incluir rutas API
+    app.include_router(router, prefix="/api")
+    
+    # Montar archivos estáticos de Flutter Web
+    app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+    
+    # Ruta para servir index.html de Flutter Web
+    @app.get("/", response_class=HTMLResponse)
+    async def get_flutter_app():
+        index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
+        if os.path.exists(index_path):
+            with open(index_path, "r") as f:
+                return f.read()
+        return HTMLResponse(content="<h1>Error: Flutter Web app not found</h1>")
+    
+    # Servir otros archivos estáticos de Flutter Web (como main.dart.js)
+    @app.get("/{file_path:path}")
+    async def get_flutter_static_file(file_path: str):
+        file_path = os.path.join(FLUTTER_WEB_DIR, file_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return HTMLResponse(content="<h1>Error: File not found</h1>", status_code=404)
 
-@router.get("/")
+@router.get("/hello")
 def hello_world():
     return {"message": "Hola Mundo s3!!"}
 
@@ -153,6 +179,25 @@ def most_visited_category_historical():
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
+@router.get("/statistics/visited-categories-historical/")
+def visited_categories_historical():
+    """
+    Endpoint para obtener las categorías de producto más y menos visitadas utilizando todos los datos históricos.
+    """
+    try:
+        most_visited_data = get_most_visited_category_historical()
+        least_visited_data = get_least_visited_category_historical()
+        
+        combined_data = {
+            "most_visited_category": most_visited_data["most_visited_category"],
+            "most_visited_count": most_visited_data["count"],
+            "least_visited_category": least_visited_data["least_visited_category"],
+            "least_visited_count": least_visited_data["count"]
+        }
+        
+        return {"message": "Success", "data": combined_data}
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/emotion-percentage/")
 def emotion_percentage():
@@ -178,13 +223,16 @@ def most_frequent_emotions():
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/age-distribution/")
-def age_distribution(period: str, date: Optional[str] = None):
+def age_distribution(period: str, date: Optional[str] = None, end_date: Optional[str] = None):
     """
     Endpoint para obtener la distribución de visitantes por rango de edad en un período (semana o mes).
+    :param period: "week" o "month"
+    :param date: Fecha de inicio (opcional, formato YYYY-MM-DD)
+    :param end_date: Fecha de fin para período "week" (opcional, formato YYYY-MM-DD)
     """
     try:
         # Llamar a la función con los parámetros proporcionados
-        data = get_age_distribution(period=period, date=date)
+        data = get_age_distribution(period=period, date=date, end_date=end_date)
         return {"message": "Success", "data": data}
     except ValueError as ve:
         return {"message": "Error", "error": str(ve)}
@@ -193,13 +241,16 @@ def age_distribution(period: str, date: Optional[str] = None):
     
 
 @router.get("/statistics/gender-distribution/")
-def gender_distribution(period: str, date: Optional[str] = None):
+def gender_distribution(period: str, date: Optional[str] = None, end_date: Optional[str] = None):
     """
     Endpoint para obtener la distribución de visitantes por sexo en un período (semana o mes).
+    :param period: "week" o "month"
+    :param date: Fecha de inicio (opcional, formato YYYY-MM-DD)
+    :param end_date: Fecha de fin para período "week" (opcional, formato YYYY-MM-DD)
     """
     try:
         # Llamar a la función con los parámetros proporcionados
-        data = get_gender_distribution(period=period, date=date)
+        data = get_gender_distribution(period=period, date=date, end_date=end_date)
         return {"message": "Success", "data": data}
     except ValueError as ve:
         return {"message": "Error", "error": str(ve)}
@@ -207,15 +258,34 @@ def gender_distribution(period: str, date: Optional[str] = None):
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/emotion-comparison/")
-def emotion_comparison():
+def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
     Endpoint para comparar emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
+    
+    Parameters:
+    - period (str): "week" o "month" para definir el período de análisis.
+    - date (str): Fecha de inicio en formato YYYY-MM-DD (para period="week").
+    - end_date (str): Fecha de fin en formato YYYY-MM-DD (para period="week").
+    - month (int): Número del mes (1-12) para análisis mensual (para period="month").
+    - year (int): Año para análisis mensual (para period="month").
     """
     try:
+        # Log parameter values
+        print(f"Emotion comparison endpoint called with: period={period}, date={date}, end_date={end_date}, month={month}, year={year}")
+        
         # Llamar a la función para obtener los datos
-        data = get_emotion_comparison()
+        data = get_emotion_comparison(period=period, date=date, end_date=end_date, month=month, year=year)
+        
+        # Check if the result is an error tuple
+        if isinstance(data, tuple) and len(data) == 2 and isinstance(data[0], dict) and "error" in data[0]:
+            return {"message": "Error", "error": data[0]["error"]}, data[1]
+        
+        # Return success with data
         return {"message": "Success", "data": data}
     except Exception as e:
+        print(f"Exception in emotion_comparison endpoint: {e}")
+        import traceback
+        traceback.print_exc()
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/preferred-category-by-gender/")
