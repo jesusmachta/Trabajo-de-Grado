@@ -34,21 +34,15 @@ services:
       SOURCE_DIR="frontend/build/web" # Relative to /opt/render/project/src
       echo "Source directory: $(pwd)/$SOURCE_DIR"
       echo "Target directory: $(pwd)/$TARGET_DIR"
-      if [ -d "$SOURCE_DIR/assets" ]; then
-        echo "Source assets directory $SOURCE_DIR/assets exists."
-        # Ensure the full target path exists
-        mkdir -p "$TARGET_DIR/assets"
-        echo "Copying contents from $SOURCE_DIR to $TARGET_DIR..."
-        # Use cp -a to preserve permissions and copy recursively
-        cp -a "$SOURCE_DIR"/* "$TARGET_DIR"/
-        echo "--- Contents of target directory $TARGET_DIR after copy: ---"
-        ls -la "$TARGET_DIR"/
-        echo "--- Contents of target assets directory $TARGET_DIR/assets after copy: ---"
-        ls -la "$TARGET_DIR/assets"
-      else
-        echo "Error: Source directory $SOURCE_DIR/assets not found after build!"
-        exit 1
-      fi
+      # Ensure the full target path exists
+      mkdir -p "$TARGET_DIR/assets"
+      echo "Copying contents from $SOURCE_DIR to $TARGET_DIR..."
+      # Use cp -a to preserve permissions and copy recursively
+      cp -a "$SOURCE_DIR"/* "$TARGET_DIR"/
+      echo "--- Contents of target directory $TARGET_DIR after copy: ---"
+      ls -la "$TARGET_DIR"/
+      echo "--- Contents of target assets directory $TARGET_DIR/assets after copy: ---"
+      ls -la "$TARGET_DIR/assets"
       echo "--- Installing Python dependencies ---"
       pip install -r requirements.txt
       echo "--- Build finished ---"
