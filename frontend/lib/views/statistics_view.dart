@@ -18,7 +18,9 @@ class EmotionPercentageData {
 }
 
 class StatisticsView extends StatefulWidget {
-  const StatisticsView({super.key});
+  final Function? toggleTheme;
+
+  const StatisticsView({super.key, this.toggleTheme});
 
   @override
   State<StatisticsView> createState() => _StatisticsViewState();
@@ -504,6 +506,19 @@ class _StatisticsViewState extends State<StatisticsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Estadísticas'),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+        elevation: 0,
+        centerTitle: false,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

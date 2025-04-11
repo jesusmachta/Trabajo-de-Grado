@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../controllers/dashboard_controller.dart';
 import 'widgets/statistic_card.dart';
+import 'statistics_view.dart';
 
 class DashboardView extends StatefulWidget {
-  const DashboardView({super.key});
+  final Function toggleTheme;
+
+  const DashboardView({super.key, required this.toggleTheme});
 
   @override
   State<DashboardView> createState() => _DashboardViewState();
@@ -66,7 +69,46 @@ class _DashboardViewState extends State<DashboardView> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final bool isDarkMode = brightness == Brightness.dark;
+
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dashboard'),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+        elevation: 0,
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: Icon(
+                isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round),
+            tooltip:
+                isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+            onPressed: () {
+              widget.toggleTheme();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Ir a Estadísticas',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StatisticsView(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: () {
+              // Futuro: mostrar ayuda
+            },
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

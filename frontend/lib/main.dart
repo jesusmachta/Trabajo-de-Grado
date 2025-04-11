@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'views/home_view.dart';
+import 'views/dashboard_view.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -227,7 +228,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
-      home: HomeView(toggleTheme: toggleThemeMode),
+      home: DashboardView(toggleTheme: toggleThemeMode),
     );
   }
 }
