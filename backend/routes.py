@@ -46,9 +46,6 @@ FLUTTER_WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(_
 # Debug: verificar la existencia del directorio
 print(f"FLUTTER_WEB_DIR: {FLUTTER_WEB_DIR}")
 print(f"Directory exists: {os.path.exists(FLUTTER_WEB_DIR)}")
-if os.path.exists(FLUTTER_WEB_DIR):
-    print(f"Contents: {os.listdir(FLUTTER_WEB_DIR)}")
-    print(f"index.html exists: {os.path.exists(os.path.join(FLUTTER_WEB_DIR, 'index.html'))}")
 
 class ImagePayload(BaseModel):
     image_base64: str
@@ -72,25 +69,59 @@ def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     
-    # Mount static files - IMPORTANTE: El orden es crítico aquí
-    # Primero: Servir assets (archivos estáticos de Flutter)
-    if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
-        app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
-    
-    # Segundo: Servir todos los archivos estáticos en la carpeta web
-    # Esto permite servir main.dart.js, flutter.js, etc.
-    app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
-    
-    # Tercero: Manejar rutas específicas para SPA (Single Page Application)
-    # Esto asegura que tanto / como /dashboard sirvan la aplicación Flutter
-    @app.get("/dashboard", include_in_schema=False)
-    async def dashboard_route():
-        index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
-        if os.path.exists(index_path):
-            with open(index_path, "r") as f:
-                content = f.read()
-                return HTMLResponse(content=content)
-        return HTMLResponse(content="<h1>Dashboard not available</h1>")
+    # Comprobar si el directorio de Flutter web existe
+    if os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR):
+        # Si existe, montar los archivos estáticos
+        if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
+            app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+        
+        # Montar todos los archivos estáticos de Flutter
+        app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
+        
+        # Manejar la ruta específica del dashboard
+        @app.get("/dashboard", include_in_schema=False)
+        async def dashboard_route():
+            index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
+            if os.path.exists(index_path):
+                with open(index_path, "r") as f:
+                    content = f.read()
+                    return HTMLResponse(content=content)
+            return HTMLResponse(content="<h1>Dashboard not available</h1>")
+    else:
+        # Si no existe el directorio de Flutter, mostrar una página API básica
+        @app.get("/", response_class=HTMLResponse)
+        @app.get("/dashboard", response_class=HTMLResponse)
+        async def api_home():
+            return HTMLResponse(content="""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>StoreSense API</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+                    h1 { color: #0277BD; }
+                    .endpoint { background: #f4f4f4; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+                    code { background: #e0e0e0; padding: 2px 4px; border-radius: 3px; }
+                </style>
+            </head>
+            <body>
+                <h1>StoreSense API Server</h1>
+                <p>La interfaz web de Flutter no está disponible en este entorno. Sin embargo, todos los endpoints de la API están operativos.</p>
+                
+                <h2>Endpoints disponibles:</h2>
+                <div class="endpoint">
+                    <h3>Probar conexión</h3>
+                    <code>GET /api/hello</code>
+                </div>
+                
+                <div class="endpoint">
+                    <h3>Estadísticas</h3>
+                    <code>GET /api/statistics/*</code>
+                    <p>Accede a todos los endpoints de estadísticas.</p>
+                </div>
+            </body>
+            </html>
+            """)
     
     # Las otras rutas dinámicas se agregan después de las rutas estáticas
 
