@@ -69,55 +69,54 @@ def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     
-    # Comprobar si el directorio de Flutter web existe
-    if os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR):
-        # Si existe, montar los archivos estáticos
-        if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
-            app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
-        
-        # Montar todos los archivos estáticos de Flutter
-        app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
-        
-        # Manejar la ruta específica del dashboard
-        @app.get("/dashboard", include_in_schema=False)
-        async def dashboard_route():
-            index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
-            if os.path.exists(index_path):
-                with open(index_path, "r") as f:
-                    content = f.read()
-                    return HTMLResponse(content=content)
-            return HTMLResponse(content="<h1>Dashboard not available</h1>")
-    else:
-        # Si no existe el directorio de Flutter, mostrar una página API básica
-        @app.get("/", response_class=HTMLResponse)
-        @app.get("/dashboard", response_class=HTMLResponse)
-        async def api_home():
+    # Siempre servir la interfaz web de Flutter, independientemente de la existencia del directorio
+    # Montar los archivos estáticos si existen
+    if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
+        app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+    
+    # Redirigir la ruta raíz al dashboard
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return HTMLResponse(content="""
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="0;url=/dashboard" />
+            <title>Redirecting to Dashboard</title>
+        </head>
+        <body>
+            <p>Redirecting to dashboard...</p>
+        </body>
+        </html>
+        """)
+    
+    # Manejar la ruta específica del dashboard
+    @app.get("/dashboard", include_in_schema=False)
+    async def dashboard_route():
+        index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
+        if os.path.exists(index_path):
+            with open(index_path, "r") as f:
+                content = f.read()
+                return HTMLResponse(content=content)
+        else:
+            # Si no existe el index.html, montar los estáticos de todos modos
+            app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
             return HTMLResponse(content="""
-            <!DOCTYPE html>
             <html>
             <head>
-                <title>StoreSense API</title>
+                <title>StoreSense Dashboard</title>
                 <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+                    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
                     h1 { color: #0277BD; }
-                    .endpoint { background: #f4f4f4; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-                    code { background: #e0e0e0; padding: 2px 4px; border-radius: 3px; }
+                    .loading { margin-top: 50px; }
+                    .button { background-color: #0277BD; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
                 </style>
             </head>
             <body>
-                <h1>StoreSense API Server</h1>
-                <p>La interfaz web de Flutter no está disponible en este entorno. Sin embargo, todos los endpoints de la API están operativos.</p>
-                
-                <h2>Endpoints disponibles:</h2>
-                <div class="endpoint">
-                    <h3>Probar conexión</h3>
-                    <code>GET /api/hello</code>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>Estadísticas</h3>
-                    <code>GET /api/statistics/*</code>
-                    <p>Accede a todos los endpoints de estadísticas.</p>
+                <h1>StoreSense Dashboard</h1>
+                <div class="loading">
+                    <p>Cargando el dashboard...</p>
+                    <p>Si no se carga automáticamente, haga clic en el botón a continuación.</p>
+                    <a href="/dashboard" class="button">Ir al Dashboard</a>
                 </div>
             </body>
             </html>
