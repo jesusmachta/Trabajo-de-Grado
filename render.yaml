@@ -11,6 +11,8 @@ services:
       echo "--- Installing Flutter ---"
       git clone https://github.com/flutter/flutter.git -b stable --depth 1 /tmp/flutter
       export PATH="/tmp/flutter/bin:$PATH"
+      flutter --version
+      flutter doctor -v
 
       # Build Flutter web app
       echo "--- Building Flutter web app ---"
@@ -20,9 +22,21 @@ services:
       flutter build web --release
       cd ..
 
+      # Verify web build exists
+      if [ -d "frontend/build/web" ]; then
+        echo "✓ Flutter web build successful"
+        ls -la frontend/build/web
+      else
+        echo "✗ Flutter web build failed - directory does not exist"
+        exit 1
+      fi
+
       # Install Python dependencies
       echo "--- Installing Python dependencies ---"
       pip install -r requirements.txt
       echo "--- Build finished ---"
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     pythonVersion: 3.10
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
