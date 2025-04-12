@@ -19,7 +19,7 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     _pages = [
-      const DashboardView(),
+      DashboardView(toggleTheme: widget.toggleTheme),
       const StatisticsView(),
     ];
   }
