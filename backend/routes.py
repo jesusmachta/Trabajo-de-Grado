@@ -69,10 +69,20 @@ def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     
-    # Siempre servir la interfaz web de Flutter, independientemente de la existencia del directorio
-    # Montar los archivos estáticos si existen
-    if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
-        app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+    # Verificar si el directorio de Flutter web existe
+    flutter_web_exists = os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR)
+    
+    # Montar los archivos estáticos solo si existen
+    if flutter_web_exists:
+        if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
+            app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+        
+        # Montar todos los archivos estáticos de Flutter
+        try:
+            app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
+        except RuntimeError as e:
+            print(f"Error mounting static files: {e}")
+            flutter_web_exists = False
     
     # Redirigir la ruta raíz al dashboard
     @app.get("/", include_in_schema=False)
@@ -92,35 +102,50 @@ def initialize_routes(app):
     # Manejar la ruta específica del dashboard
     @app.get("/dashboard", include_in_schema=False)
     async def dashboard_route():
-        index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
-        if os.path.exists(index_path):
-            with open(index_path, "r") as f:
-                content = f.read()
-                return HTMLResponse(content=content)
-        else:
-            # Si no existe el index.html, montar los estáticos de todos modos
-            app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
-            return HTMLResponse(content="""
-            <html>
-            <head>
-                <title>StoreSense Dashboard</title>
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
-                    h1 { color: #0277BD; }
-                    .loading { margin-top: 50px; }
-                    .button { background-color: #0277BD; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
-                </style>
-            </head>
-            <body>
-                <h1>StoreSense Dashboard</h1>
-                <div class="loading">
-                    <p>Cargando el dashboard...</p>
-                    <p>Si no se carga automáticamente, haga clic en el botón a continuación.</p>
-                    <a href="/dashboard" class="button">Ir al Dashboard</a>
+        if flutter_web_exists:
+            index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
+            if os.path.exists(index_path):
+                with open(index_path, "r") as f:
+                    content = f.read()
+                    return HTMLResponse(content=content)
+        
+        # Fallback cuando no existen los archivos de Flutter web
+        return HTMLResponse(content="""
+        <html>
+        <head>
+            <title>StoreSense Dashboard</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
+                h1 { color: #0277BD; }
+                .loading { margin-top: 50px; }
+                .button { background-color: #0277BD; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+                .api-info { margin-top: 50px; text-align: left; background: #f4f4f4; padding: 20px; border-radius: 10px; }
+                code { background: #e0e0e0; padding: 2px 4px; border-radius: 3px; }
+            </style>
+        </head>
+        <body>
+            <h1>StoreSense Dashboard</h1>
+            <div class="loading">
+                <p>El dashboard de Flutter web no está disponible en este entorno.</p>
+                <p>La API está funcionando correctamente y todos los endpoints están operativos.</p>
+            </div>
+            
+            <div class="api-info">
+                <h2>Endpoints disponibles:</h2>
+                <div>
+                    <h3>Probar conexión</h3>
+                    <code>GET /api/hello</code>
                 </div>
-            </body>
-            </html>
-            """)
+                
+                <div>
+                    <h3>Estadísticas</h3>
+                    <code>GET /api/statistics/*</code>
+                    <p>Accede a todos los endpoints de estadísticas.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """)
     
     # Las otras rutas dinámicas se agregan después de las rutas estáticas
 
