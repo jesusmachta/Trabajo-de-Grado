@@ -66,33 +66,47 @@ def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     
-    # Montar archivos estáticos de Flutter Web solo si existe el directorio
-    assets_dir = os.path.join(FLUTTER_WEB_DIR, "assets")
-    if os.path.exists(assets_dir) and os.path.isdir(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-    else:
-        # Si no existe, crear un mensaje de log pero no fallar
-        logger.warning(f"Flutter web assets directory not found: {assets_dir}")
-        # Crear el directorio vacío para evitar el error
-        os.makedirs(assets_dir, exist_ok=True)
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-    
-    # Ruta para servir index.html de Flutter Web
+    # Ruta para servir index.html en la raíz y en /dashboard
     @app.get("/", response_class=HTMLResponse)
-    async def get_flutter_app():
+    @app.get("/dashboard", response_class=HTMLResponse)
+    async def serve_flutter_app():
         index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
         if os.path.exists(index_path):
             with open(index_path, "r") as f:
                 return f.read()
-        # Si no hay index.html de Flutter, mostrar una página básica
-        return HTMLResponse(content="<h1>API Server Running</h1><p>Flutter Web app not available. API endpoints are accessible at /api/*</p>")
+        # Si no hay index.html, mostrar una página básica
+        return HTMLResponse(content="<h1>Flutter Web App Not Available</h1><p>The Flutter web app is not available. Please make sure it is built properly.</p>")
+    
+    # Montar archivos estáticos de Flutter Web para assets
+    if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")) and os.path.isdir(os.path.join(FLUTTER_WEB_DIR, "assets")):
+        app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+    else:
+        # Si no existe, crear un mensaje de log pero no fallar
+        logger.warning(f"Flutter web assets directory not found: {os.path.join(FLUTTER_WEB_DIR, 'assets')}")
+        # Crear el directorio vacío para evitar el error
+        os.makedirs(os.path.join(FLUTTER_WEB_DIR, "assets"), exist_ok=True)
+        app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
     
     # Servir otros archivos estáticos de Flutter Web (como main.dart.js)
     @app.get("/{file_path:path}")
     async def get_flutter_static_file(file_path: str):
-        file_path = os.path.join(FLUTTER_WEB_DIR, file_path)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
+        # Ignorar rutas API
+        if file_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+            
+        # Verificar si el archivo existe en el directorio de Flutter Web
+        full_path = os.path.join(FLUTTER_WEB_DIR, file_path)
+        if os.path.exists(full_path) and os.path.isfile(full_path):
+            return FileResponse(full_path)
+            
+        # Si no se encuentra el archivo, verificar si es una ruta de SPA y retornar index.html
+        if not file_path.endswith(('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf')):
+            index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
+            if os.path.exists(index_path):
+                with open(index_path, "r") as f:
+                    return HTMLResponse(content=f.read())
+                    
+        # Si no se encuentra ningún archivo, retornar 404
         return HTMLResponse(content="<h1>Error: File not found</h1>", status_code=404)
 
 @router.get("/hello")
