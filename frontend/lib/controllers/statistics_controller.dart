@@ -341,46 +341,66 @@ class StatisticsController {
   List<Map<String, String>> getStatisticsOptions() {
     return [
       // Estadísticas básicas
-      {'value': 'peak-hours', 'label': 'Horas pico'},
-      {'value': 'least-hours', 'label': 'Horas valle'},
+      {'value': 'peak-hours', 'label': 'Horas pico', 'emoji': '🕒'},
+      {'value': 'least-hours', 'label': 'Horas valle', 'emoji': '⏱️'},
       {
         'value': 'busy-days-combined',
-        'label': 'Días de la semana con más y menos afluencia'
+        'label': 'Días de la semana con más y menos afluencia',
+        'emoji': '📆'
       },
       {
         'value': 'visited-categories-combined',
-        'label': 'Categorías más y menos visitadas'
+        'label': 'Categorías más y menos visitadas',
+        'emoji': '🛒'
       },
-      {'value': 'most-frequent-emotions', 'label': 'Emociones más frecuentes'},
-      {'value': 'emotion-percentage', 'label': 'Porcentaje de emociones'},
+      {
+        'value': 'most-frequent-emotions',
+        'label': 'Emociones más frecuentes',
+        'emoji': '😊'
+      },
+      {
+        'value': 'emotion-percentage',
+        'label': 'Porcentaje de emociones',
+        'emoji': '📊'
+      },
 
       // Estadísticas que requieren parámetros adicionales
       {
         'value': 'gender-age-combined',
-        'label': 'Distribución por género y edad'
+        'label': 'Distribución por género y edad',
+        'emoji': '👥'
       },
-      {'value': 'emotion-comparison', 'label': 'Comparación de emociones'},
+      {
+        'value': 'emotion-comparison',
+        'label': 'Comparación de emociones',
+        'emoji': '🔄'
+      },
 
       // Estadísticas históricas
       {
         'value': 'visited-categories-historical',
-        'label': 'Histórico de categorías más y menos visitadas'
+        'label': 'Histórico de categorías más y menos visitadas',
+        'emoji': '📈'
       },
       {
         'value': 'preferred-category-by-gender',
-        'label': 'Categorías preferidas por género'
+        'label': 'Categorías preferidas por género',
+        'emoji': '👫'
       },
       {
         'value': 'top-successful-categories',
-        'label': 'Categorías mejor evaluadas'
+        'label': 'Categorías mejor evaluadas',
+        'emoji': '🏆'
       },
       {
         'value': 'emotional-differences-by-category',
-        'label': 'Diferencias emocionales por categoría'
+        'label': 'Diferencias emocionales por categoría',
+        'emoji': '😌'
       },
       {
         'value': 'age-gender-distribution-by-category',
-        'label': 'Distribución edad-género por categoría'
+        'label': 'Distribución edad-género por categoría',
+        'emoji': '📊'
       },
     ];
   }

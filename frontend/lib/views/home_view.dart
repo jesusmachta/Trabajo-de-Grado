@@ -17,6 +17,10 @@ class _HomeViewState extends State<HomeView> {
   bool _showStatisticsSubmenu = false;
   final StatisticsController _statisticsController = StatisticsController();
 
+  // Add a global key for the statistics view using the public state class
+  final GlobalKey<StatisticsViewState> _statisticsViewKey =
+      GlobalKey<StatisticsViewState>();
+
   late final List<Widget> _pages;
 
   @override
@@ -24,7 +28,7 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
     _pages = [
       DashboardView(toggleTheme: widget.toggleTheme),
-      StatisticsView(toggleTheme: widget.toggleTheme),
+      StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
     ];
   }
 
@@ -79,31 +83,39 @@ class _HomeViewState extends State<HomeView> {
                 Navigator.pop(context);
               },
             ),
-            MouseRegion(
-              onEnter: (_) => setState(() => _showStatisticsSubmenu = true),
-              onExit: (_) => setState(() => _showStatisticsSubmenu = false),
-              child: ExpansionTile(
-                leading: const Icon(Icons.bar_chart, size: 28),
-                title: const Text('Estadísticas',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                initiallyExpanded: _showStatisticsSubmenu,
-                maintainState: true,
-                children:
-                    _statisticsController.getStatisticsOptions().map((option) {
-                  return ListTile(
-                    contentPadding: const EdgeInsets.only(left: 70),
-                    title: Text(option['label']!,
-                        style: const TextStyle(fontSize: 14)),
-                    onTap: () {
-                      setState(() {
-                        _currentIndex = 1;
-                      });
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              ),
+            // Statistics ExpansionTile for vertical expansion
+            ExpansionTile(
+              leading: const Icon(Icons.bar_chart, size: 28),
+              title: const Text('Estadísticas',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              initiallyExpanded: _showStatisticsSubmenu,
+              onExpansionChanged: (expanded) {
+                setState(() {
+                  _showStatisticsSubmenu = expanded;
+                });
+              },
+              children:
+                  _statisticsController.getStatisticsOptions().map((option) {
+                return ListTile(
+                  contentPadding: const EdgeInsets.only(left: 70),
+                  dense: true,
+                  leading: Text(
+                    option['emoji'] ?? '📊',
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                  title: Text(option['label']!,
+                      style: const TextStyle(fontSize: 14)),
+                  onTap: () {
+                    setState(() {
+                      _currentIndex = 1;
+                    });
+                    // Update statistics view with selected stat type
+                    _statisticsViewKey.currentState
+                        ?.updateSelectedStat(option['value']!);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
             ),
             ListTile(
               leading: const Icon(Icons.admin_panel_settings, size: 28),
@@ -159,26 +171,6 @@ class _HomeViewState extends State<HomeView> {
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Estadísticas',
-          ),
-        ],
       ),
     );
   }

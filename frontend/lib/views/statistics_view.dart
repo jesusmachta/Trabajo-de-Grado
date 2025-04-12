@@ -23,10 +23,11 @@ class StatisticsView extends StatefulWidget {
   const StatisticsView({super.key, this.toggleTheme});
 
   @override
-  State<StatisticsView> createState() => _StatisticsViewState();
+  StatisticsViewState createState() => StatisticsViewState();
 }
 
-class _StatisticsViewState extends State<StatisticsView> {
+// Make the state class public by removing the underscore
+class StatisticsViewState extends State<StatisticsView> {
   final StatisticsController _controller = StatisticsController();
   bool _isLoading = false;
   String _selectedStat = 'peak-hours';
@@ -38,6 +39,16 @@ class _StatisticsViewState extends State<StatisticsView> {
   // Change to dynamic to accept both Map and List
   dynamic _statisticsData;
   String? _error;
+
+  // Method to update the selected stat from outside
+  void updateSelectedStat(String stat) {
+    if (_selectedStat != stat) {
+      setState(() {
+        _selectedStat = stat;
+      });
+      _loadStatistics();
+    }
+  }
 
   // Opciones para el período
   final List<Map<String, String>> _periodOptions = [
