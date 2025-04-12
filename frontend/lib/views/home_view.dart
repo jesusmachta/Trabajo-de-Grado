@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
+import '../controllers/statistics_controller.dart';
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
@@ -13,6 +14,9 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   int _currentIndex = 0;
+  bool _showStatisticsSubmenu = false;
+  final StatisticsController _statisticsController = StatisticsController();
+
   late final List<Widget> _pages;
 
   @override
@@ -20,7 +24,7 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
     _pages = [
       DashboardView(toggleTheme: widget.toggleTheme),
-      const StatisticsView(),
+      StatisticsView(toggleTheme: widget.toggleTheme),
     ];
   }
 
@@ -58,6 +62,99 @@ class _HomeViewState extends State<HomeView> {
             },
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.dashboard, size: 28),
+              title: const Text('Dashboard',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              selected: _currentIndex == 0,
+              onTap: () {
+                setState(() {
+                  _currentIndex = 0;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            MouseRegion(
+              onEnter: (_) => setState(() => _showStatisticsSubmenu = true),
+              onExit: (_) => setState(() => _showStatisticsSubmenu = false),
+              child: ExpansionTile(
+                leading: const Icon(Icons.bar_chart, size: 28),
+                title: const Text('Estadísticas',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                initiallyExpanded: _showStatisticsSubmenu,
+                maintainState: true,
+                children:
+                    _statisticsController.getStatisticsOptions().map((option) {
+                  return ListTile(
+                    contentPadding: const EdgeInsets.only(left: 70),
+                    title: Text(option['label']!,
+                        style: const TextStyle(fontSize: 14)),
+                    onTap: () {
+                      setState(() {
+                        _currentIndex = 1;
+                      });
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings, size: 28),
+              title: const Text('Roles y Privilegios',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              onTap: () {
+                // Implementación pendiente
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(
+                  isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                  size: 28),
+              title: Text(isDarkMode ? 'Modo claro' : 'Modo oscuro',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w500)),
+              onTap: () {
+                widget.toggleTheme();
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help_outline, size: 28),
+              title: const Text('Ayuda',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline, size: 28),
+              title: const Text('Acerca de',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, size: 28),
+              title: const Text('Log out',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              onTap: () {
+                // Implementación pendiente
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
       body: IndexedStack(
         index: _currentIndex,

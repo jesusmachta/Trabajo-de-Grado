@@ -505,50 +505,93 @@ class _StatisticsViewState extends State<StatisticsView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Estadísticas'),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Título y descripción
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título y descripción
+          Text(
+            'Estadísticas',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Selecciona una estadística para visualizar los datos correspondientes.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 24),
+
+          // Selector de estadísticas
+          StatisticsSelector(
+            value: _selectedStat,
+            options: _controller.getStatisticsOptions(),
+            onChanged: (value) {
+              if (value != null && value != _selectedStat) {
+                setState(() {
+                  _selectedStat = value;
+                  // Clear data when changing statistics
+                  _statisticsData = null;
+                });
+                // Use Future to avoid updating state during build
+                Future.microtask(() => _loadStatistics());
+              }
+            },
+          ),
+
+          // Mostrar selectores adicionales si es necesario
+          if (_requiresParams(_selectedStat)) ...[
+            const SizedBox(height: 16),
             Text(
-              'Estadísticas',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+              'Esta estadística requiere parámetros adicionales:',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 8),
-            Text(
-              'Selecciona una estadística para visualizar los datos correspondientes.',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
 
-            // Selector de estadísticas
-            StatisticsSelector(
-              value: _selectedStat,
-              options: _controller.getStatisticsOptions(),
+            // Selector de período
+            DropdownButtonFormField<String>(
+              value: _selectedPeriod,
+              decoration: InputDecoration(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: const OutlineInputBorder(),
+                labelText: 'Período',
+                hintText: 'Selecciona semana o mes',
+                labelStyle:
+                    TextStyle(color: Theme.of(context).colorScheme.primary),
+                filled: true,
+                fillColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceVariant
+                    .withOpacity(0.3),
+              ),
+              items: _periodOptions.map((option) {
+                return DropdownMenuItem(
+                  value: option['value'],
+                  child: Text(option['label']!),
+                );
+              }).toList(),
               onChanged: (value) {
-                if (value != null && value != _selectedStat) {
+                if (value != null && value != _selectedPeriod) {
                   setState(() {
-                    _selectedStat = value;
-                    // Clear data when changing statistics
+                    _selectedPeriod = value;
+                    // Reset date selections when changing period
+                    if (value == 'week') {
+                      _selectedMonth = null;
+                      _selectedYear = null;
+                    } else {
+                      _selectedEndDate = null;
+                    }
+                    // Clear data when changing period
                     _statisticsData = null;
+
+                    // Make sure to clear any cached data
+                    if (_selectedStat == 'emotion-comparison') {
+                      _controller.clearCache(_selectedStat);
+                    }
                   });
                   // Use Future to avoid updating state during build
                   Future.microtask(() => _loadStatistics());
@@ -556,351 +599,286 @@ class _StatisticsViewState extends State<StatisticsView> {
               },
             ),
 
-            // Mostrar selectores adicionales si es necesario
-            if (_requiresParams(_selectedStat)) ...[
-              const SizedBox(height: 16),
-              Text(
-                'Esta estadística requiere parámetros adicionales:',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-              // Selector de período
-              DropdownButtonFormField<String>(
-                value: _selectedPeriod,
-                decoration: InputDecoration(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  border: const OutlineInputBorder(),
-                  labelText: 'Período',
-                  hintText: 'Selecciona semana o mes',
-                  labelStyle:
-                      TextStyle(color: Theme.of(context).colorScheme.primary),
-                  filled: true,
-                  fillColor: Theme.of(context)
-                      .colorScheme
-                      .surfaceVariant
-                      .withOpacity(0.3),
-                ),
-                items: _periodOptions.map((option) {
-                  return DropdownMenuItem(
-                    value: option['value'],
-                    child: Text(option['label']!),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null && value != _selectedPeriod) {
-                    setState(() {
-                      _selectedPeriod = value;
-                      // Reset date selections when changing period
-                      if (value == 'week') {
-                        _selectedMonth = null;
-                        _selectedYear = null;
-                      } else {
-                        _selectedEndDate = null;
-                      }
-                      // Clear data when changing period
-                      _statisticsData = null;
-
-                      // Make sure to clear any cached data
-                      if (_selectedStat == 'emotion-comparison') {
-                        _controller.clearCache(_selectedStat);
-                      }
-                    });
-                    // Use Future to avoid updating state during build
-                    Future.microtask(() => _loadStatistics());
-                  }
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Mostrar selectores específicos según el período seleccionado
-              if (_selectedPeriod == 'week') ...[
-                // Selector de fechas para período semanal (inicio y fin)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Fecha de inicio:',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          InkWell(
-                            onTap: () => _selectDate(context),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceVariant
-                                    .withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
+            // Mostrar selectores específicos según el período seleccionado
+            if (_selectedPeriod == 'week') ...[
+              // Selector de fechas para período semanal (inicio y fin)
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fecha de inicio:',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      DateFormat('dd/MM/yyyy')
-                                          .format(_selectedDate),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_drop_down,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                                ],
+                        ),
+                        const SizedBox(height: 4),
+                        InkWell(
+                          onTap: () => _selectDate(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceVariant
+                                  .withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outline,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Fecha de fin:',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat('dd/MM/yyyy')
+                                        .format(_selectedDate),
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
-                          ),
-                          const SizedBox(height: 4),
-                          InkWell(
-                            onTap: () => _selectEndDate(context),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceVariant
-                                    .withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _selectedEndDate != null
-                                          ? DateFormat('dd/MM/yyyy')
-                                              .format(_selectedEndDate!)
-                                          : 'No seleccionada',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_drop_down,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                                ],
-                              ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Selecciona el rango de fechas para ver estadísticas de la semana',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ] else if (_selectedPeriod == 'month') ...[
-                // Selector de mes para período mensual
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Selecciona un mes:',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => _selectMonth(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceVariant
-                              .withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outline,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_month,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _selectedMonth != null && _selectedYear != null
-                                    ? '${_getMonthName(_selectedMonth!)} ${_selectedYear!}'
-                                    : 'Mes actual',
-                                style: Theme.of(context).textTheme.bodyMedium,
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fecha de fin:',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        InkWell(
+                          onTap: () => _selectEndDate(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceVariant
+                                  .withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.outline,
                               ),
                             ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _selectedEndDate != null
+                                        ? DateFormat('dd/MM/yyyy')
+                                            .format(_selectedEndDate!)
+                                        : 'No seleccionada',
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Selecciona el rango de fechas para ver estadísticas de la semana',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ] else if (_selectedPeriod == 'month') ...[
+              // Selector de mes para período mensual
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selecciona un mes:',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () => _selectMonth(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceVariant
+                            .withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_month,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedMonth != null && _selectedYear != null
+                                  ? '${_getMonthName(_selectedMonth!)} ${_selectedYear!}'
+                                  : 'Mes actual',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Se mostrarán datos del mes completo seleccionado',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ],
+          ],
+
+          const SizedBox(height: 16),
+
+          // Refresh button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _statisticsData = null;
+                  });
+                  _controller.clearCache(_selectedStat);
+                  _loadStatistics();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Actualizar'),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Mostrar datos o indicadores de carga/error
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Cargando datos...'),
+                      ],
+                    ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
                             Icon(
-                              Icons.arrow_drop_down,
-                              color: Theme.of(context).colorScheme.primary,
+                              Icons.error_outline,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Error al cargar datos',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24.0),
+                              child: Text(
+                                _formatErrorMessage(_error!),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              onPressed: _loadStatistics,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Reintentar'),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Se mostrarán datos del mes completo seleccionado',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
-            ],
-
-            const SizedBox(height: 16),
-
-            // Refresh button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _statisticsData = null;
-                    });
-                    _controller.clearCache(_selectedStat);
-                    _loadStatistics();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Actualizar'),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // Mostrar datos o indicadores de carga/error
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Cargando datos...'),
-                        ],
-                      ),
-                    )
-                  : _error != null
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Error al cargar datos',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 24.0),
-                                child: Text(
-                                  _formatErrorMessage(_error!),
+                      )
+                    : _statisticsData == null
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 64,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Selecciona parámetros para cargar los datos',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                   textAlign: TextAlign.center,
                                 ),
-                              ),
-                              const SizedBox(height: 24),
-                              FilledButton.icon(
-                                onPressed: _loadStatistics,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Reintentar'),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _statisticsData == null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    size: 64,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Selecciona parámetros para cargar los datos',
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            )
-                          : _buildStatisticsContent(),
-            ),
-          ],
-        ),
+                              ],
+                            ),
+                          )
+                        : _buildStatisticsContent(),
+          ),
+        ],
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/dashboard_controller.dart';
 import 'widgets/statistic_card.dart';
 import 'statistics_view.dart';
+import 'home_view.dart';
 
 class DashboardView extends StatefulWidget {
   final Function toggleTheme;
@@ -72,72 +73,34 @@ class _DashboardViewState extends State<DashboardView> {
     final brightness = Theme.of(context).brightness;
     final bool isDarkMode = brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
-        elevation: 0,
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: Icon(
-                isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round),
-            tooltip:
-                isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
-            onPressed: () {
-              widget.toggleTheme();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'Ir a Estadísticas',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => StatisticsView(),
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error al cargar datos',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_error!),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _loadDashboardData,
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () {
-              // Futuro: mostrar ayuda
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Error al cargar datos',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(_error!),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _loadDashboardData,
-                        child: const Text('Reintentar'),
-                      ),
-                    ],
-                  ),
-                )
-              : _buildDashboardContent(),
-    );
+              )
+            : _buildDashboardContent();
   }
 
   Widget _buildDashboardContent() {
@@ -184,8 +147,12 @@ class _DashboardViewState extends State<DashboardView> {
                       const SizedBox(height: 8),
                       FilledButton(
                         onPressed: () {
-                          // Navegar a la pestaña de estadísticas
-                          DefaultTabController.of(context)?.animateTo(1);
+                          // Ir a Estadísticas desde el botón de navegación
+                          if (context
+                                  .findAncestorWidgetOfExactType<Scaffold>() !=
+                              null) {
+                            Scaffold.of(context).openDrawer();
+                          }
                         },
                         child: const Text('Ver Estadísticas'),
                       ),
