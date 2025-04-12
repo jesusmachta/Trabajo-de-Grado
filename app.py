@@ -5,9 +5,19 @@ os.environ['http_proxy'] = ''
 os.environ['https_proxy'] = ''
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from backend.routes import initialize_routes
 
 app = FastAPI()
+
+# Configurar CORS para permitir peticiones desde el frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción, especificar dominios exactos
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Inicializar las rutas
 initialize_routes(app)
