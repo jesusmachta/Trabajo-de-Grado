@@ -74,78 +74,69 @@ def initialize_routes(app):
     
     # Montar los archivos estáticos solo si existen
     if flutter_web_exists:
-        if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
-            app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
-        
-        # Montar todos los archivos estáticos de Flutter
         try:
+            if os.path.exists(os.path.join(FLUTTER_WEB_DIR, "assets")):
+                app.mount("/assets", StaticFiles(directory=os.path.join(FLUTTER_WEB_DIR, "assets")), name="assets")
+            
+            # Montar todos los archivos estáticos de Flutter
             app.mount("/", StaticFiles(directory=FLUTTER_WEB_DIR, html=True), name="flutter_web")
+            
+            # No es necesario definir rutas adicionales si los estáticos están montados
         except RuntimeError as e:
             print(f"Error mounting static files: {e}")
             flutter_web_exists = False
     
-    # Redirigir la ruta raíz al dashboard
-    @app.get("/", include_in_schema=False)
-    async def root():
-        return HTMLResponse(content="""
-        <html>
-        <head>
-            <meta http-equiv="refresh" content="0;url=/dashboard" />
-            <title>Redirecting to Dashboard</title>
-        </head>
-        <body>
-            <p>Redirecting to dashboard...</p>
-        </body>
-        </html>
-        """)
-    
-    # Manejar la ruta específica del dashboard
-    @app.get("/dashboard", include_in_schema=False)
-    async def dashboard_route():
-        if flutter_web_exists:
-            index_path = os.path.join(FLUTTER_WEB_DIR, "index.html")
-            if os.path.exists(index_path):
-                with open(index_path, "r") as f:
-                    content = f.read()
-                    return HTMLResponse(content=content)
-        
-        # Fallback cuando no existen los archivos de Flutter web
-        return HTMLResponse(content="""
-        <html>
-        <head>
-            <title>StoreSense Dashboard</title>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
-                h1 { color: #0277BD; }
-                .loading { margin-top: 50px; }
-                .button { background-color: #0277BD; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
-                .api-info { margin-top: 50px; text-align: left; background: #f4f4f4; padding: 20px; border-radius: 10px; }
-                code { background: #e0e0e0; padding: 2px 4px; border-radius: 3px; }
-            </style>
-        </head>
-        <body>
-            <h1>StoreSense Dashboard</h1>
-            <div class="loading">
-                <p>El dashboard de Flutter web no está disponible en este entorno.</p>
-                <p>La API está funcionando correctamente y todos los endpoints están operativos.</p>
-            </div>
-            
-            <div class="api-info">
-                <h2>Endpoints disponibles:</h2>
-                <div>
-                    <h3>Probar conexión</h3>
-                    <code>GET /api/hello</code>
+    # Si no hay archivos estáticos de Flutter, definir las rutas para mostrar la página de API
+    if not flutter_web_exists:
+        # Ruta principal y dashboard muestran la misma página informativa
+        @app.get("/", response_class=HTMLResponse)
+        @app.get("/dashboard", response_class=HTMLResponse)
+        async def api_info():
+            return HTMLResponse(content="""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>StoreSense API</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+                    h1 { color: #0277BD; text-align: center; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .endpoint { background: #f4f4f4; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+                    code { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; }
+                    .api-container { margin-top: 40px; }
+                    .status { color: #4CAF50; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>StoreSense API Server</h1>
+                    <p class="status">✅ API ACTIVA Y FUNCIONANDO</p>
+                    <p>La interfaz web de Flutter no está disponible en este entorno. Sin embargo, todos los endpoints de la API están operativos.</p>
                 </div>
                 
-                <div>
-                    <h3>Estadísticas</h3>
-                    <code>GET /api/statistics/*</code>
-                    <p>Accede a todos los endpoints de estadísticas.</p>
+                <div class="api-container">
+                    <h2>Endpoints disponibles:</h2>
+                    <div class="endpoint">
+                        <h3>Documentación de la API</h3>
+                        <p>Accede a la documentación completa de la API:</p>
+                        <p><a href="/docs"><code>GET /docs</code></a> - Documentación con Swagger UI</p>
+                        <p><a href="/redoc"><code>GET /redoc</code></a> - Documentación con ReDoc</p>
+                    </div>
+                    
+                    <div class="endpoint">
+                        <h3>Probar conexión</h3>
+                        <p><a href="/api/hello"><code>GET /api/hello</code></a></p>
+                    </div>
+                    
+                    <div class="endpoint">
+                        <h3>Estadísticas</h3>
+                        <p><code>GET /api/statistics/*</code></p>
+                        <p>Accede a todos los endpoints de estadísticas disponibles.</p>
+                    </div>
                 </div>
-            </div>
-        </body>
-        </html>
-        """)
+            </body>
+            </html>
+            """)
     
     # Las otras rutas dinámicas se agregan después de las rutas estáticas
 
