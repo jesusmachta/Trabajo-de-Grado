@@ -1,0 +1,180 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../models/user_model.dart';
+
+class UserController with ChangeNotifier {
+  List<User> _users = [];
+  bool _isLoading = false;
+  String? _error;
+
+  // API base URL - change this to match your backend
+  final String _baseUrl = 'http://localhost:8000/api';
+
+  // Getters
+  List<User> get users => [..._users];
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  // Fetch all users
+  Future<void> fetchUsers(String token) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/users'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> responseData = jsonDecode(response.body)['data'];
+        _users =
+            responseData.map((userData) => User.fromJson(userData)).toList();
+        _isLoading = false;
+        notifyListeners();
+      } else {
+        final responseData = jsonDecode(response.body);
+        _error = responseData['detail'] ?? 'Error al obtener usuarios';
+        _isLoading = false;
+        notifyListeners();
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Add new user
+  Future<bool> addUser(
+    String token, {
+    required String email,
+    required String password,
+    required String fullName,
+    String role = 'user',
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/signup'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'full_name': fullName,
+          'role': role,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchUsers(token); // Refresh user list
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _error = responseData['detail'] ?? 'Error al agregar usuario';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Update user
+  Future<bool> updateUser(String token, User user) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/users/${user.id}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'email': user.email,
+          'full_name': user.fullName,
+          'role': user.role,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Update the user in the list
+        final index = _users.indexWhere((u) => u.id == user.id);
+        if (index != -1) {
+          _users[index] = user;
+        }
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final responseData = jsonDecode(response.body);
+        _error = responseData['detail'] ?? 'Error al actualizar usuario';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Delete user
+  Future<bool> deleteUser(String token, String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Remove the user from the list
+        _users.removeWhere((user) => user.id == userId);
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final responseData = jsonDecode(response.body);
+        _error = responseData['detail'] ?? 'Error al eliminar usuario';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+}

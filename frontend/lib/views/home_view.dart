@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
+import 'users_view.dart';
 import '../controllers/statistics_controller.dart';
 
 class HomeView extends StatefulWidget {
@@ -29,12 +30,14 @@ class _HomeViewState extends State<HomeView> {
     _pages = [
       DashboardView(toggleTheme: widget.toggleTheme),
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
+      UsersView(toggleTheme: widget.toggleTheme),
     ];
   }
 
   final List<String> _titles = [
     'Dashboard',
     'Estadísticas',
+    'Gestión de Usuarios',
   ];
 
   @override
@@ -121,8 +124,11 @@ class _HomeViewState extends State<HomeView> {
               leading: const Icon(Icons.admin_panel_settings, size: 28),
               title: const Text('Roles y Privilegios',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              selected: _currentIndex == 2,
               onTap: () {
-                // Implementación pendiente
+                setState(() {
+                  _currentIndex = 2;
+                });
                 Navigator.pop(context);
               },
             ),

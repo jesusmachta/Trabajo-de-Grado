@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from pydantic import BaseModel, EmailStr
 from backend.aws import analyze_image, upload_image_to_s3
-from datetime import datetime
+from datetime import datetime, timedelta
 from backend.database import collections
 import pymongo
 import os
@@ -33,6 +33,9 @@ from backend.statistics.emotional_differences_by_category import get_emotional_d
 from backend.statistics.age_gender_distribution_by_category import get_age_gender_distribution_by_category
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
+import bcrypt
+import jwt
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 
 router = APIRouter()
@@ -47,9 +50,35 @@ FLUTTER_WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(_
 print(f"FLUTTER_WEB_DIR: {FLUTTER_WEB_DIR}")
 print(f"Directory exists: {os.path.exists(FLUTTER_WEB_DIR)}")
 
+# JWT settings
+SECRET_KEY = "d5ce1e8ca2d3c30ba1c6bfd87fb14943f7e75dbea2d33ca4cf54de94cb906add"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
+
 class ImagePayload(BaseModel):
     image_base64: str
     id_camara: int
+
+# User models
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    role: str = "user"  # default role
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user_id: str
+    email: str
+    full_name: str
+    role: str
 
 def get_next_sequence_value(sequence_name):
     try:
@@ -580,3 +609,220 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
     except Exception as e:
         logger.error(f"Unexpected error in save_to_db_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Helper functions for auth
+def hash_password(password: str) -> str:
+    """Hash a password for storing."""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a stored password against provided password."""
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    """Create JWT token."""
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """Decode JWT token to get current user."""
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+    
+    user = collections['Users'].find_one({"_id": int(user_id)})
+    if user is None:
+        raise credentials_exception
+    
+    return user
+
+@router.post("/signup", response_model=Token)
+async def signup(user_data: UserCreate):
+    """Endpoint for user registration."""
+    # Check if user already exists
+    if collections['Users'].find_one({"email": user_data.email}) is not None:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create new user
+    user_id = get_next_sequence_value("user_id")
+    hashed_password = hash_password(user_data.password)
+    
+    # Create user document
+    user = {
+        "_id": user_id,
+        "email": user_data.email,
+        "password": hashed_password,
+        "full_name": user_data.full_name,
+        "role": user_data.role,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    
+    # Insert user into database
+    collections['Users'].insert_one(user)
+    
+    # Create and return access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user_id)}, 
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": str(user_id),
+        "email": user.get("email"),
+        "full_name": user.get("full_name"),
+        "role": user.get("role")
+    }
+
+@router.post("/login", response_model=Token)
+async def login(user_data: UserLogin):
+    """Endpoint for user login."""
+    # Find user by email
+    user = collections['Users'].find_one({"email": user_data.email})
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Verify password
+    if not verify_password(user_data.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Create and return access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user["_id"])}, 
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": str(user["_id"]),
+        "email": user.get("email"),
+        "full_name": user.get("full_name"),
+        "role": user.get("role")
+    }
+
+# User management endpoints
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
+@router.get("/users", response_model=dict)
+async def get_users(current_user: dict = Depends(get_current_user)):
+    """Endpoint to get all users. Admin only."""
+    # Check if user is admin
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Access forbidden: Admin only")
+    
+    users = list(collections['Users'].find({}, {"password": 0}))  # Exclude password field
+    
+    # Convert ObjectId to string for JSON serialization
+    for user in users:
+        user["_id"] = str(user["_id"])
+    
+    return {"message": "Success", "data": users}
+
+@router.get("/users/{user_id}", response_model=dict)
+async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Endpoint to get a specific user. Admin or self only."""
+    # Check if user is admin or self
+    if current_user.get("role") != "admin" and str(current_user.get("_id")) != user_id:
+        raise HTTPException(status_code=403, detail="Access forbidden: Admin or self only")
+    
+    user = collections['Users'].find_one({"_id": int(user_id)}, {"password": 0})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Convert ObjectId to string for JSON serialization
+    user["_id"] = str(user["_id"])
+    
+    return {"message": "Success", "data": user}
+
+@router.put("/users/{user_id}", response_model=dict)
+async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_current_user)):
+    """Endpoint to update a user. Admin or self only."""
+    # Check if user is admin or self
+    if current_user.get("role") != "admin" and str(current_user.get("_id")) != user_id:
+        raise HTTPException(status_code=403, detail="Access forbidden: Admin or self only")
+    
+    # Find user
+    user = collections['Users'].find_one({"_id": int(user_id)})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prepare update data
+    update_data = {}
+    if user_data.email is not None:
+        # Check if email is already taken by another user
+        existing_user = collections['Users'].find_one({"email": user_data.email})
+        if existing_user is not None and str(existing_user["_id"]) != user_id:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        update_data["email"] = user_data.email
+    
+    if user_data.full_name is not None:
+        update_data["full_name"] = user_data.full_name
+    
+    # Only admin can change roles
+    if user_data.role is not None:
+        if current_user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Only admin can change roles")
+        update_data["role"] = user_data.role
+    
+    # Update password if provided
+    if user_data.password is not None:
+        update_data["password"] = hash_password(user_data.password)
+    
+    # Update user
+    if update_data:
+        collections['Users'].update_one({"_id": int(user_id)}, {"$set": update_data})
+    
+    # Get updated user
+    updated_user = collections['Users'].find_one({"_id": int(user_id)}, {"password": 0})
+    updated_user["_id"] = str(updated_user["_id"])
+    
+    return {"message": "User updated successfully", "data": updated_user}
+
+@router.delete("/users/{user_id}", response_model=dict)
+async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Endpoint to delete a user. Admin only."""
+    # Check if user is admin
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Access forbidden: Admin only")
+    
+    # Find user
+    user = collections['Users'].find_one({"_id": int(user_id)})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent deleting self
+    if str(current_user.get("_id")) == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    # Delete user
+    collections['Users'].delete_one({"_id": int(user_id)})
+    
+    return {"message": "User deleted successfully"}
