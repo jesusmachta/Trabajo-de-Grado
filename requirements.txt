@@ -14,3 +14,7 @@ opencv-python
 matplotlib
 pytz
 aiofiles
+bcrypt
+pyjwt
+pydantic[email]
+python-multipart

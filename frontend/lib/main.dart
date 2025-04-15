@@ -4,6 +4,7 @@ import 'views/home_view.dart';
 import 'views/login_view.dart';
 import 'views/dashboard_view.dart';
 import 'controllers/auth_controller.dart';
+import 'controllers/user_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -12,8 +13,11 @@ void main() {
   initializeDateFormatting('es_ES').then((_) {
     Intl.defaultLocale = 'es_ES';
     runApp(
-      ChangeNotifierProvider(
-        create: (context) => AuthController(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (context) => AuthController()),
+          ChangeNotifierProvider(create: (context) => UserController()),
+        ],
         child: const MyApp(),
       ),
     );

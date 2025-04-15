@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class User {
   final String id;
@@ -8,6 +9,8 @@ class User {
   final String fullName;
   final String role;
   final DateTime createdAt;
+  final String? profilePicture;
+  final bool isActive;
 
   User({
     required this.id,
@@ -15,15 +18,21 @@ class User {
     required this.fullName,
     required this.role,
     required this.createdAt,
+    this.profilePicture,
+    this.isActive = true,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
-      email: json['email'],
-      fullName: json['full_name'],
-      role: json['role'],
-      createdAt: DateTime.parse(json['created_at']),
+      id: json['id'] ?? json['user_id'] ?? '',
+      email: json['email'] ?? '',
+      fullName: json['full_name'] ?? '',
+      role: json['role'] ?? 'user',
+      profilePicture: json['profile_picture'],
+      isActive: json['is_active'] ?? true,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
     );
   }
 }
@@ -33,6 +42,9 @@ class AuthController with ChangeNotifier {
   String? _token;
   bool _isLoading = false;
   String? _error;
+
+  // API base URL - change this to match your backend
+  final String _baseUrl = 'http://localhost:8000/api';
 
   // Getters
   User? get currentUser => _currentUser;
@@ -71,6 +83,8 @@ class AuthController with ChangeNotifier {
             'email': _currentUser!.email,
             'full_name': _currentUser!.fullName,
             'role': _currentUser!.role,
+            'profile_picture': _currentUser!.profilePicture,
+            'is_active': _currentUser!.isActive,
             'created_at': _currentUser!.createdAt.toIso8601String(),
           }));
     }
@@ -83,25 +97,96 @@ class AuthController with ChangeNotifier {
     await prefs.remove('user');
   }
 
-  // Login method (mock implementation)
+  // SignUp method
+  Future<bool> signup(String email, String password, String fullName,
+      {String role = 'user', String? profilePicture}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/signup'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'full_name': fullName,
+          'role': role,
+          'profile_picture': profilePicture,
+          'is_active': true,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _token = responseData['access_token'];
+        _currentUser = User(
+          id: responseData['user_id'],
+          email: responseData['email'],
+          fullName: responseData['full_name'],
+          role: responseData['role'],
+          profilePicture: responseData['profile_picture'],
+          isActive: responseData['is_active'] ?? true,
+          createdAt: DateTime.now(),
+        );
+
+        await _saveCredentials();
+
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _error = responseData['detail'] ?? 'Error al registrar usuario';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Login method
   Future<bool> login(String email, String password, bool rememberMe) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
-
     try {
-      // Mock credentials check
-      if (email == 'admin@storesense.com' && password == 'admin123') {
-        // Create mock user and token
-        _token = 'mock_token_${DateTime.now().millisecondsSinceEpoch}';
+      final response = await http.post(
+        Uri.parse('$_baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        // Check if user is active
+        final isActive = responseData['is_active'] ?? true;
+        if (!isActive) {
+          _error = 'Tu cuenta está inactiva. Contacta al administrador.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+
+        _token = responseData['access_token'];
         _currentUser = User(
-          id: '1',
-          email: email,
-          fullName: 'Admin User',
-          role: 'admin',
+          id: responseData['user_id'],
+          email: responseData['email'],
+          fullName: responseData['full_name'],
+          role: responseData['role'],
+          profilePicture: responseData['profile_picture'],
+          isActive: isActive,
           createdAt: DateTime.now(),
         );
 
@@ -114,7 +199,7 @@ class AuthController with ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = 'Credenciales inválidas';
+        _error = responseData['detail'] ?? 'Credenciales inválidas';
         _isLoading = false;
         notifyListeners();
         return false;
@@ -135,12 +220,16 @@ class AuthController with ChangeNotifier {
     notifyListeners();
   }
 
-  // Validate token (mock implementation)
+  // Validate token (real implementation)
   Future<bool> validateToken() async {
     if (_token == null) return false;
 
-    // In a real app, we would verify the token with the backend
-    // For now, just return true if we have a token
-    return true;
+    try {
+      // You can add a token validation endpoint to your backend if needed
+      return true;
+    } catch (e) {
+      await logout();
+      return false;
+    }
   }
 }
