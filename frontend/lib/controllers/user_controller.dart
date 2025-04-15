@@ -57,6 +57,8 @@ class UserController with ChangeNotifier {
     required String password,
     required String fullName,
     String role = 'user',
+    String? profilePicture,
+    bool isActive = true,
   }) async {
     _isLoading = true;
     _error = null;
@@ -74,6 +76,8 @@ class UserController with ChangeNotifier {
           'password': password,
           'full_name': fullName,
           'role': role,
+          'profile_picture': profilePicture,
+          'is_active': isActive,
         }),
       );
 
@@ -115,6 +119,8 @@ class UserController with ChangeNotifier {
           'email': user.email,
           'full_name': user.fullName,
           'role': user.role,
+          'profile_picture': user.profilePicture,
+          'is_active': user.isActive,
         }),
       );
 
@@ -140,6 +146,12 @@ class UserController with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  // Toggle user status
+  Future<bool> toggleUserStatus(String token, User user) async {
+    final updatedUser = user.copyWith(isActive: !user.isActive);
+    return await updateUser(token, updatedUser);
   }
 
   // Delete user

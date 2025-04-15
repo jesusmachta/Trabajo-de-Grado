@@ -9,6 +9,8 @@ class User {
   final String fullName;
   final String role;
   final DateTime createdAt;
+  final String? profilePicture;
+  final bool isActive;
 
   User({
     required this.id,
@@ -16,6 +18,8 @@ class User {
     required this.fullName,
     required this.role,
     required this.createdAt,
+    this.profilePicture,
+    this.isActive = true,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -24,6 +28,8 @@ class User {
       email: json['email'] ?? '',
       fullName: json['full_name'] ?? '',
       role: json['role'] ?? 'user',
+      profilePicture: json['profile_picture'],
+      isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -77,6 +83,8 @@ class AuthController with ChangeNotifier {
             'email': _currentUser!.email,
             'full_name': _currentUser!.fullName,
             'role': _currentUser!.role,
+            'profile_picture': _currentUser!.profilePicture,
+            'is_active': _currentUser!.isActive,
             'created_at': _currentUser!.createdAt.toIso8601String(),
           }));
     }
@@ -91,7 +99,7 @@ class AuthController with ChangeNotifier {
 
   // SignUp method
   Future<bool> signup(String email, String password, String fullName,
-      {String role = 'user'}) async {
+      {String role = 'user', String? profilePicture}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -105,6 +113,8 @@ class AuthController with ChangeNotifier {
           'password': password,
           'full_name': fullName,
           'role': role,
+          'profile_picture': profilePicture,
+          'is_active': true,
         }),
       );
 
@@ -117,6 +127,8 @@ class AuthController with ChangeNotifier {
           email: responseData['email'],
           fullName: responseData['full_name'],
           role: responseData['role'],
+          profilePicture: responseData['profile_picture'],
+          isActive: responseData['is_active'] ?? true,
           createdAt: DateTime.now(),
         );
 
@@ -158,12 +170,23 @@ class AuthController with ChangeNotifier {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        // Check if user is active
+        final isActive = responseData['is_active'] ?? true;
+        if (!isActive) {
+          _error = 'Tu cuenta está inactiva. Contacta al administrador.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+
         _token = responseData['access_token'];
         _currentUser = User(
           id: responseData['user_id'],
           email: responseData['email'],
           fullName: responseData['full_name'],
           role: responseData['role'],
+          profilePicture: responseData['profile_picture'],
+          isActive: isActive,
           createdAt: DateTime.now(),
         );
 
