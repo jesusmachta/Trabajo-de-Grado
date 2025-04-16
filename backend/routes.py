@@ -1,3 +1,4 @@
+from backend.statistics.apis.categories_api import get_categories
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, EmailStr
 from backend.aws import analyze_image, upload_image_to_s3
@@ -182,6 +183,14 @@ def daily_traffic():
         data = get_peak_hours()
         return {"message": "Success", "data": data}
     except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/categories/")
+def categories():
+    try: 
+        data = get_categories()
+        return {"message": "Success", "data": data}
+    except Exception as e: 
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/least-hours/")
