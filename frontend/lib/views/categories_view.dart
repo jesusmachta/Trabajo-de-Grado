@@ -103,19 +103,25 @@ class _CategoriesViewState extends State<CategoriesView> {
           ),
           const SizedBox(height: 24),
 
-          // Buscador
-          TextField(
-            onChanged: _filterCategories,
-            decoration: InputDecoration(
-              hintText: 'Buscar categorías...',
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
+          // Buscador con ancho limitado
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: 300, // Ancho máximo del buscador
+              child: TextField(
+                onChanged: _filterCategories,
+                decoration: InputDecoration(
+                  hintText: 'Buscar categorías...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
               ),
             ),
           ),
@@ -125,99 +131,108 @@ class _CategoriesViewState extends State<CategoriesView> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(color: theme.dividerColor, width: 1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    clipBehavior: Clip.antiAlias,
+                : Align(
+                    alignment: Alignment.topCenter,
                     child: SingleChildScrollView(
-                      child: DataTable(
-                        dividerThickness:
-                            1, // Grosor de las líneas horizontales
-                        dataRowColor: MaterialStateProperty.resolveWith<Color?>(
-                          (Set<MaterialState> states) {
-                            return theme.colorScheme.surfaceVariant
-                                .withOpacity(0.1); // Color gris suave
-                          },
-                        ),
-                        headingRowColor:
-                            MaterialStateProperty.resolveWith<Color?>(
-                          (Set<MaterialState> states) {
-                            return theme.colorScheme.secondaryContainer
-                                .withOpacity(0.3);
-                          },
-                        ),
-                        headingTextStyle: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSecondaryContainer,
-                        ),
-                        columnSpacing: 24,
-                        columns: const [
-                          DataColumn(label: Text('Foto')),
-                          DataColumn(label: Text('Nombre')),
-                          DataColumn(label: Text('Estado')),
-                          DataColumn(label: Text('Acciones')),
-                        ],
-                        rows: filteredCategories.map((category) {
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundImage: category['photo'] != null
-                                      ? NetworkImage(category['photo'])
-                                      : null,
-                                  child: category['photo'] == null
-                                      ? Icon(Icons.category,
-                                          size: 20,
-                                          color: theme.colorScheme.primary)
-                                      : null,
-                                  backgroundColor:
-                                      theme.colorScheme.surfaceVariant,
-                                ),
-                              ),
-                              DataCell(Text(category['name'])),
-                              DataCell(
-                                Chip(
-                                  label: Text(
-                                    category['isActive']
-                                        ? 'Activo'
-                                        : 'Inactivo',
-                                    style: TextStyle(
-                                      color: category['isActive']
-                                          ? Colors.green.shade900
-                                          : Colors.grey.shade700,
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                            maxWidth: 1000), // Reducir el ancho máximo
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal:
+                                  8.0), // Márgenes laterales más pequeños
+                          child: DataTable(
+                            dividerThickness:
+                                1, // Grosor de las líneas horizontales
+                            dataRowColor:
+                                MaterialStateProperty.resolveWith<Color?>(
+                              (Set<MaterialState> states) {
+                                return theme.colorScheme.surfaceVariant
+                                    .withOpacity(0.1); // Color gris suave
+                              },
+                            ),
+                            headingRowColor:
+                                MaterialStateProperty.resolveWith<Color?>(
+                              (Set<MaterialState> states) {
+                                return theme.colorScheme.secondaryContainer
+                                    .withOpacity(0.3);
+                              },
+                            ),
+                            headingTextStyle:
+                                theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSecondaryContainer,
+                            ),
+                            columnSpacing: MediaQuery.of(context).size.width *
+                                0.04, // Espaciado dinámico entre columnas
+                            columns: const [
+                              DataColumn(label: Text('Foto')),
+                              DataColumn(label: Text('Nombre')),
+                              DataColumn(label: Text('Estado')),
+                              DataColumn(label: Text('Acciones')),
+                            ],
+                            rows: filteredCategories.map((category) {
+                              return DataRow(
+                                cells: [
+                                  DataCell(
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundImage: category['photo'] != null
+                                          ? NetworkImage(category['photo'])
+                                          : null,
+                                      child: category['photo'] == null
+                                          ? Icon(Icons.category,
+                                              size: 20,
+                                              color: theme.colorScheme.primary)
+                                          : null,
+                                      backgroundColor:
+                                          theme.colorScheme.surfaceVariant,
                                     ),
                                   ),
-                                  backgroundColor: category['isActive']
-                                      ? Colors.green.shade100
-                                      : Colors.grey.shade300,
-                                ),
-                              ),
-                              DataCell(
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.edit_outlined,
-                                          color: theme.colorScheme.primary),
-                                      tooltip: 'Editar categoría',
-                                      onPressed: () => _editCategory(category),
+                                  DataCell(Text(category['name'])),
+                                  DataCell(
+                                    Chip(
+                                      label: Text(
+                                        category['isActive']
+                                            ? 'Activo'
+                                            : 'Inactivo',
+                                        style: TextStyle(
+                                          color: category['isActive']
+                                              ? Colors.green.shade900
+                                              : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      backgroundColor: category['isActive']
+                                          ? Colors.green.shade100
+                                          : Colors.grey.shade300,
                                     ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete_outline,
-                                          color: theme.colorScheme.error),
-                                      tooltip: 'Eliminar categoría',
-                                      onPressed: () =>
-                                          _deleteCategory(category),
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(Icons.edit_outlined,
+                                              color: theme.colorScheme.primary),
+                                          tooltip: 'Editar categoría',
+                                          onPressed: () =>
+                                              _editCategory(category),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(Icons.delete_outline,
+                                              color: theme.colorScheme.error),
+                                          tooltip: 'Eliminar categoría',
+                                          onPressed: () =>
+                                              _deleteCategory(category),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
                     ),
                   ),
