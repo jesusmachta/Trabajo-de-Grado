@@ -151,8 +151,8 @@ class _HomeViewState extends State<HomeView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.shopping_bag, size: 28),
-              title: const Text('Productos',
+              leading: const Icon(Icons.camera_alt, size: 28),
+              title: const Text('Cámaras',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               selected: _currentIndex == 4,
               onTap: () {
