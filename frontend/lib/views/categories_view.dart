@@ -12,8 +12,10 @@ class CategoriesView extends StatefulWidget {
 
 class _CategoriesViewState extends State<CategoriesView> {
   final CategoriesController _controller = CategoriesController();
-  List<String> categories = [];
+  List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> filteredCategories = [];
   bool isLoading = true;
+  String searchQuery = '';
 
   @override
   void initState() {
@@ -28,8 +30,17 @@ class _CategoriesViewState extends State<CategoriesView> {
 
     try {
       final data = await _controller.getCategories();
+      final List<Map<String, dynamic>> categoryData = data.map((category) {
+        return {
+          'name': category,
+          'isActive': true,
+          'photo': null,
+        };
+      }).toList();
+
       setState(() {
-        categories = data;
+        categories = categoryData;
+        filteredCategories = categoryData;
         isLoading = false;
       });
     } catch (e) {
@@ -42,90 +53,173 @@ class _CategoriesViewState extends State<CategoriesView> {
     }
   }
 
+  void _filterCategories(String query) {
+    setState(() {
+      searchQuery = query;
+      filteredCategories = categories
+          .where((category) =>
+              category['name'].toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  void _editCategory(Map<String, dynamic> category) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Editar categoría: ${category['name']}')),
+    );
+  }
+
+  void _deleteCategory(Map<String, dynamic> category) {
+    setState(() {
+      categories.remove(category);
+      filteredCategories.remove(category);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Categoría eliminada: ${category['name']}')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final bool isDarkMode = brightness == Brightness.dark;
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header similar al de statistics_view
+          // Header
           Text(
             'Categorías',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Explora las categorías en el sistema asociadas a una cámara.',
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 24),
 
-          // Contenido principal
+          // Buscador
+          TextField(
+            onChanged: _filterCategories,
+            decoration: InputDecoration(
+              hintText: 'Buscar categorías...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Tabla de categorías
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : GridView.count(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 24,
-                    mainAxisSpacing: 24,
-                    childAspectRatio: 1.0,
-                    children: categories.map((cat) {
-                      return Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                : Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: theme.dividerColor, width: 1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        dividerThickness:
+                            1, // Grosor de las líneas horizontales
+                        dataRowColor: MaterialStateProperty.resolveWith<Color?>(
+                          (Set<MaterialState> states) {
+                            return theme.colorScheme.surfaceVariant
+                                .withOpacity(0.1); // Color gris suave
+                          },
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Icono representativo de la categoría
-                            Expanded(
-                              child: Center(
-                                child: Icon(
-                                  Icons.category, // Ícono representativo
-                                  size: 48,
-                                  color: Theme.of(context).colorScheme.primary,
+                        headingRowColor:
+                            MaterialStateProperty.resolveWith<Color?>(
+                          (Set<MaterialState> states) {
+                            return theme.colorScheme.secondaryContainer
+                                .withOpacity(0.3);
+                          },
+                        ),
+                        headingTextStyle: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                        columnSpacing: 24,
+                        columns: const [
+                          DataColumn(label: Text('Foto')),
+                          DataColumn(label: Text('Nombre')),
+                          DataColumn(label: Text('Estado')),
+                          DataColumn(label: Text('Acciones')),
+                        ],
+                        rows: filteredCategories.map((category) {
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundImage: category['photo'] != null
+                                      ? NetworkImage(category['photo'])
+                                      : null,
+                                  child: category['photo'] == null
+                                      ? Icon(Icons.category,
+                                          size: 20,
+                                          color: theme.colorScheme.primary)
+                                      : null,
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceVariant,
                                 ),
                               ),
-                            ),
-                            // Fondo gris claro con el nombre y el botón
-                            Container(
-                              color: Colors.grey[200],
-                              padding: const EdgeInsets.all(12.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    cat,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
+                              DataCell(Text(category['name'])),
+                              DataCell(
+                                Chip(
+                                  label: Text(
+                                    category['isActive']
+                                        ? 'Activo'
+                                        : 'Inactivo',
+                                    style: TextStyle(
+                                      color: category['isActive']
+                                          ? Colors.green.shade900
+                                          : Colors.grey.shade700,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Align(
-                                    alignment: Alignment.bottomRight,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        // Acción para "Ver detalles"
-                                      },
-                                      child: const Text('Ver detalles'),
-                                    ),
-                                  ),
-                                ],
+                                  backgroundColor: category['isActive']
+                                      ? Colors.green.shade100
+                                      : Colors.grey.shade300,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                              DataCell(
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(Icons.edit_outlined,
+                                          color: theme.colorScheme.primary),
+                                      tooltip: 'Editar categoría',
+                                      onPressed: () => _editCategory(category),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_outline,
+                                          color: theme.colorScheme.error),
+                                      tooltip: 'Eliminar categoría',
+                                      onPressed: () =>
+                                          _deleteCategory(category),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
           ),
         ],
