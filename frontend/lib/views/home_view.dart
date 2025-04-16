@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
 import 'users_view.dart';
+import 'categories_view.dart';
+import 'products_view.dart';
 import '../controllers/statistics_controller.dart';
 
 class HomeView extends StatefulWidget {
@@ -31,6 +33,8 @@ class _HomeViewState extends State<HomeView> {
       DashboardView(toggleTheme: widget.toggleTheme),
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
       UsersView(toggleTheme: widget.toggleTheme),
+      // CategoriesView(toggleTheme: widget.toggleTheme), // Nueva página
+      // ProductsView(toggleTheme: widget.toggleTheme), // Nueva página
     ];
   }
 
@@ -38,6 +42,8 @@ class _HomeViewState extends State<HomeView> {
     'Dashboard',
     'Estadísticas',
     'Gestión de Usuarios',
+    'Categorías', // Nuevo título
+    'Productos', // Nuevo título
   ];
 
   @override
@@ -128,6 +134,30 @@ class _HomeViewState extends State<HomeView> {
               onTap: () {
                 setState(() {
                   _currentIndex = 2;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.category, size: 28),
+              title: const Text('Categorías',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              selected: _currentIndex == 3,
+              onTap: () {
+                setState(() {
+                  _currentIndex = 3;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_bag, size: 28),
+              title: const Text('Productos',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              selected: _currentIndex == 4,
+              onTap: () {
+                setState(() {
+                  _currentIndex = 4;
                 });
                 Navigator.pop(context);
               },
