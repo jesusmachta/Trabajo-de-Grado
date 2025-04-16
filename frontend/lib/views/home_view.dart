@@ -33,8 +33,8 @@ class _HomeViewState extends State<HomeView> {
       DashboardView(toggleTheme: widget.toggleTheme),
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
       UsersView(toggleTheme: widget.toggleTheme),
-      // CategoriesView(toggleTheme: widget.toggleTheme), // Nueva página
-      // ProductsView(toggleTheme: widget.toggleTheme), // Nueva página
+      CategoriesView(toggleTheme: widget.toggleTheme),
+      // CamerasView(toggleTheme: widget.toggleTheme),
     ];
   }
 
@@ -42,8 +42,8 @@ class _HomeViewState extends State<HomeView> {
     'Dashboard',
     'Estadísticas',
     'Gestión de Usuarios',
-    'Categorías', // Nuevo título
-    'Productos', // Nuevo título
+    'Categorías',
+    'Cámaras',
   ];
 
   @override

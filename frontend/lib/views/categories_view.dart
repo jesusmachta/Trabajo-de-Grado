@@ -1,48 +1,52 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../controllers/categories_controller.dart';
 
 class CategoriesView extends StatefulWidget {
-  const CategoriesView({Key? key}) : super(key: key);
+  final Function toggleTheme;
+
+  const CategoriesView({Key? key, required this.toggleTheme}) : super(key: key);
 
   @override
   State<CategoriesView> createState() => _CategoriesViewState();
 }
 
 class _CategoriesViewState extends State<CategoriesView> {
+  final CategoriesController _controller = CategoriesController();
   List<String> categories = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchCategories();
+    _loadCategories();
   }
 
-  Future<void> fetchCategories() async {
-    // Cambia esta URL por la de tu backend real
-    final url = Uri.parse('http://localhost:5000/api/categories');
-    final response = await http.get(url);
+  Future<void> _loadCategories() async {
+    setState(() {
+      isLoading = true;
+    });
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
+    try {
+      final data = await _controller.getCategories();
       setState(() {
-        categories = data.map((e) => e.toString()).toList();
+        categories = data;
         isLoading = false;
       });
-    } else {
+    } catch (e) {
       setState(() {
         isLoading = false;
       });
-      // Manejo de error
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to load categories')),
+        SnackBar(content: Text('Error loading categories: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final bool isDarkMode = brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAFA),
       appBar: AppBar(
@@ -51,6 +55,17 @@ class _CategoriesViewState extends State<CategoriesView> {
         backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
         toolbarHeight: 90,
+        actions: [
+          IconButton(
+            icon: Icon(
+                isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round),
+            tooltip:
+                isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+            onPressed: () {
+              widget.toggleTheme();
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -102,7 +117,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                                 const SizedBox(height: 8),
                                 const Expanded(
                                   child: Text(
-                                    '', // Aquí podrías poner una descripción si la tienes
+                                    '',
                                     style: TextStyle(
                                         fontSize: 15, color: Colors.black87),
                                   ),
