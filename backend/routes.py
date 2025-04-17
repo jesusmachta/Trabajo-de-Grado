@@ -1,8 +1,8 @@
 from backend.statistics.apis.categories_api import get_categories
 from backend.statistics.apis.update_category_api import update_category
 from backend.statistics.apis.update_category_api import router as update_category_router
-# Remove import for cameras_router
-# from backend.routes.cameras import router as cameras_router 
+from backend.statistics.apis.delete_category_api import router as delete_category_router
+from backend.statistics.apis.create_category_api import router as create_category_router
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body
 from pydantic import BaseModel, EmailStr
@@ -106,8 +106,8 @@ def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     app.include_router(update_category_router, prefix="/api")
-    # Remove including camera router as its routes are now part of the main router
-    # app.include_router(cameras_router, prefix="/api", tags=["Cameras"]) 
+    app.include_router(delete_category_router, prefix="/api")
+    app.include_router(create_category_router, prefix="/api")
     
     # Verificar si el directorio de Flutter web existe
     flutter_web_exists = os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR)
