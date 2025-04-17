@@ -29,14 +29,9 @@ class _CategoriesViewState extends State<CategoriesView> {
     });
 
     try {
-      final data = await _controller.getCategories();
-      final List<Map<String, dynamic>> categoryData = data.map((category) {
-        return {
-          'name': category,
-          'isActive': true,
-          'photo': null,
-        };
-      }).toList();
+      // Llamar al controlador para obtener las categorías
+      final List<Map<String, dynamic>> categoryData =
+          await _controller.getCategories();
 
       setState(() {
         categories = categoryData;
@@ -57,15 +52,17 @@ class _CategoriesViewState extends State<CategoriesView> {
     setState(() {
       searchQuery = query;
       filteredCategories = categories
-          .where((category) =>
-              category['name'].toLowerCase().contains(query.toLowerCase()))
+          .where((category) => category["Categoria_Producto"]
+              .toLowerCase()
+              .contains(query.toLowerCase()))
           .toList();
     });
   }
 
   void _editCategory(Map<String, dynamic> category) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Editar categoría: ${category['name']}')),
+      SnackBar(
+          content: Text('Editar categoría: ${category["Categoria_Producto"]}')),
     );
   }
 
@@ -75,7 +72,9 @@ class _CategoriesViewState extends State<CategoriesView> {
       filteredCategories.remove(category);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Categoría eliminada: ${category['name']}')),
+      SnackBar(
+          content:
+              Text('Categoría eliminada: ${category["Categoria_Producto"]}')),
     );
   }
 
@@ -136,20 +135,16 @@ class _CategoriesViewState extends State<CategoriesView> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                            maxWidth: 1000), // Reducir el ancho máximo
+                        constraints: const BoxConstraints(maxWidth: 1000),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal:
-                                  8.0), // Márgenes laterales más pequeños
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
                           child: DataTable(
-                            dividerThickness:
-                                1, // Grosor de las líneas horizontales
+                            dividerThickness: 1,
                             dataRowColor:
                                 MaterialStateProperty.resolveWith<Color?>(
                               (Set<MaterialState> states) {
                                 return theme.colorScheme.surfaceVariant
-                                    .withOpacity(0.1); // Color gris suave
+                                    .withOpacity(0.1);
                               },
                             ),
                             headingRowColor:
@@ -164,11 +159,11 @@ class _CategoriesViewState extends State<CategoriesView> {
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.onSecondaryContainer,
                             ),
-                            columnSpacing: MediaQuery.of(context).size.width *
-                                0.04, // Espaciado dinámico entre columnas
+                            columnSpacing:
+                                MediaQuery.of(context).size.width * 0.04,
                             columns: const [
                               DataColumn(label: Text('Foto')),
-                              DataColumn(label: Text('Nombre')),
+                              DataColumn(label: Text('Categoría')),
                               DataColumn(label: Text('Estado')),
                               DataColumn(label: Text('Acciones')),
                             ],
@@ -178,32 +173,30 @@ class _CategoriesViewState extends State<CategoriesView> {
                                   DataCell(
                                     CircleAvatar(
                                       radius: 20,
-                                      backgroundImage: category['photo'] != null
-                                          ? NetworkImage(category['photo'])
-                                          : null,
-                                      child: category['photo'] == null
-                                          ? Icon(Icons.category,
-                                              size: 20,
-                                              color: theme.colorScheme.primary)
-                                          : null,
+                                      child: Icon(
+                                        Icons.category,
+                                        size: 20,
+                                        color: theme.colorScheme.primary,
+                                      ),
                                       backgroundColor:
                                           theme.colorScheme.surfaceVariant,
                                     ),
                                   ),
-                                  DataCell(Text(category['name'])),
+                                  DataCell(
+                                      Text(category["Categoria_Producto"])),
                                   DataCell(
                                     Chip(
                                       label: Text(
-                                        category['isActive']
+                                        category["isActive"]
                                             ? 'Activo'
                                             : 'Inactivo',
                                         style: TextStyle(
-                                          color: category['isActive']
+                                          color: category["isActive"]
                                               ? Colors.green.shade900
                                               : Colors.grey.shade700,
                                         ),
                                       ),
-                                      backgroundColor: category['isActive']
+                                      backgroundColor: category["isActive"]
                                           ? Colors.green.shade100
                                           : Colors.grey.shade300,
                                     ),

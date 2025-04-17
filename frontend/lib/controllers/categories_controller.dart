@@ -18,14 +18,14 @@ class CategoriesController {
   final http.Client _client = http.Client();
 
   // Cache for categories data to avoid excessive calls
-  List<String>? _cachedCategories;
+  List<Map<String, dynamic>>? _cachedCategories;
   DateTime? _lastFetchTime;
 
   // Cache invalidation time (5 minutes)
   final Duration _cacheInvalidationTime = const Duration(minutes: 5);
 
   // Fetch categories from the API
-  Future<List<String>> getCategories() async {
+  Future<List<Map<String, dynamic>>> getCategories() async {
     // Check if cache is valid
     if (_cachedCategories != null &&
         _lastFetchTime != null &&
@@ -48,9 +48,7 @@ class CategoriesController {
         final List<dynamic> categoryData = jsonResponse['data']['data'];
 
         // Cache the data
-        _cachedCategories = categoryData
-            .map((e) => e.toString())
-            .toList(); // Convert to List<String>
+        _cachedCategories = List<Map<String, dynamic>>.from(categoryData);
         _lastFetchTime = DateTime.now();
 
         return _cachedCategories!;
