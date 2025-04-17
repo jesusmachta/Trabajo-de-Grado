@@ -29,7 +29,6 @@ class _CategoriesViewState extends State<CategoriesView> {
     });
 
     try {
-      // Llamar al controlador para obtener las categorías
       final List<Map<String, dynamic>> categoryData =
           await _controller.getCategories();
 
@@ -59,10 +58,6 @@ class _CategoriesViewState extends State<CategoriesView> {
     });
   }
 
-  void _editCategory(Map<String, dynamic> category) {
-    _showEditCategoryModal(category);
-  }
-
   void _deleteCategory(Map<String, dynamic> category) {
     setState(() {
       categories.remove(category);
@@ -79,6 +74,7 @@ class _CategoriesViewState extends State<CategoriesView> {
     final TextEditingController nameController =
         TextEditingController(text: category["Categoria_Producto"]);
     bool isActive = category["isActive"];
+    String? errorText; // Variable para mostrar el mensaje de error
 
     showDialog(
       context: context,
@@ -93,10 +89,18 @@ class _CategoriesViewState extends State<CategoriesView> {
                   // Campo para editar el nombre
                   TextField(
                     controller: nameController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Nombre de la categoría',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      errorText:
+                          errorText, // Mostrar mensaje de error si es necesario
                     ),
+                    onChanged: (value) {
+                      setModalState(() {
+                        errorText =
+                            null; // Limpiar el mensaje de error al escribir
+                      });
+                    },
                   ),
                   const SizedBox(height: 16),
                   // Switch para activar/desactivar
@@ -126,25 +130,41 @@ class _CategoriesViewState extends State<CategoriesView> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
+                    if (nameController.text.trim().isEmpty) {
+                      // Validar que el campo no esté vacío
+                      setModalState(() {
+                        errorText = 'El nombre no puede estar vacío';
+                      });
+                      return;
+                    }
+
                     try {
                       // Llamar al controlador para actualizar la categoría
                       await _controller.updateCategory(
                         category["_id"],
-                        nameController.text,
+                        nameController.text.trim(),
                         isActive,
                       );
 
-                      // Actualizar la lista de categorías
+                      // Esperamos un poco para asegurarnos que el backend haya guardado
+                      await Future.delayed(const Duration(milliseconds: 200));
+
+                      // Recargamos
                       await _loadCategories();
 
-                      Navigator.of(context).pop();
+                      // Aplicamos el filtro otra vez
+                      _filterCategories(searchQuery);
+
+                      // Cerramos modal
+                      if (mounted) Navigator.of(context).pop();
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                             content:
                                 Text('Categoría actualizada exitosamente')),
                       );
                     } catch (e) {
-                      Navigator.of(context).pop();
+                      if (mounted) Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content: Text('Error al actualizar categoría: $e')),
@@ -170,7 +190,6 @@ class _CategoriesViewState extends State<CategoriesView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Text(
             'Categorías',
             style: theme.textTheme.headlineMedium?.copyWith(
@@ -184,12 +203,10 @@ class _CategoriesViewState extends State<CategoriesView> {
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 24),
-
-          // Buscador con ancho limitado
           Align(
             alignment: Alignment.centerLeft,
             child: SizedBox(
-              width: 300, // Ancho máximo del buscador
+              width: 300,
               child: TextField(
                 onChanged: _filterCategories,
                 decoration: InputDecoration(
@@ -208,8 +225,6 @@ class _CategoriesViewState extends State<CategoriesView> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Tabla de categorías
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
