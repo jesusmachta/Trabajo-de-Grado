@@ -3,8 +3,8 @@ import 'dashboard_view.dart';
 import 'statistics_view.dart';
 import 'users_view.dart';
 import 'categories_view.dart';
-import 'products_view.dart';
 import '../controllers/statistics_controller.dart';
+import 'cameras_view.dart';
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
@@ -34,7 +34,7 @@ class _HomeViewState extends State<HomeView> {
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
       UsersView(toggleTheme: widget.toggleTheme),
       CategoriesView(toggleTheme: widget.toggleTheme),
-      // CamerasView(toggleTheme: widget.toggleTheme),
+      CamerasView(toggleTheme: widget.toggleTheme),
     ];
   }
 
@@ -43,7 +43,7 @@ class _HomeViewState extends State<HomeView> {
     'Estadísticas',
     'Gestión de Usuarios',
     'Categorías',
-    'Cámaras',
+    'Gestión de Cámaras',
   ];
 
   @override

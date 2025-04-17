@@ -41,6 +41,7 @@ class AuthController with ChangeNotifier {
   User? _currentUser;
   String? _token;
   bool _isLoading = false;
+  bool _isInitializing = true;
   String? _error;
 
   // API base URL - change this to match your backend
@@ -50,12 +51,20 @@ class AuthController with ChangeNotifier {
   User? get currentUser => _currentUser;
   String? get token => _token;
   bool get isLoading => _isLoading;
+  bool get isInitializing => _isInitializing;
   String? get error => _error;
   bool get isAuthenticated => _token != null;
 
-  // Constructor loads saved credentials
+  // Constructor calls the initialization method
   AuthController() {
-    _loadSavedCredentials();
+    _initialize();
+  }
+
+  // Initialization method to load credentials
+  Future<void> _initialize() async {
+    await _loadSavedCredentials();
+    _isInitializing = false;
+    notifyListeners();
   }
 
   // Load saved credentials from SharedPreferences
@@ -65,9 +74,15 @@ class AuthController with ChangeNotifier {
     final savedUser = prefs.getString('user');
 
     if (savedToken != null && savedUser != null) {
-      _token = savedToken;
-      _currentUser = User.fromJson(jsonDecode(savedUser));
-      notifyListeners();
+      try {
+        _token = savedToken;
+        _currentUser = User.fromJson(jsonDecode(savedUser));
+      } catch (e) {
+        print('Error loading saved credentials: $e');
+        await _clearCredentials();
+        _token = null;
+        _currentUser = null;
+      }
     }
   }
 
@@ -123,10 +138,10 @@ class AuthController with ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 201) {
         _token = responseData['access_token'];
         _currentUser = User(
-          id: responseData['user_id'],
-          email: responseData['email'],
-          fullName: responseData['full_name'],
-          role: responseData['role'],
+          id: responseData['user_id']?.toString() ?? '',
+          email: responseData['email'] ?? '',
+          fullName: responseData['full_name'] ?? '',
+          role: responseData['role'] ?? 'user',
           profilePicture: responseData['profile_picture'],
           isActive: responseData['is_active'] ?? true,
           createdAt: DateTime.now(),
@@ -170,7 +185,6 @@ class AuthController with ChangeNotifier {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Check if user is active
         final isActive = responseData['is_active'] ?? true;
         if (!isActive) {
           _error = 'Tu cuenta está inactiva. Contacta al administrador.';
@@ -181,19 +195,16 @@ class AuthController with ChangeNotifier {
 
         _token = responseData['access_token'];
         _currentUser = User(
-          id: responseData['user_id'],
-          email: responseData['email'],
-          fullName: responseData['full_name'],
-          role: responseData['role'],
+          id: responseData['user_id']?.toString() ?? '',
+          email: responseData['email'] ?? '',
+          fullName: responseData['full_name'] ?? '',
+          role: responseData['role'] ?? 'user',
           profilePicture: responseData['profile_picture'],
           isActive: isActive,
           createdAt: DateTime.now(),
         );
 
-        // Save credentials if remember me is checked
-        if (rememberMe) {
-          await _saveCredentials();
-        }
+        await _saveCredentials();
 
         _isLoading = false;
         notifyListeners();
@@ -205,7 +216,7 @@ class AuthController with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _error = 'Error de conexión. Intente de nuevo más tarde: $e';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -225,7 +236,6 @@ class AuthController with ChangeNotifier {
     if (_token == null) return false;
 
     try {
-      // You can add a token validation endpoint to your backend if needed
       return true;
     } catch (e) {
       await logout();
