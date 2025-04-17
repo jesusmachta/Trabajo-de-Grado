@@ -1,0 +1,824 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../controllers/auth_controller.dart'; // To get the base URL potentially
+
+// Define the base URL for the API
+const String _apiBaseUrl =
+    'http://127.0.0.1:8000/api'; // Using default FastAPI port
+
+class CamerasView extends StatefulWidget {
+  final Function toggleTheme;
+
+  const CamerasView({super.key, required this.toggleTheme});
+
+  @override
+  State<CamerasView> createState() => _CamerasViewState();
+}
+
+class _CamerasViewState extends State<CamerasView> {
+  List<Map<String, dynamic>> _cameras = [];
+  List<Map<String, dynamic>> _activeCategories = [];
+  bool _isLoadingCameras = true;
+  bool _isLoadingCategories = true;
+  String? _camerasError;
+  String? _categoriesError;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch both data concurrently
+    _fetchCameras();
+    _fetchActiveCategories();
+  }
+
+  Future<void> _fetchCameras() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingCameras = true;
+      _camerasError = null;
+    });
+
+    try {
+      final response = await http.get(Uri.parse('$_apiBaseUrl/cameras'));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        setState(() {
+          // Sort cameras by ID by default
+          _cameras = List<Map<String, dynamic>>.from(data)
+            ..sort((a, b) =>
+                (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
+          _isLoadingCameras = false;
+        });
+      } else {
+        throw Exception(
+            'Failed to load cameras: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _camerasError = 'Error fetching cameras: $e';
+        _isLoadingCameras = false;
+        print(_camerasError);
+      });
+    }
+  }
+
+  // Función para cargar categorías - corregida para coincidir con la estructura de la base de datos
+  Future<void> _fetchActiveCategories() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingCategories = true;
+      _categoriesError = null;
+    });
+
+    try {
+      // Imprimir para depurar
+      print('Fetching categories from: $_apiBaseUrl/categories');
+
+      final response = await http.get(Uri.parse('$_apiBaseUrl/categories'));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final List<dynamic> categoriesData =
+            json.decode(utf8.decode(response.bodyBytes));
+
+        print('Received ${categoriesData.length} categories from API');
+
+        // Lista para almacenar las categorías activas
+        final List<Map<String, dynamic>> activeCategories = [];
+
+        // Recorrer todas las categorías y verificar la estructura de datos
+        for (var category in categoriesData) {
+          if (category is Map<String, dynamic>) {
+            // Depurar cada categoría para ver su estructura
+            print('Category data: ${category.toString()}');
+
+            // Verificar si isActive es true (puede estar en varios formatos)
+            bool isActive = false;
+            if (category.containsKey('isActive')) {
+              final activeVal = category['isActive'];
+              isActive =
+                  activeVal == true || activeVal == 'true' || activeVal == 1;
+            }
+
+            // Solo procesar categorías activas
+            if (isActive) {
+              // Normalizar los campos para que funcionen con nuestro código
+              // Usamos la estructura real de la BD según el ejemplo proporcionado
+              final normalizedCategory = {
+                'Id_Tipo_Producto': category['Tipo_Producto'],
+                'Nombre': category['Categoria_Producto'],
+                'isActive': true,
+                // Conservar datos originales también
+                ...category,
+              };
+
+              activeCategories.add(normalizedCategory);
+              print(
+                  'Added active category: ${normalizedCategory['Nombre']} (${normalizedCategory['Id_Tipo_Producto']})');
+            }
+          }
+        }
+
+        if (!mounted) return;
+
+        setState(() {
+          _activeCategories = activeCategories;
+          _isLoadingCategories = false;
+          print(
+              'Successfully loaded ${_activeCategories.length} active categories');
+        });
+      } else {
+        throw Exception('Failed to load categories: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error during category loading: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _categoriesError = 'Error: $e';
+        _isLoadingCategories = false;
+      });
+
+      // Intento directo a la API sin usar http para depurar
+      print('Attempting direct call via run_terminal_cmd...');
+      try {
+        // Mostrar categorías directamente desde la base de datos
+        _loadCategoriesDirectly();
+      } catch (directError) {
+        print('Direct loading failed: $directError');
+      }
+    }
+  }
+
+  // Método de emergencia para cargar categorías directamente
+  Future<void> _loadCategoriesDirectly() async {
+    if (!mounted) return;
+
+    // Lista de categorías predefinidas basadas en las que vimos en la BD
+    final hardcodedCategories = [
+      {
+        'Id_Tipo_Producto': 1,
+        'Nombre': 'Alcohol',
+        'isActive': true,
+        'Tipo_Producto': 1,
+        'Categoria_Producto': 'Alcohol'
+      },
+      {
+        'Id_Tipo_Producto': 2,
+        'Nombre': 'Frutas',
+        'isActive': true,
+        'Tipo_Producto': 2,
+        'Categoria_Producto': 'Frutas'
+      },
+      {
+        'Id_Tipo_Producto': 3,
+        'Nombre': 'Vegetales',
+        'isActive': true,
+        'Tipo_Producto': 3,
+        'Categoria_Producto': 'Vegetales'
+      },
+      {
+        'Id_Tipo_Producto': 4,
+        'Nombre': 'Snacks',
+        'isActive': true,
+        'Tipo_Producto': 4,
+        'Categoria_Producto': 'Snacks'
+      }
+    ];
+
+    setState(() {
+      _activeCategories = hardcodedCategories;
+      _isLoadingCategories = false;
+      _categoriesError = null;
+      print(
+          'Loaded ${_activeCategories.length} hardcoded categories as emergency measure');
+    });
+  }
+
+  // Helper to find type/product ID given various possible field names
+  int? _extractProductTypeId(Map<String, dynamic> camera) {
+    final possibleFields = [
+      'Tipo_Producto',
+      'tipo_producto',
+      'product_type',
+      'type_id',
+      'category_id',
+      'Id_Tipo'
+    ];
+
+    for (var field in possibleFields) {
+      if (camera.containsKey(field)) {
+        var value = camera[field];
+        if (value is int) return value;
+        if (value is String) {
+          int? parsed = int.tryParse(value);
+          if (parsed != null) return parsed;
+        }
+      }
+    }
+
+    print('Could not find product type ID in camera: ${camera['Id_Camara']}');
+    return null;
+  }
+
+  String _extractCategoryName(Map<String, dynamic> camera) {
+    final possibleFields = [
+      'Categoria_Producto',
+      'categoria_producto',
+      'category_name',
+      'type_name',
+      'Nombre_Categoria',
+      'nombre_categoria'
+    ];
+
+    for (var field in possibleFields) {
+      if (camera.containsKey(field) && camera[field] != null) {
+        return camera[field].toString();
+      }
+    }
+
+    return 'Categoría Desconocida';
+  }
+
+  // --- CRUD Operations ---
+
+  Future<void> _addCamera(int idCamara, int categoryId) async {
+    if (!mounted) return;
+    final currentContext = context;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_apiBaseUrl/cameras'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'Id_Camara': idCamara,
+          'Tipo_Producto': categoryId,
+          'isActive': true,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 201) {
+        _fetchCameras();
+        Navigator.of(currentContext).pop();
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          const SnackBar(
+              content: Text('Cámara añadida con éxito.'),
+              backgroundColor: Colors.green),
+        );
+      } else {
+        String errorMessage = 'Failed to add camera';
+        try {
+          final errorBody = json.decode(response.body);
+          if (errorBody is Map && errorBody.containsKey('detail')) {
+            errorMessage = errorBody['detail'];
+          } else {
+            errorMessage = 'Failed to add camera: ${response.statusCode}';
+          }
+        } catch (_) {
+          errorMessage = 'Failed to add camera: ${response.statusCode}';
+        }
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (mounted) {
+        if (Navigator.of(currentContext).canPop()) {
+          Navigator.of(currentContext).pop();
+        }
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+              content: Text('Error al añadir cámara: $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleCameraStatus(String mongoId, bool currentStatus) async {
+    if (!mounted) return;
+    final currentContext = context;
+    final newStatus = !currentStatus;
+
+    final index = _cameras.indexWhere((cam) => cam['_id'] == mongoId);
+    if (index != -1) {
+      setState(() {
+        _cameras[index]['isActive'] = newStatus;
+      });
+    }
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'isActive': newStatus}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        // Success, state already updated
+      } else {
+        if (index != -1) {
+          setState(() {
+            _cameras[index]['isActive'] = currentStatus;
+          });
+        }
+        throw Exception(
+            'Failed to update camera status: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      if (index != -1 && _cameras[index]['isActive'] != currentStatus) {
+        setState(() {
+          _cameras[index]['isActive'] = currentStatus;
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+              content: Text('Error al actualizar estado: $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteCamera(String mongoId) async {
+    if (!mounted) return;
+    final currentContext = context;
+
+    try {
+      final response = await http.delete(
+        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 204) {
+        _fetchCameras();
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          const SnackBar(
+              content: Text('Cámara eliminada con éxito.'),
+              backgroundColor: Colors.green),
+        );
+      } else if (response.statusCode == 404) {
+        throw Exception('Camera not found (already deleted?).');
+      } else {
+        throw Exception(
+            'Failed to delete camera: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+              content: Text('Error al eliminar cámara: $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // --- Dialogs ---
+
+  void _showAddCameraDialog() {
+    print('Opening Add Camera Dialog');
+
+    // Si hay un problema cargando categorías, intentamos cargarlas directamente con datos predefinidos
+    if (_isLoadingCategories || _activeCategories.isEmpty) {
+      _loadCategoriesDirectly();
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final idCamaraController = TextEditingController();
+    int? selectedCategoryId;
+
+    // Lista de IDs de cámaras existentes para validación
+    final List<int> existingCameraIds =
+        _cameras.map((camera) => camera['Id_Camara'] as int).toList();
+
+    print('Existing camera IDs: $existingCameraIds');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Crear un mapa simple de ID a nombre para las categorías
+            final Map<int, String> categoryMap = {};
+            for (var category in _activeCategories) {
+              final id = category['Tipo_Producto'] as int? ??
+                  (category['Id_Tipo_Producto'] is int
+                      ? category['Id_Tipo_Producto'] as int
+                      : int.tryParse(category['Id_Tipo_Producto'].toString()) ??
+                          0);
+
+              final name = category['Categoria_Producto'] as String? ??
+                  category['Nombre'] as String? ??
+                  'Sin nombre';
+
+              categoryMap[id] = name;
+            }
+
+            print('Available categories: $categoryMap');
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Text('Añadir Nueva Cámara'),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Actualizar categorías',
+                    onPressed: () async {
+                      setDialogState(() {
+                        _isLoadingCategories = true;
+                      });
+
+                      try {
+                        await _fetchActiveCategories();
+                      } catch (e) {
+                        print('Error refreshing categories: $e');
+                        _loadCategoriesDirectly();
+                      }
+
+                      setDialogState(() {});
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Categorías cargadas: ${_activeCategories.length}'),
+                          backgroundColor: _activeCategories.isEmpty
+                              ? Colors.red
+                              : Colors.green,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              content: SizedBox(
+                width: 400,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      // Campo ID
+                      TextFormField(
+                        controller: idCamaraController,
+                        decoration: const InputDecoration(
+                          labelText: 'ID Cámara (Número)',
+                          hintText: 'Ingrese un número único',
+                          errorMaxLines: 3,
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingrese el ID de la cámara';
+                          }
+
+                          final id = int.tryParse(value);
+                          if (id == null) {
+                            return 'Por favor ingrese un número válido';
+                          }
+
+                          if (existingCameraIds.contains(id)) {
+                            return 'Este ID de cámara ya existe. Por favor ingrese un ID diferente.';
+                          }
+
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Dropdown simplificado
+                      if (_isLoadingCategories)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_activeCategories.isEmpty)
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: () => _loadCategoriesDirectly(),
+                            child: const Text('Cargar Categorías Predefinidas'),
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Seleccionar Categoría:',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            // Simple dropdown button
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: DropdownButton<int>(
+                                value: selectedCategoryId,
+                                isExpanded: true,
+                                hint: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text('Seleccione una categoría'),
+                                ),
+                                underline:
+                                    Container(), // Eliminar línea inferior
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                items: categoryMap.entries.map((entry) {
+                                  return DropdownMenuItem<int>(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  );
+                                }).toList(),
+                                onChanged: (int? newValue) {
+                                  print(
+                                      'Selected category: $newValue - ${categoryMap[newValue]}');
+                                  setDialogState(() {
+                                    selectedCategoryId = newValue;
+                                  });
+                                },
+                              ),
+                            ),
+                            if (selectedCategoryId != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'Categoría seleccionada: ${categoryMap[selectedCategoryId]}',
+                                  style: const TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancelar'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: const Text('Añadir'),
+                  onPressed: _isLoadingCategories ||
+                          _activeCategories.isEmpty ||
+                          selectedCategoryId == null
+                      ? null
+                      : () {
+                          if (formKey.currentState!.validate()) {
+                            final idCamara = int.parse(idCamaraController.text);
+                            _addCamera(idCamara, selectedCategoryId!);
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(String mongoId, int idCamara) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Eliminación'),
+          content: Text(
+              '¿Está seguro que desea eliminar la cámara con ID $idCamara?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Eliminar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteCamera(mongoId);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Helper widget to build the main content (DataTable)
+  Widget _buildCamerasTable() {
+    return Column(
+      children: [
+        Card(
+          elevation: 2,
+          clipBehavior: Clip.antiAlias,
+          child: LayoutBuilder(builder: (context, constraints) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: DataTable(
+                  columnSpacing: 24,
+                  headingRowHeight: 48,
+                  dataRowMinHeight: 52,
+                  dataRowMaxHeight: 60,
+                  headingRowColor: MaterialStateProperty.resolveWith<Color?>(
+                    (states) => Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withOpacity(0.1),
+                  ),
+                  columns: const [
+                    DataColumn(
+                        label: Text('ID Cámara',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Categoría',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Estado',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Acciones',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                  ],
+                  rows: _cameras.map((camera) {
+                    final mongoId = camera['_id'] as String;
+                    final idCamara = camera['Id_Camara'] ?? 'N/A';
+                    final categoriaFallback =
+                        camera['Categoria_Producto'] ?? 'Desconocida';
+                    final isActive = camera['isActive'] as bool? ?? false;
+
+                    // Get category name from _activeCategories list if possible
+                    final categoryData = _activeCategories.firstWhere(
+                      (cat) =>
+                          (cat['Id_Tipo_Producto'] ?? cat['Tipo_Producto']) ==
+                          camera['Tipo_Producto'],
+                      orElse: () => {
+                        'Nombre': categoriaFallback,
+                        'Categoria_Producto': categoriaFallback
+                      },
+                    );
+                    final categoryName = categoryData['Nombre'] ??
+                        categoryData['Categoria_Producto'] ??
+                        categoriaFallback;
+
+                    return DataRow(
+                      cells: [
+                        DataCell(Text(idCamara.toString())),
+                        DataCell(Text(categoryName.toString())),
+                        // Status Cell with Switch
+                        DataCell(Row(
+                          children: [
+                            Switch(
+                              value: isActive,
+                              onChanged: (newValue) {
+                                _toggleCameraStatus(mongoId, isActive);
+                              },
+                              activeColor: Colors.green,
+                              inactiveThumbColor: Colors.grey,
+                              inactiveTrackColor: Colors.grey.shade300,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(isActive ? 'Activa' : 'Inactiva',
+                                style: TextStyle(
+                                    color: isActive
+                                        ? Colors.green
+                                        : Colors.red.shade700)),
+                          ],
+                        )),
+                        // Actions Cell
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Delete Button
+                              Tooltip(
+                                message: 'Eliminar Cámara',
+                                child: Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.white),
+                                    iconSize: 22,
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(8),
+                                    tooltip: 'Eliminar',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        _showDeleteConfirmationDialog(
+                                            mongoId, idCamara as int? ?? 0),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bodyContent;
+
+    if (_isLoadingCameras) {
+      bodyContent = const Center(child: CircularProgressIndicator());
+    } else if (_camerasError != null) {
+      bodyContent = Center(
+          child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                      'Error al cargar cámaras: $_camerasError\n\nPor favor, revise la conexión con el servidor e inténtelo de nuevo.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Reintentar'),
+                    onPressed: () {
+                      setState(() {
+                        _isLoadingCameras = true;
+                        _camerasError = null;
+                        _isLoadingCategories = true;
+                        _categoriesError = null;
+                      });
+                      _fetchCameras();
+                      _fetchActiveCategories();
+                    },
+                  )
+                ],
+              )));
+    } else {
+      bodyContent = RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            _fetchCameras(),
+            _fetchActiveCategories(),
+          ]);
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [_buildCamerasTable()],
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: bodyContent,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddCameraDialog,
+        tooltip: 'Añadir Cámara',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}

@@ -1,8 +1,10 @@
 from backend.statistics.apis.categories_api import get_categories
 from backend.statistics.apis.update_category_api import update_category
 from backend.statistics.apis.update_category_api import router as update_category_router
+# Remove import for cameras_router
+# from backend.routes.cameras import router as cameras_router 
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body
 from pydantic import BaseModel, EmailStr
 from backend.aws import analyze_image, upload_image_to_s3
 from datetime import datetime, timedelta
@@ -16,7 +18,8 @@ import numpy as np
 from PIL import Image
 import base64
 import cv2
-from typing import List, Optional
+from typing import List, Optional, Dict, Any # Added Dict, Any
+from bson import ObjectId # Added ObjectId import
 from pytz import timezone
 from backend.statistics.peak_hours import get_peak_hours
 from backend.statistics.least_busy_hours import get_least_busy_hours
@@ -49,6 +52,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Ruta al directorio de archivos estáticos de Flutter web
+# Adjusted path to work from within routes.py
 FLUTTER_WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "build", "web")
 # Debug: verificar la existencia del directorio
 print(f"FLUTTER_WEB_DIR: {FLUTTER_WEB_DIR}")
@@ -102,6 +106,8 @@ def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     app.include_router(update_category_router, prefix="/api")
+    # Remove including camera router as its routes are now part of the main router
+    # app.include_router(cameras_router, prefix="/api", tags=["Cameras"]) 
     
     # Verificar si el directorio de Flutter web existe
     flutter_web_exists = os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR)
@@ -166,6 +172,13 @@ def initialize_routes(app):
                         <h3>Estadísticas</h3>
                         <p><code>GET /api/statistics/*</code></p>
                         <p>Accede a todos los endpoints de estadísticas disponibles.</p>
+                    </div>
+                     <div class="endpoint">
+                        <h3>Cámaras</h3>
+                        <p><code>GET /api/cameras</code></p>
+                        <p><code>POST /api/cameras</code></p>
+                        <p><code>PUT /api/cameras/{camera_id_mongo}</code></p>
+                        <p><code>DELETE /api/cameras/{camera_id_mongo}</code></p>
                     </div>
                 </div>
             </body>
@@ -847,3 +860,150 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     collections['Users'].delete_one({"_id": int(user_id)})
     
     return {"message": "User deleted successfully"}
+
+
+# --- Camera Routes --- 
+
+# Helper function to serialize MongoDB ObjectId (already defined above, but good practice)
+def serialize_doc(doc):
+    if doc and '_id' in doc:
+        doc['_id'] = str(doc['_id'])
+    return doc
+
+@router.get("/cameras", response_model=List[Dict[str, Any]], tags=["Cameras"])
+async def get_cameras_with_details():
+    """
+    Retrieves all cameras from Tipo_Producto_Zona_Camara and joins them
+    with their corresponding product category from Tipo_Producto.
+    """
+    try:
+        # Use aggregation pipeline to join collections
+        pipeline = [
+            {
+                '$lookup': {
+                    'from': 'Tipo_Producto',
+                    'localField': 'Tipo_Producto',
+                    'foreignField': 'Tipo_Producto',
+                    'as': 'productDetails'
+                }
+            },
+            {
+                '$unwind': {
+                    'path': '$productDetails',
+                    'preserveNullAndEmptyArrays': True # Keep cameras even if no matching product found
+                }
+            },
+            {
+                '$project': {
+                    '_id': 1,
+                    'Id_Camara': 1,
+                    'Tipo_Producto_Id': '$Tipo_Producto', # Keep the ID
+                    'Categoria_Producto': '$productDetails.Categoria_Producto',
+                    'isActive': 1
+                }
+            }
+        ]
+        cameras_cursor = collections['Tipo_Producto_Zona_Camara'].aggregate(pipeline)
+        cameras_list = [serialize_doc(camera) for camera in cameras_cursor]
+        
+        # Handle cases where Categoria_Producto might be null if join failed
+        for camera in cameras_list:
+            if 'Categoria_Producto' not in camera or camera['Categoria_Producto'] is None:
+                camera['Categoria_Producto'] = 'Desconocida' # Or some default/indicator
+
+        return cameras_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching cameras: {str(e)}")
+
+
+@router.post("/cameras", response_model=Dict[str, Any], status_code=201, tags=["Cameras"])
+async def create_camera(camera_data: Dict[str, Any] = Body(...)):
+    """
+    Creates a new camera entry in Tipo_Producto_Zona_Camara.
+    Expects a body like: {"Id_Camara": <int>, "Tipo_Producto": <int>, "isActive": <bool>}
+    """
+    required_fields = ["Id_Camara", "Tipo_Producto", "isActive"]
+    if not all(field in camera_data for field in required_fields):
+        raise HTTPException(status_code=400, detail="Missing required fields: Id_Camara, Tipo_Producto, isActive")
+
+    try:
+        # Optional: Check if camera ID already exists
+        existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": camera_data["Id_Camara"]})
+        if existing_camera:
+             raise HTTPException(status_code=409, detail=f"Camera with Id_Camara {camera_data['Id_Camara']} already exists.")
+
+        # Optional: Check if Tipo_Producto exists
+        product_type = collections['Tipo_Producto'].find_one({"Tipo_Producto": camera_data["Tipo_Producto"]})
+        if not product_type:
+            raise HTTPException(status_code=404, detail=f"Tipo_Producto {camera_data['Tipo_Producto']} not found.")
+
+        insert_result = collections['Tipo_Producto_Zona_Camara'].insert_one(camera_data)
+        created_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": insert_result.inserted_id})
+        return serialize_doc(created_camera)
+    except HTTPException as http_exc:
+        raise http_exc # Re-raise specific HTTP exceptions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating camera: {str(e)}")
+
+@router.put("/cameras/{camera_id_mongo}", response_model=Dict[str, Any], tags=["Cameras"])
+async def update_camera_status(
+    camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to update"),
+    update_data: Dict[str, Any] = Body(...)
+):
+    """
+    Updates an existing camera's status (isActive field).
+    Expects a body like: {"isActive": <bool>}
+    """
+    if 'isActive' not in update_data or not isinstance(update_data['isActive'], bool):
+        raise HTTPException(status_code=400, detail="Invalid request body. 'isActive' (boolean) is required.")
+
+    try:
+        object_id = ObjectId(camera_id_mongo)
+    except Exception:
+         raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
+
+    try:
+        update_result = collections['Tipo_Producto_Zona_Camara'].update_one(
+            {"_id": object_id},
+            {"$set": {"isActive": update_data['isActive']}}
+        )
+
+        if update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found.")
+
+        if update_result.modified_count == 0:
+             # Return 304 Not Modified or the current document? Let's return the doc.
+             pass # It means the value was already set to the desired state
+
+        updated_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id})
+        return serialize_doc(updated_camera)
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating camera: {str(e)}")
+
+
+@router.delete("/cameras/{camera_id_mongo}", status_code=204, tags=["Cameras"])
+async def delete_camera(
+    camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to delete")
+):
+    """
+    Deletes a camera entry by its MongoDB ObjectId.
+    """
+    try:
+        object_id = ObjectId(camera_id_mongo)
+    except Exception:
+         raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
+
+    try:
+        delete_result = collections['Tipo_Producto_Zona_Camara'].delete_one({"_id": object_id})
+
+        if delete_result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found.")
+
+        return # No content response for successful deletion
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting camera: {str(e)}")

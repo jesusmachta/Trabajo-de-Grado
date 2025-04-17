@@ -9,7 +9,9 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
-  // Inicializar los datos de localización para fechas
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize date formatting
   initializeDateFormatting('es_ES').then((_) {
     Intl.defaultLocale = 'es_ES';
     runApp(
@@ -240,7 +242,42 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
-      home: LoginView(toggleTheme: toggleThemeMode),
+      // Use AuthWrapper as the home widget
+      home: AuthWrapper(toggleTheme: toggleThemeMode),
+    );
+  }
+}
+
+// New Widget: AuthWrapper
+// This widget checks the authentication state and displays the appropriate view.
+class AuthWrapper extends StatelessWidget {
+  final Function toggleTheme;
+
+  const AuthWrapper({super.key, required this.toggleTheme});
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen to AuthController changes
+    return Consumer<AuthController>(
+      builder: (context, authController, child) {
+        // Show loading indicator while initializing
+        if (authController.isInitializing) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        // After initialization, decide which view to show
+        if (authController.isAuthenticated) {
+          // User is authenticated -> Show HomeView
+          return HomeView(toggleTheme: toggleTheme);
+        } else {
+          // User is not authenticated -> Show LoginView
+          return LoginView(toggleTheme: toggleTheme);
+        }
+      },
     );
   }
 }
