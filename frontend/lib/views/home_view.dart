@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
 import 'users_view.dart';
+import 'categories_view.dart';
 import '../controllers/statistics_controller.dart';
+import 'cameras_view.dart';
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
@@ -31,6 +33,8 @@ class _HomeViewState extends State<HomeView> {
       DashboardView(toggleTheme: widget.toggleTheme),
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
       UsersView(toggleTheme: widget.toggleTheme),
+      CategoriesView(toggleTheme: widget.toggleTheme),
+      CamerasView(toggleTheme: widget.toggleTheme),
     ];
   }
 
@@ -38,6 +42,8 @@ class _HomeViewState extends State<HomeView> {
     'Dashboard',
     'Estadísticas',
     'Gestión de Usuarios',
+    'Categorías',
+    'Gestión de Cámaras',
   ];
 
   @override
@@ -128,6 +134,30 @@ class _HomeViewState extends State<HomeView> {
               onTap: () {
                 setState(() {
                   _currentIndex = 2;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.category, size: 28),
+              title: const Text('Categorías',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              selected: _currentIndex == 3,
+              onTap: () {
+                setState(() {
+                  _currentIndex = 3;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, size: 28),
+              title: const Text('Cámaras',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              selected: _currentIndex == 4,
+              onTap: () {
+                setState(() {
+                  _currentIndex = 4;
                 });
                 Navigator.pop(context);
               },
