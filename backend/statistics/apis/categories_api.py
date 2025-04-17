@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from bson import ObjectId
 from backend.database import collections
 
 router = APIRouter()
 categories_collection = collections["Tipo_Producto"]
+
+class UpdateCategoryRequest(BaseModel):
+    Categoria_Producto: str
+    isActive: bool
 
 @router.get("/categories", tags=["Categories"])
 def get_categories():

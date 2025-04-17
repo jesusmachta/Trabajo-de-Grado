@@ -60,10 +60,7 @@ class _CategoriesViewState extends State<CategoriesView> {
   }
 
   void _editCategory(Map<String, dynamic> category) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text('Editar categoría: ${category["Categoria_Producto"]}')),
-    );
+    _showEditCategoryModal(category);
   }
 
   void _deleteCategory(Map<String, dynamic> category) {
@@ -75,6 +72,92 @@ class _CategoriesViewState extends State<CategoriesView> {
       SnackBar(
           content:
               Text('Categoría eliminada: ${category["Categoria_Producto"]}')),
+    );
+  }
+
+  void _showEditCategoryModal(Map<String, dynamic> category) {
+    final TextEditingController nameController =
+        TextEditingController(text: category["Categoria_Producto"]);
+    bool isActive = category["isActive"];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return AlertDialog(
+              title: const Text('Editar Categoría'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Campo para editar el nombre
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre de la categoría',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Switch para activar/desactivar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Activo'),
+                      Switch(
+                        value: isActive,
+                        onChanged: (value) {
+                          setModalState(() {
+                            isActive =
+                                value; // Actualiza el estado local del modal
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      // Llamar al controlador para actualizar la categoría
+                      await _controller.updateCategory(
+                        category["_id"],
+                        nameController.text,
+                        isActive,
+                      );
+
+                      // Actualizar la lista de categorías
+                      await _loadCategories();
+
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text('Categoría actualizada exitosamente')),
+                      );
+                    } catch (e) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text('Error al actualizar categoría: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -209,7 +292,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                                               color: theme.colorScheme.primary),
                                           tooltip: 'Editar categoría',
                                           onPressed: () =>
-                                              _editCategory(category),
+                                              _showEditCategoryModal(category),
                                         ),
                                         IconButton(
                                           icon: Icon(Icons.delete_outline,

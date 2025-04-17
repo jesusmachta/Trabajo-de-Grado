@@ -67,4 +67,25 @@ class CategoriesController {
     _cachedCategories = null;
     _lastFetchTime = null;
   }
+
+  Future<void> updateCategory(String id, String name, bool isActive) async {
+    final url = Uri.parse('$baseUrl/api/categories/$id');
+    try {
+      final response = await _client.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "Categoria_Producto": name,
+          "isActive": isActive,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Error al actualizar categoría: ${response.body}');
+      }
+    } catch (e) {
+      print('Error en updateCategory: $e');
+      rethrow; // Re-throw para manejar en la UI
+    }
+  }
 }

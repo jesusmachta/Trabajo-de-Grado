@@ -1,4 +1,7 @@
 from backend.statistics.apis.categories_api import get_categories
+from backend.statistics.apis.update_category_api import update_category
+from backend.statistics.apis.update_category_api import router as update_category_router
+
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, EmailStr
 from backend.aws import analyze_image, upload_image_to_s3
@@ -98,6 +101,7 @@ def get_next_sequence_value(sequence_name):
 def initialize_routes(app):
     # Incluir rutas API
     app.include_router(router, prefix="/api")
+    app.include_router(update_category_router, prefix="/api")
     
     # Verificar si el directorio de Flutter web existe
     flutter_web_exists = os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR)
@@ -192,6 +196,14 @@ def categories():
         return {"message": "Success", "data": data}
     except Exception as e: 
         return {"message": "Error", "error": str(e)}
+    
+# @router.get("/categories/update/")
+# def update_a_category():
+#     try: 
+#         data = update_category()
+#         return {"message": "Success", "data": data}
+#     except Exception as e:
+#         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/least-hours/")
 def daily_traffic():
