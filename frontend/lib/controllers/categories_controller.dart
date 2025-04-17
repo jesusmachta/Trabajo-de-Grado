@@ -68,6 +68,31 @@ class CategoriesController {
     _lastFetchTime = null;
   }
 
+  // Create a new category
+  Future<void> createCategory(
+      int tipoProducto, String categoriaProducto, bool isActive) async {
+    final url = Uri.parse('$baseUrl/api/categories/create');
+    try {
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "Tipo_Producto": tipoProducto,
+          "Categoria_Producto": categoriaProducto,
+          "isActive": isActive,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Error al crear categoría: ${response.body}');
+      }
+    } catch (e) {
+      print('Error en createCategory: $e');
+      rethrow; // Re-throw para manejar en la UI
+    }
+  }
+
+  // Update a category
   Future<void> updateCategory(String id, String name, bool isActive) async {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     try {
@@ -85,6 +110,21 @@ class CategoriesController {
       }
     } catch (e) {
       print('Error en updateCategory: $e');
+      rethrow; // Re-throw para manejar en la UI
+    }
+  }
+
+  // Delete a category
+  Future<void> deleteCategory(String id) async {
+    final url = Uri.parse('$baseUrl/api/categories/$id');
+    try {
+      final response = await _client.delete(url);
+
+      if (response.statusCode != 200) {
+        throw Exception('Error al eliminar categoría: ${response.body}');
+      }
+    } catch (e) {
+      print('Error en deleteCategory: $e');
       rethrow; // Re-throw para manejar en la UI
     }
   }
