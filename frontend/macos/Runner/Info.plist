@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Este aplicativo necesita acceso a tu galería para seleccionar una foto de perfil</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Este aplicativo necesita acceso a tu cámara para tomar una foto de perfil</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Este aplicativo necesita acceso a tu micrófono</string>
 </dict>
 </plist>

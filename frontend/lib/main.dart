@@ -269,6 +269,22 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
+        // Validar token al iniciar, pero solo una vez al cargar la aplicación
+        if (authController.isAuthenticated) {
+          // Usamos microtask para que la validación ocurra después del render
+          // pero evitamos que se repita en cada reconstrucción
+          Future.microtask(() async {
+            // Primero validar el token
+            await authController.validateToken();
+
+            // Si seguimos autenticados después de validar, refrescar datos de usuario
+            if (authController.isAuthenticated) {
+              print('Refreshing user data on app start');
+              await authController.refreshUserData();
+            }
+          });
+        }
+
         // After initialization, decide which view to show
         if (authController.isAuthenticated) {
           // User is authenticated -> Show HomeView

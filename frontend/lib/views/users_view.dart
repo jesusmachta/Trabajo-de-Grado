@@ -62,7 +62,33 @@ class _UsersViewState extends State<UsersView> {
     final userController = Provider.of<UserController>(context, listen: false);
 
     if (authController.token != null) {
-      userController.fetchUsers(authController.token!);
+      try {
+        userController.fetchUsers(authController.token!).catchError((error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al cargar usuarios: ${error.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
+      } catch (e) {
+        // Handle any synchronous errors
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Error al iniciar carga de usuarios: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      // Inform user they need to login
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sesión no iniciada. Por favor inicie sesión primero.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
@@ -520,8 +546,8 @@ class _UsersViewState extends State<UsersView> {
                               const SizedBox(height: 10),
                               Text(
                                 userController.error!,
-                                style:
-                                    TextStyle(color: Colors.red, fontSize: 16),
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: 16),
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 20),
@@ -530,6 +556,23 @@ class _UsersViewState extends State<UsersView> {
                                 label: const Text('Reintentar'),
                                 onPressed: _loadUsers,
                               ),
+                              if (userController.error!
+                                      .contains('autorizada') ||
+                                  userController.error!
+                                      .contains('iniciar sesión'))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12.0),
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.login),
+                                    label: const Text('Ir a Login'),
+                                    onPressed: () {
+                                      // Navigate to login page - You may need to adjust this
+                                      // depending on your navigation structure
+                                      Navigator.of(context)
+                                          .pushReplacementNamed('/login');
+                                    },
+                                  ),
+                                ),
                             ],
                           ),
                         )
