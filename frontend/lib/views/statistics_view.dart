@@ -1948,13 +1948,13 @@ class StatisticsViewState extends State<StatisticsView> {
               child: SfCartesianChart(
                 margin: const EdgeInsets.all(0),
                 primaryXAxis: CategoryAxis(
-                  title: AxisTitle(text: 'Hora'),
+                  title: AxisTitle(text: 'Hora del día'),
                   labelIntersectAction: AxisLabelIntersectAction.rotate45,
                   labelRotation: constraints.maxWidth < 400 ? 45 : 0,
                   maximumLabels: constraints.maxWidth < 400 ? 6 : 12,
                 ),
                 primaryYAxis: NumericAxis(
-                  title: AxisTitle(text: 'Visitantes'),
+                  title: AxisTitle(text: 'Cantidad de visitantes'),
                   labelFormat: '{value}',
                 ),
                 legend: Legend(isVisible: false),
@@ -2031,9 +2031,12 @@ class StatisticsViewState extends State<StatisticsView> {
     }
 
     // Obtener directamente los nombres de los días
-    String mostBusyDayEn = data['most_busy_day'] as String? ?? 'No disponible';
-    String leastBusyDayEn =
-        data['least_busy_day'] as String? ?? 'No disponible';
+    String mostBusyDayEn = data['data']?['most_busy_day'] as String? ??
+        data['most_busy_day'] as String? ??
+        'No disponible';
+    String leastBusyDayEn = data['data']?['least_busy_day'] as String? ??
+        data['least_busy_day'] as String? ??
+        'No disponible';
 
     // Traducir días de inglés a español si es necesario
     final Map<String, String> dayTranslations = {
@@ -2050,15 +2053,61 @@ class StatisticsViewState extends State<StatisticsView> {
     String mostBusyDayName = dayTranslations[mostBusyDayEn] ?? mostBusyDayEn;
     String leastBusyDayName = dayTranslations[leastBusyDayEn] ?? leastBusyDayEn;
 
-    // Definir días de la semana en orden
-    final List<String> weekDays = [
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo'
+    // Calcular fechas para la semana actual (para mostrar números de día)
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+
+    // Definir la información de cada día de la semana
+    final List<Map<String, dynamic>> weekDaysInfo = [
+      {
+        'letter': 'M',
+        'full': 'Martes',
+        'date': monday.add(const Duration(days: 1)).day,
+        'isMostBusy': 'Martes' == mostBusyDayName,
+        'isLeastBusy': 'Martes' == leastBusyDayName,
+      },
+      {
+        'letter': 'M',
+        'full': 'Miércoles',
+        'date': monday.add(const Duration(days: 2)).day,
+        'isMostBusy': 'Miércoles' == mostBusyDayName,
+        'isLeastBusy': 'Miércoles' == leastBusyDayName,
+      },
+      {
+        'letter': 'J',
+        'full': 'Jueves',
+        'date': monday.add(const Duration(days: 3)).day,
+        'isMostBusy': 'Jueves' == mostBusyDayName,
+        'isLeastBusy': 'Jueves' == leastBusyDayName,
+      },
+      {
+        'letter': 'V',
+        'full': 'Viernes',
+        'date': monday.add(const Duration(days: 4)).day,
+        'isMostBusy': 'Viernes' == mostBusyDayName,
+        'isLeastBusy': 'Viernes' == leastBusyDayName,
+      },
+      {
+        'letter': 'S',
+        'full': 'Sábado',
+        'date': monday.add(const Duration(days: 5)).day,
+        'isMostBusy': 'Sábado' == mostBusyDayName,
+        'isLeastBusy': 'Sábado' == leastBusyDayName,
+      },
+      {
+        'letter': 'D',
+        'full': 'Domingo',
+        'date': monday.add(const Duration(days: 6)).day,
+        'isMostBusy': 'Domingo' == mostBusyDayName,
+        'isLeastBusy': 'Domingo' == leastBusyDayName,
+      },
+      {
+        'letter': 'L',
+        'full': 'Lunes',
+        'date': monday.day,
+        'isMostBusy': 'Lunes' == mostBusyDayName,
+        'isLeastBusy': 'Lunes' == leastBusyDayName,
+      },
     ];
 
     return SingleChildScrollView(
@@ -2066,6 +2115,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Título (mantener color azul como se indicó)
           Text(
             'Días de la Semana con Más y Menos Afluencia',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -2076,103 +2126,166 @@ class StatisticsViewState extends State<StatisticsView> {
           ),
           const SizedBox(height: 24),
 
-          // Visualización de calendario semanal
+          // Calendario semanal (diseño según la imagen)
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
-              color:
-                  Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
-              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                ),
+              ],
             ),
             child: Column(
               children: [
                 Text(
                   'Calendario Semanal',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+
+                // Días de la semana en formato visual similar a la imagen
                 LayoutBuilder(builder: (context, constraints) {
-                  // Para pantallas muy pequeñas, mostrar en dos filas
-                  if (constraints.maxWidth < 600) {
-                    return Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: weekDays.sublist(0, 4).map((day) {
-                            final isMostBusy = day == mostBusyDayName;
-                            final isLeastBusy = day == leastBusyDayName;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: weekDaysInfo.map((dayInfo) {
+                      // Determinamos si es el día más o menos concurrido
+                      final bool isMostBusy = dayInfo['isMostBusy'];
+                      final bool isLeastBusy = dayInfo['isLeastBusy'];
 
-                            return _buildDayCircle(
-                                day: day,
-                                isMostBusy: isMostBusy,
-                                isLeastBusy: isLeastBusy);
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: weekDays.sublist(4).map((day) {
-                            final isMostBusy = day == mostBusyDayName;
-                            final isLeastBusy = day == leastBusyDayName;
+                      // Color del día basado en los criterios
+                      Color? bgColor;
+                      if (isMostBusy) {
+                        bgColor = const Color(0xFFE8F5E9); // Verde claro
+                      } else if (isLeastBusy) {
+                        bgColor = const Color(0xFFFFF3E0); // Naranja claro
+                      }
 
-                            return _buildDayCircle(
-                                day: day,
-                                isMostBusy: isMostBusy,
-                                isLeastBusy: isLeastBusy);
-                          }).toList(),
-                        ),
-                      ],
-                    );
-                  } else {
-                    // Para pantallas normales, mostrar en una fila
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: weekDays.map((day) {
-                        final isMostBusy = day == mostBusyDayName;
-                        final isLeastBusy = day == leastBusyDayName;
-
-                        return _buildDayCircle(
-                            day: day,
-                            isMostBusy: isMostBusy,
-                            isLeastBusy: isLeastBusy);
-                      }).toList(),
-                    );
-                  }
+                      return _buildCalendarDay(
+                        letter: dayInfo['letter'],
+                        fullName: dayInfo['full'],
+                        date: dayInfo['date'].toString(),
+                        isHighlighted: isMostBusy || isLeastBusy,
+                        bgColor: bgColor,
+                      );
+                    }).toList(),
+                  );
                 }),
               ],
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
-          // Tarjetas de información
+          // Tarjetas de información según la imagen
           Row(
             children: [
-              // Tarjeta del día más concurrido
+              // Tarjeta día más concurrido (verde claro)
               Expanded(
-                child: _buildDayInfoCard(
-                  title: 'Día Más Concurrido',
-                  day: mostBusyDayName,
-                  count: null, // Sin valor numérico
-                  icon: Icons.people,
-                  color: Colors.green,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9), // Verde claro
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Icono y título
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people,
+                            color: Colors.green[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Día Más Concurrido',
+                            style: TextStyle(
+                              color: Colors.green[700],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Día de la semana centrado en grande
+                      Center(
+                        child: Text(
+                          mostBusyDayName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+
               const SizedBox(width: 16),
-              // Tarjeta del día menos concurrido
+
+              // Tarjeta día menos concurrido (naranja claro)
               Expanded(
-                child: _buildDayInfoCard(
-                  title: 'Día Menos Concurrido',
-                  day: leastBusyDayName,
-                  count: null, // Sin valor numérico
-                  icon: Icons.person_outline,
-                  color: Colors.orange,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0), // Naranja claro
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Icono y título
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            color: Colors.orange[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Día Menos Concurrido',
+                            style: TextStyle(
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Día de la semana centrado en grande
+                      Center(
+                        child: Text(
+                          leastBusyDayName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                color: Colors.orange[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -2182,146 +2295,56 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Widget para mostrar un círculo con la inicial del día
-  Widget _buildDayCircle({
-    required String day,
-    required bool isMostBusy,
-    required bool isLeastBusy,
+  // Widget para mostrar un día en el calendario semanal
+  Widget _buildCalendarDay({
+    required String letter,
+    required String fullName,
+    required String date,
+    bool isHighlighted = false,
+    Color? bgColor,
   }) {
-    Color bgColor = Theme.of(context).colorScheme.surfaceVariant;
-    Color textColor = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    if (isMostBusy) {
-      bgColor = Colors.green;
-      textColor = Colors.white;
-    } else if (isLeastBusy) {
-      bgColor = Colors.orange;
-      textColor = Colors.white;
-    }
-
-    return Container(
-      width: 85, // Ancho fijo para acomodar el nombre completo
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isMostBusy || isLeastBusy
-                    ? Colors.transparent
-                    : Theme.of(context).dividerColor,
-                width: 1,
-              ),
-              boxShadow: isMostBusy || isLeastBusy
-                  ? [
-                      BoxShadow(
-                        color: isMostBusy
-                            ? Colors.green.withOpacity(0.3)
-                            : Colors.orange.withOpacity(0.3),
-                        blurRadius: 6,
-                        spreadRadius: 1,
-                      )
-                    ]
-                  : null,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              day[0], // Primera letra del día
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+    return Column(
+      children: [
+        // Letra del día (M, J, V, etc.)
+        Text(
+          letter,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: isHighlighted
+                ? Theme.of(context).colorScheme.primary
+                : Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Nombre completo del día
+        Text(
+          fullName,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.black87,
+            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Número del día con círculo/fondo si está resaltado
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            date,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            day, // Nombre completo del día
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isMostBusy
-                      ? Colors.green
-                      : isLeastBusy
-                          ? Colors.orange
-                          : null,
-                  fontWeight: isMostBusy || isLeastBusy
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget para tarjeta informativa de día
-  Widget _buildDayInfoCard({
-    required String title,
-    required String day,
-    int? count, // Ahora es opcional
-    required IconData icon,
-    required Color color,
-  }) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: color.withOpacity(0.3),
-          width: 1,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    day,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  // Solo mostrar el conteo si está disponible
-                  if (count != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '$count visitantes',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -4067,17 +4090,22 @@ class StatisticsViewState extends State<StatisticsView> {
 
     try {
       if (data is Map) {
+        // Check if data is nested under 'data' key
+        final dataMap = data.containsKey('data') ? data['data'] : data;
+
         mostVisitedCategory =
-            data['most_visited_category']?.toString() ?? 'No disponible';
-        mostVisitedCount = (data['most_visited_count'] is int)
-            ? data['most_visited_count']
-            : int.tryParse(data['most_visited_count']?.toString() ?? '0') ?? 0;
+            dataMap['most_visited_category']?.toString() ?? 'No disponible';
+        mostVisitedCount = (dataMap['most_visited_count'] is int)
+            ? dataMap['most_visited_count']
+            : int.tryParse(dataMap['most_visited_count']?.toString() ?? '0') ??
+                0;
 
         leastVisitedCategory =
-            data['least_visited_category']?.toString() ?? 'No disponible';
-        leastVisitedCount = (data['least_visited_count'] is int)
-            ? data['least_visited_count']
-            : int.tryParse(data['least_visited_count']?.toString() ?? '0') ?? 0;
+            dataMap['least_visited_category']?.toString() ?? 'No disponible';
+        leastVisitedCount = (dataMap['least_visited_count'] is int)
+            ? dataMap['least_visited_count']
+            : int.tryParse(dataMap['least_visited_count']?.toString() ?? '0') ??
+                0;
       }
     } catch (e) {
       print('Error parsing combined visited categories data: $e');
@@ -4109,7 +4137,7 @@ class StatisticsViewState extends State<StatisticsView> {
           LayoutBuilder(
             builder: (context, constraints) {
               // Use row for wider screens, column for narrower screens
-              bool useRow = constraints.maxWidth > 700;
+              bool useRow = constraints.maxWidth > 600;
 
               if (useRow) {
                 // Side by side layout for wider screens
@@ -4177,121 +4205,91 @@ class StatisticsViewState extends State<StatisticsView> {
     // Define visual properties based on popularity
     final String title =
         isPopular ? 'Categoría Más Visitada' : 'Categoría Menos Visitada';
-    final Color accentColor = isPopular ? Colors.green : Colors.orange;
-    final Color cardColor = Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context).cardColor
-        : isPopular
-            ? Colors.green.shade50
-            : Colors.orange.shade50;
+    final Color textColor =
+        isPopular ? Colors.green.shade800 : Colors.brown.shade800;
+    final Color bgColor = isPopular
+        ? const Color(0xFFE8F5E9) // Light green
+        : const Color(0xFFFFF3E0); // Light orange/peach
 
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(
-          color: accentColor.withOpacity(0.5),
-          width: 2,
-        ),
       ),
-      child: Column(
-        children: [
-          // Category title
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.2),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(14),
-                topRight: Radius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title
+            Text(
+              title,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: accentColor,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+            const SizedBox(height: 48),
 
-          // Category icon and name
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                // Category icon
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _getCategoryIcon(category),
-                      size: 48,
-                      color: accentColor,
+            // Category content (center aligned)
+            Center(
+              child: Column(
+                children: [
+                  // Category icon in circle
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.7),
+                      shape: BoxShape.circle,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Category name
-                Text(
-                  category,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    child: Center(
+                      child: Icon(
+                        _getCategoryIcon(category),
+                        size: 40,
+                        color: textColor,
                       ),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 12),
-
-                // Visit count badge
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: accentColor.withOpacity(0.3),
-                      width: 1,
                     ),
                   ),
-                  child: Row(
+                  const SizedBox(height: 24),
+
+                  // Category name
+                  Text(
+                    category,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Visit count with person icon
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.people,
-                        size: 18,
-                        color: accentColor,
+                        Icons.person,
+                        size: 20,
+                        color: Colors.black54,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '$count visitas',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: accentColor,
-                            ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

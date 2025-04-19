@@ -342,7 +342,11 @@ class StatisticsController {
     return [
       // Estadísticas básicas
       {'value': 'peak-hours', 'label': 'Horas pico', 'emoji': '🕒'},
-      {'value': 'least-hours', 'label': 'Horas valle', 'emoji': '⏱️'},
+      {
+        'value': 'least-hours',
+        'label': 'Horas menos concurridas',
+        'emoji': '⏱️'
+      },
       {
         'value': 'busy-days-combined',
         'label': 'Días de la semana con más y menos afluencia',
