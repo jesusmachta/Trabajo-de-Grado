@@ -385,6 +385,59 @@ class _CamerasViewState extends State<CamerasView> {
     }
   }
 
+  // Método para editar una cámara existente
+  Future<void> _editCamera(String mongoId, int idCamara, int categoryId) async {
+    if (!mounted) return;
+    final currentContext = context;
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'Id_Camara': idCamara,
+          'Tipo_Producto': categoryId,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        _fetchCameras();
+        Navigator.of(currentContext).pop();
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          const SnackBar(
+              content: Text('Cámara actualizada con éxito.'),
+              backgroundColor: Colors.green),
+        );
+      } else {
+        String errorMessage = 'Failed to update camera';
+        try {
+          final errorBody = json.decode(response.body);
+          if (errorBody is Map && errorBody.containsKey('detail')) {
+            errorMessage = errorBody['detail'];
+          } else {
+            errorMessage = 'Failed to update camera: ${response.statusCode}';
+          }
+        } catch (_) {
+          errorMessage = 'Failed to update camera: ${response.statusCode}';
+        }
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (mounted) {
+        if (Navigator.of(currentContext).canPop()) {
+          Navigator.of(currentContext).pop();
+        }
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+              content: Text('Error al actualizar cámara: $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   // --- Dialogs ---
 
   void _showAddCameraDialog() {
@@ -636,6 +689,223 @@ class _CamerasViewState extends State<CamerasView> {
     );
   }
 
+  void _showEditCameraDialog(Map<String, dynamic> camera) {
+    print('Opening Edit Camera Dialog');
+
+    // Si hay un problema cargando categorías, intentamos cargarlas directamente con datos predefinidos
+    if (_isLoadingCategories || _activeCategories.isEmpty) {
+      _loadCategoriesDirectly();
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final idCamaraController =
+        TextEditingController(text: camera['Id_Camara'].toString());
+    int? selectedCategoryId = camera['Tipo_Producto'];
+    final String mongoId = camera['_id'] as String;
+
+    // Lista de IDs de cámaras existentes para validación excluyendo el actual
+    final List<int> existingCameraIds = _cameras
+        .where((cam) => cam['_id'] != mongoId)
+        .map((cam) => cam['Id_Camara'] as int)
+        .toList();
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Crear un mapa simple de ID a nombre para las categorías
+            final Map<int, String> categoryMap = {};
+            for (var category in _activeCategories) {
+              final id = category['Tipo_Producto'] as int? ??
+                  (category['Id_Tipo_Producto'] is int
+                      ? category['Id_Tipo_Producto'] as int
+                      : int.tryParse(category['Id_Tipo_Producto'].toString()) ??
+                          0);
+
+              final name = category['Categoria_Producto'] as String? ??
+                  category['Nombre'] as String? ??
+                  'Sin nombre';
+
+              categoryMap[id] = name;
+            }
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Text('Editar Cámara'),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Actualizar categorías',
+                    onPressed: () async {
+                      setDialogState(() {
+                        _isLoadingCategories = true;
+                      });
+
+                      try {
+                        await _fetchActiveCategories();
+                      } catch (e) {
+                        print('Error refreshing categories: $e');
+                        _loadCategoriesDirectly();
+                      }
+
+                      setDialogState(() {});
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Categorías cargadas: ${_activeCategories.length}'),
+                          backgroundColor: _activeCategories.isEmpty
+                              ? Colors.red
+                              : Colors.green,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              content: SizedBox(
+                width: 400,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      // Campo ID
+                      TextFormField(
+                        controller: idCamaraController,
+                        decoration: const InputDecoration(
+                          labelText: 'ID Cámara (Número)',
+                          hintText: 'Ingrese un número único',
+                          errorMaxLines: 3,
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingrese el ID de la cámara';
+                          }
+
+                          final id = int.tryParse(value);
+                          if (id == null) {
+                            return 'Por favor ingrese un número válido';
+                          }
+
+                          if (existingCameraIds.contains(id)) {
+                            return 'Este ID de cámara ya existe. Por favor ingrese un ID diferente.';
+                          }
+
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Dropdown simplificado
+                      if (_isLoadingCategories)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_activeCategories.isEmpty)
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: () => _loadCategoriesDirectly(),
+                            child: const Text('Cargar Categorías Predefinidas'),
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Seleccionar Categoría:',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            // Simple dropdown button
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: DropdownButton<int>(
+                                value: selectedCategoryId,
+                                isExpanded: true,
+                                hint: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text('Seleccione una categoría'),
+                                ),
+                                underline:
+                                    Container(), // Eliminar línea inferior
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                items: categoryMap.entries.map((entry) {
+                                  return DropdownMenuItem<int>(
+                                    value: entry.key,
+                                    child: Text(entry.value),
+                                  );
+                                }).toList(),
+                                onChanged: (int? newValue) {
+                                  print(
+                                      'Selected category: $newValue - ${categoryMap[newValue]}');
+                                  setDialogState(() {
+                                    selectedCategoryId = newValue;
+                                  });
+                                },
+                              ),
+                            ),
+                            if (selectedCategoryId != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'Categoría seleccionada: ${categoryMap[selectedCategoryId]}',
+                                  style: const TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancelar'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: const Text('Guardar'),
+                  onPressed: _isLoadingCategories ||
+                          _activeCategories.isEmpty ||
+                          selectedCategoryId == null
+                      ? null
+                      : () {
+                          if (formKey.currentState!.validate()) {
+                            final idCamara = int.parse(idCamaraController.text);
+                            _editCamera(mongoId, idCamara, selectedCategoryId!);
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Helper widget to build the main content (DataTable)
   Widget _buildCamerasTable() {
     return Column(
@@ -725,6 +995,28 @@ class _CamerasViewState extends State<CamerasView> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // Edit Button
+                              Tooltip(
+                                message: 'Editar Cámara',
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.white),
+                                    iconSize: 22,
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(8),
+                                    tooltip: 'Editar',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        _showEditCameraDialog(camera),
+                                  ),
+                                ),
+                              ),
                               // Delete Button
                               Tooltip(
                                 message: 'Eliminar Cámara',

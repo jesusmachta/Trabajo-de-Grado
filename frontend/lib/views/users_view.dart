@@ -605,161 +605,165 @@ class _UsersViewState extends State<UsersView> {
   Widget _buildUserTable(
       List<User> users, ThemeData theme, AuthController authController) {
     return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: theme.dividerColor, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        elevation: 2,
         clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          scrollDirection:
-              Axis.horizontal, // Enable horizontal scroll for smaller screens
-          child: DataTable(
-            // Set a specific background color for the header row
-            headingRowColor: MaterialStateProperty.resolveWith<Color?>(
-                (Set<MaterialState> states) {
-              // Use a slightly lighter/different color for the header
-              return theme.colorScheme.secondaryContainer.withOpacity(0.3);
-            }),
-            headingTextStyle: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSecondaryContainer),
-            columnSpacing: 24, // Adjust spacing between columns
-            columns: const [
-              DataColumn(
-                  label: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('Foto'))),
-              DataColumn(
-                  label: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('Nombre'))),
-              DataColumn(
-                  label: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('Correo'))),
-              DataColumn(
-                  label: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('Rol'))),
-              DataColumn(
-                  label: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('Estado'))),
-              DataColumn(
-                  label: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('Acciones'))),
-            ],
-            rows: users.map((user) {
-              return DataRow(
-                color: MaterialStateProperty.resolveWith<Color?>(
-                    (Set<MaterialState> states) {
-                  // Alternating row colors can be added here if desired
-                  return null; // Default row color
-                }),
-                cells: [
-                  DataCell(
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 8.0,
-                          horizontal: 8.0), // Add padding around CircleAvatar
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundImage: user.profilePicture != null &&
-                                user.profilePicture!.isNotEmpty
-                            ? NetworkImage(user.profilePicture!)
-                            : null, // Handle null/empty profile picture URL
-                        child: (user.profilePicture == null ||
-                                user.profilePicture!.isEmpty)
-                            ? Icon(Icons.person_outline,
-                                size: 20, color: theme.colorScheme.primary)
-                            : null,
-                        backgroundColor: theme.colorScheme.surfaceVariant,
-                      ),
-                    ),
-                  ),
-                  DataCell(Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(user.fullName))), // Add padding
-                  DataCell(Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(user.email))), // Add padding
-                  DataCell(Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(user.role == 'admin'
-                          ? 'Admin'
-                          : 'Usuario'))), // Add padding
-                  DataCell(Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: _buildStatusChip(
-                          user.isActive, theme))), // Add padding
-                  DataCell(
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0), // Add padding
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.edit_outlined,
-                                color: theme.colorScheme.primary, size: 20),
-                            tooltip: 'Editar Usuario',
-                            onPressed: () => _showEditUserDialog(user),
-                            visualDensity: VisualDensity
-                                .compact, // Make IconButton smaller
-                            padding: EdgeInsets.zero,
-                          ),
-                          const SizedBox(width: 8),
-                          // Optional: Toggle status directly from the table
-                          // IconButton(
-                          //   icon: Icon(user.isActive ? Icons.toggle_off_outlined : Icons.toggle_on_outlined, color: user.isActive ? Colors.grey : Colors.green, size: 20),
-                          //   tooltip: user.isActive ? 'Desactivar Usuario' : 'Activar Usuario',
-                          //   onPressed: () => _toggleUserStatus(user, authController.token!),
-                          //   visualDensity: VisualDensity.compact,
-                          //   padding: EdgeInsets.zero,
-                          // ),
-                          IconButton(
-                            icon: Icon(Icons.delete_outline,
-                                color: theme.colorScheme.error, size: 20),
-                            tooltip: 'Eliminar Usuario',
-                            // Disable delete for self, use null check for currentUser
-                            onPressed: (authController.currentUser?.id ==
-                                    user.id)
-                                ? null
-                                : () =>
-                                    _confirmDeleteUser(user.id, user.fullName),
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+        child: LayoutBuilder(builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: DataTable(
+                columnSpacing: 24,
+                headingRowHeight: 48,
+                dataRowMinHeight: 52,
+                dataRowMaxHeight: 60,
+                headingRowColor: MaterialStateProperty.resolveWith<Color?>(
+                  (states) =>
+                      theme.colorScheme.primaryContainer.withOpacity(0.1),
+                ),
+                columns: const [
+                  DataColumn(
+                      label: Text('Foto',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Nombre',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Correo',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Rol',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Estado',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Acciones',
+                          style: TextStyle(fontWeight: FontWeight.bold))),
                 ],
-              );
-            }).toList(),
-          ),
-        ));
+                rows: users.map((user) {
+                  return DataRow(
+                    cells: [
+                      // Foto cell
+                      DataCell(
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundImage: user.profilePicture != null &&
+                                  user.profilePicture!.isNotEmpty
+                              ? NetworkImage(user.profilePicture!)
+                              : null,
+                          child: (user.profilePicture == null ||
+                                  user.profilePicture!.isEmpty)
+                              ? Icon(Icons.person_outline,
+                                  size: 20, color: theme.colorScheme.primary)
+                              : null,
+                          backgroundColor: theme.colorScheme.surfaceVariant,
+                        ),
+                      ),
+                      // Nombre cell
+                      DataCell(Text(user.fullName)),
+                      // Correo cell
+                      DataCell(Text(user.email)),
+                      // Rol cell
+                      DataCell(
+                          Text(user.role == 'admin' ? 'Admin' : 'Usuario')),
+                      // Estado cell
+                      DataCell(
+                        Chip(
+                          label: Text(
+                            user.isActive ? 'Activo' : 'Inactivo',
+                            style: TextStyle(
+                              color: user.isActive
+                                  ? Colors.green.shade900
+                                  : Colors.grey.shade700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          backgroundColor: user.isActive
+                              ? Colors.green.shade100
+                              : Colors.grey.shade300,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 0),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                      // Acciones cell
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Edit Button
+                            Tooltip(
+                              message: 'Editar Usuario',
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade600,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.white),
+                                  iconSize: 22,
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(8),
+                                  tooltip: 'Editar',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => _showEditUserDialog(user),
+                                ),
+                              ),
+                            ),
+                            // Delete Button
+                            Tooltip(
+                              message: 'Eliminar Usuario',
+                              child: Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade600,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.white),
+                                  iconSize: 22,
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(8),
+                                  tooltip: 'Eliminar',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: (authController.currentUser?.id ==
+                                          user.id)
+                                      ? null
+                                      : () => _confirmDeleteUser(
+                                          user.id, user.fullName),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+        }));
   }
 
+  // Update the status chip to be more compact
   Widget _buildStatusChip(bool isActive, ThemeData theme) {
     return Chip(
-      avatar: Icon(
-        isActive ? Icons.check_circle : Icons.cancel,
-        color: isActive ? Colors.green.shade700 : Colors.grey.shade600,
-        size: 16,
-      ),
-      label: Text(isActive ? 'Activo' : 'Inactivo'),
-      labelStyle: TextStyle(
-          fontSize: 12,
+      label: Text(
+        isActive ? 'Activo' : 'Inactivo',
+        style: TextStyle(
           color: isActive ? Colors.green.shade900 : Colors.grey.shade700,
-          fontWeight: FontWeight.w600),
+          fontSize: 13,
+        ),
+      ),
       backgroundColor: isActive ? Colors.green.shade100 : Colors.grey.shade300,
-      side: BorderSide.none,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(
-          horizontal: 8, vertical: 0), // Reduced vertical padding
     );
   }
 
