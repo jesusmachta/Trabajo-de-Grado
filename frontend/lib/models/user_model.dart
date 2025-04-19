@@ -18,16 +18,34 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    // Handle different ID field formats
+    String userId = '';
+    if (json.containsKey('_id')) {
+      userId = json['_id'].toString();
+    } else if (json.containsKey('id')) {
+      userId = json['id'].toString();
+    } else if (json.containsKey('user_id')) {
+      userId = json['user_id'].toString();
+    }
+
+    // Handle date field
+    DateTime createdDate;
+    try {
+      createdDate = json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now();
+    } catch (e) {
+      createdDate = DateTime.now();
+    }
+
     return User(
-      id: json['id'] ?? json['user_id'] ?? json['_id'].toString(),
+      id: userId,
       email: json['email'] ?? '',
       fullName: json['full_name'] ?? '',
       role: json['role'] ?? 'user',
       profilePicture: json['profile_picture'],
       isActive: json['is_active'] ?? true,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
+      createdAt: createdDate,
     );
   }
 

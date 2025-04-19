@@ -9,7 +9,7 @@ class UserController with ChangeNotifier {
   String? _error;
 
   // API base URL - change this to match your backend
-  final String _baseUrl = 'http://localhost:8000/api';
+  final String _baseUrl = 'http://127.0.0.1:8000/api';
 
   // Getters
   List<User> get users => [..._users];
@@ -32,19 +32,39 @@ class UserController with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> responseData = jsonDecode(response.body)['data'];
-        _users =
-            responseData.map((userData) => User.fromJson(userData)).toList();
+        final responseBody = jsonDecode(response.body);
+        if (responseBody.containsKey('data') && responseBody['data'] is List) {
+          final List<dynamic> responseData = responseBody['data'];
+          _users =
+              responseData.map((userData) => User.fromJson(userData)).toList();
+        } else {
+          _users = []; // Reset users if the response format is unexpected
+          _error = 'Formato de respuesta inesperado';
+        }
+        _isLoading = false;
+        notifyListeners();
+      } else if (response.statusCode == 401) {
+        _error =
+            'Sesión expirada o no autorizada. Por favor inicie sesión nuevamente.';
+        _users = [];
         _isLoading = false;
         notifyListeners();
       } else {
-        final responseData = jsonDecode(response.body);
-        _error = responseData['detail'] ?? 'Error al obtener usuarios';
+        try {
+          final responseData = jsonDecode(response.body);
+          _error = responseData['detail'] ??
+              'Error al obtener usuarios: ${response.statusCode}';
+        } catch (e) {
+          _error = 'Error al obtener usuarios: ${response.statusCode}';
+        }
+        _users = [];
         _isLoading = false;
         notifyListeners();
       }
     } catch (e) {
-      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _error =
+          'Error de conexión: ${e.toString()}. Intente de nuevo más tarde.';
+      _users = [];
       _isLoading = false;
       notifyListeners();
     }

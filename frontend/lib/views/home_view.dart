@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
 import 'users_view.dart';
 import 'categories_view.dart';
 import '../controllers/statistics_controller.dart';
+import '../controllers/auth_controller.dart';
+import '../controllers/route_guard.dart';
 import 'cameras_view.dart';
+import 'profile_view.dart';
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
@@ -29,6 +33,16 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+
+    // Verificar autenticación al inicializar
+    Future.microtask(() {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      if (!authController.isAuthenticated) {
+        authController.checkAuthAndRedirect(context);
+      }
+    });
+
     _pages = [
       DashboardView(toggleTheme: widget.toggleTheme),
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
@@ -46,10 +60,66 @@ class _HomeViewState extends State<HomeView> {
     'Gestión de Cámaras',
   ];
 
+  // Helper to properly encode profile picture URLs
+  String _encodeProfilePictureUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+
+    print('HomeView - Original profile URL: $url');
+
+    try {
+      // Handle specific case for tesislospomelos bucket
+      if (url.contains('tesislospomelos.s3.amazonaws.com')) {
+        print('HomeView - Detected tesislospomelos S3 URL');
+
+        // Direct access format for S3 - no transformation needed for this bucket
+        // Just ensure proper encoding
+        final encodedUrl = url.replaceAll(' ', '%20');
+        print('HomeView - Encoded tesislospomelos URL: $encodedUrl');
+        return encodedUrl;
+      }
+      // Check if it's an S3 URL
+      else if (url.contains('s3.amazonaws.com')) {
+        // Convert https://bucketname.s3.amazonaws.com/key to https://s3.amazonaws.com/bucketname/key format
+        // This alternate format often works better with public access settings
+        final uri = Uri.parse(url);
+        final host = uri.host;
+
+        if (host.endsWith('s3.amazonaws.com')) {
+          // Extract bucket name from the hostname (e.g., "bucketname.s3.amazonaws.com")
+          final bucketName = host.split('.').first;
+
+          // Get the path without leading slash
+          final objectKey =
+              uri.path.startsWith('/') ? uri.path.substring(1) : uri.path;
+
+          // Build URL in the alternative format
+          return 'https://s3.amazonaws.com/$bucketName/$objectKey';
+        }
+      }
+
+      // If not an S3 URL or already in the right format, just encode it properly
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments.map(Uri.encodeComponent).join('/');
+      return '${uri.scheme}://${uri.host}${uri.port != 80 && uri.port != 443 ? ':${uri.port}' : ''}/$pathSegments';
+    } catch (e) {
+      // If URL parsing fails, fall back to basic space encoding
+      print('Error encoding URL in HomeView: $e');
+      return url.replaceAll(' ', '%20');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final bool isDarkMode = brightness == Brightness.dark;
+    final authController = Provider.of<AuthController>(context);
+    final currentUser = authController.currentUser;
+    final String userName = currentUser?.fullName.split(' ')[0] ?? 'Usuario';
+
+    // Encode profile picture URL if exists
+    final String? encodedProfilePictureUrl = currentUser?.profilePicture != null
+        ? _encodeProfilePictureUrl(currentUser!.profilePicture)
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -59,20 +129,62 @@ class _HomeViewState extends State<HomeView> {
         elevation: 0,
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: Icon(
-                isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round),
-            tooltip:
-                isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
-            onPressed: () {
-              widget.toggleTheme();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () {
-              // Futuro: mostrar ayuda
-            },
+          Row(
+            children: [
+              Text(
+                '¡Hola, $userName!',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                iconSize: 42, // Increased icon size
+                icon: CircleAvatar(
+                  radius: 21,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  backgroundImage: encodedProfilePictureUrl != null &&
+                          encodedProfilePictureUrl.isNotEmpty
+                      ? NetworkImage(encodedProfilePictureUrl,
+                          headers: {'Accept': '*/*'})
+                      : null,
+                  child: encodedProfilePictureUrl == null ||
+                          encodedProfilePictureUrl.isEmpty
+                      ? Icon(Icons.person,
+                          size: 28,
+                          color: Theme.of(context).colorScheme.primary)
+                      : null,
+                  onBackgroundImageError: encodedProfilePictureUrl != null
+                      ? (exception, stackTrace) {
+                          print(
+                              'Error loading profile image in header: $exception');
+                          // Force a rebuild with the fallback icon on error
+                          if (mounted) {
+                            setState(() {
+                              // Try to refresh user data from server to get updated profile URL
+                              final authController =
+                                  Provider.of<AuthController>(context,
+                                      listen: false);
+                              authController.refreshUserData();
+                            });
+                          }
+                        }
+                      : null,
+                ),
+                tooltip: 'Perfil',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const ProfileView()),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
         ],
       ),
@@ -81,7 +193,7 @@ class _HomeViewState extends State<HomeView> {
           padding: EdgeInsets.zero,
           children: [
             ListTile(
-              leading: const Icon(Icons.dashboard, size: 28),
+              leading: const Icon(Icons.dashboard, size: 32),
               title: const Text('Dashboard',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               selected: _currentIndex == 0,
@@ -94,7 +206,7 @@ class _HomeViewState extends State<HomeView> {
             ),
             // Statistics ExpansionTile for vertical expansion
             ExpansionTile(
-              leading: const Icon(Icons.bar_chart, size: 28),
+              leading: const Icon(Icons.bar_chart, size: 32),
               title: const Text('Estadísticas',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               initiallyExpanded: _showStatisticsSubmenu,
@@ -127,7 +239,7 @@ class _HomeViewState extends State<HomeView> {
               }).toList(),
             ),
             ListTile(
-              leading: const Icon(Icons.admin_panel_settings, size: 28),
+              leading: const Icon(Icons.admin_panel_settings, size: 32),
               title: const Text('Roles y Privilegios',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               selected: _currentIndex == 2,
@@ -139,7 +251,7 @@ class _HomeViewState extends State<HomeView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.category, size: 28),
+              leading: const Icon(Icons.category, size: 32),
               title: const Text('Categorías',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               selected: _currentIndex == 3,
@@ -151,7 +263,7 @@ class _HomeViewState extends State<HomeView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, size: 28),
+              leading: const Icon(Icons.camera_alt, size: 32),
               title: const Text('Cámaras',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               selected: _currentIndex == 4,
@@ -166,7 +278,7 @@ class _HomeViewState extends State<HomeView> {
             ListTile(
               leading: Icon(
                   isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round,
-                  size: 28),
+                  size: 32),
               title: Text(isDarkMode ? 'Modo claro' : 'Modo oscuro',
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w500)),
@@ -176,7 +288,7 @@ class _HomeViewState extends State<HomeView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.help_outline, size: 28),
+              leading: const Icon(Icons.help_outline, size: 32),
               title: const Text('Ayuda',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               onTap: () {
@@ -184,7 +296,7 @@ class _HomeViewState extends State<HomeView> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.info_outline, size: 28),
+              leading: const Icon(Icons.info_outline, size: 32),
               title: const Text('Acerca de',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               onTap: () {
@@ -193,12 +305,19 @@ class _HomeViewState extends State<HomeView> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout, size: 28),
+              leading: const Icon(Icons.logout, size: 32),
               title: const Text('Log out',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                // Implementación pendiente
+              onTap: () async {
+                // Cerrar el drawer primero
                 Navigator.pop(context);
+
+                // Ejecutar logout
+                await Provider.of<AuthController>(context, listen: false)
+                    .logout();
+
+                // No necesitamos hacer navegación manual aquí.
+                // El AuthWrapper detectará el cambio en isAuthenticated y mostrará LoginView automáticamente
               },
             ),
           ],

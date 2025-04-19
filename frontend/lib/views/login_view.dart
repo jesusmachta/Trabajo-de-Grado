@@ -337,7 +337,8 @@ class _LoginViewState extends State<LoginView> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
+                          // ELIMINAR EL BOTÓN DE ACCESO DIRECTO QUE PERMITE SALTARSE LA AUTENTICACIÓN
+                          /*Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               ElevatedButton(
@@ -361,7 +362,7 @@ class _LoginViewState extends State<LoginView> {
                                 ),
                               ),
                             ],
-                          ),
+                          ),*/
                         ],
                       ),
                     ),

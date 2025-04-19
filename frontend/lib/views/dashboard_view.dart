@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../controllers/dashboard_controller.dart';
+import '../controllers/auth_controller.dart';
+import '../controllers/route_guard.dart';
 import 'widgets/statistic_card.dart';
 import 'statistics_view.dart';
 import 'home_view.dart';
@@ -23,6 +26,15 @@ class _DashboardViewState extends State<DashboardView> {
   void initState() {
     super.initState();
     _loadDashboardData();
+
+    // Verificar autenticación al inicializar
+    Future.microtask(() {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      if (!authController.isAuthenticated) {
+        authController.checkAuthAndRedirect(context);
+      }
+    });
   }
 
   Future<void> _loadDashboardData() async {
@@ -73,34 +85,38 @@ class _DashboardViewState extends State<DashboardView> {
     final brightness = Theme.of(context).brightness;
     final bool isDarkMode = brightness == Brightness.dark;
 
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error al cargar datos',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(_error!),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _loadDashboardData,
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
-                ),
-              )
-            : _buildDashboardContent();
+    // Usar RouteGuard para proteger esta vista
+    return RouteGuard.protect(
+      _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error al cargar datos',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(_error!),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _loadDashboardData,
+                        child: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                )
+              : _buildDashboardContent(),
+      toggleTheme: widget.toggleTheme,
+    );
   }
 
   Widget _buildDashboardContent() {
