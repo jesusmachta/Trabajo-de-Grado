@@ -415,112 +415,158 @@ class _CategoriesViewState extends State<CategoriesView> {
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1000),
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: DataTable(
-                              dividerThickness: 1,
-                              dataRowColor:
-                                  MaterialStateProperty.resolveWith<Color?>(
-                                (Set<MaterialState> states) {
-                                  return theme.colorScheme.surfaceVariant
-                                      .withOpacity(0.1);
-                                },
-                              ),
-                              headingRowColor:
-                                  MaterialStateProperty.resolveWith<Color?>(
-                                (Set<MaterialState> states) {
-                                  return theme.colorScheme.secondaryContainer
-                                      .withOpacity(0.3);
-                                },
-                              ),
-                              headingTextStyle:
-                                  theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
-                              columnSpacing:
-                                  MediaQuery.of(context).size.width * 0.04,
-                              columns: const [
-                                DataColumn(label: Text('Foto')),
-                                DataColumn(label: Text('Categoría')),
-                                DataColumn(label: Text('Estado')),
-                                DataColumn(label: Text('Acciones')),
-                              ],
-                              rows: filteredCategories.map((category) {
-                                return DataRow(
-                                  cells: [
-                                    DataCell(
-                                      CircleAvatar(
-                                        radius: 20,
-                                        child: Icon(
-                                          Icons.category,
-                                          size: 20,
-                                          color: theme.colorScheme.primary,
-                                        ),
-                                        backgroundColor:
-                                            theme.colorScheme.surfaceVariant,
-                                      ),
-                                    ),
-                                    DataCell(
-                                        Text(category["Categoria_Producto"])),
-                                    DataCell(
-                                      Chip(
-                                        label: Text(
-                                          category["isActive"]
-                                              ? 'Activo'
-                                              : 'Inactivo',
-                                          style: TextStyle(
-                                            color: category["isActive"]
-                                                ? Colors.green.shade900
-                                                : Colors.grey.shade700,
-                                          ),
-                                        ),
-                                        backgroundColor: category["isActive"]
-                                            ? Colors.green.shade100
-                                            : Colors.grey.shade300,
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Row(
-                                        children: [
-                                          IconButton(
-                                            icon: Icon(Icons.edit_outlined,
-                                                color:
-                                                    theme.colorScheme.primary),
-                                            tooltip: 'Editar categoría',
-                                            onPressed: () =>
-                                                _showEditCategoryModal(
-                                                    category),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.delete_outline,
-                                                color: theme.colorScheme.error),
-                                            tooltip: 'Eliminar categoría',
-                                            onPressed: () =>
-                                                _deleteCategory(category),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ),
+                  : RefreshIndicator(
+                      onRefresh: _loadCategories,
+                      child: _buildCategoriesTable(),
                     ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // Helper widget to build the main content (DataTable)
+  Widget _buildCategoriesTable() {
+    return Column(
+      children: [
+        Card(
+          elevation: 2,
+          clipBehavior: Clip.antiAlias,
+          child: LayoutBuilder(builder: (context, constraints) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: DataTable(
+                  columnSpacing: 24,
+                  headingRowHeight: 48,
+                  dataRowMinHeight: 52,
+                  dataRowMaxHeight: 60,
+                  headingRowColor: MaterialStateProperty.resolveWith<Color?>(
+                    (states) => Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withOpacity(0.1),
+                  ),
+                  columns: const [
+                    DataColumn(
+                        label: Text('Foto',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Categoría',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Estado',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Acciones',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                  ],
+                  rows: filteredCategories.map((category) {
+                    final mongoId = category['_id'] as String;
+                    final nombre =
+                        category["Categoria_Producto"] ?? 'Desconocida';
+                    final isActive = category["isActive"] as bool? ?? false;
+
+                    return DataRow(
+                      cells: [
+                        // Foto cell
+                        DataCell(
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surfaceVariant,
+                            child: Icon(
+                              Icons.category,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        // Category name cell
+                        DataCell(Text(nombre)),
+                        // Status Cell with Chip
+                        DataCell(
+                          Chip(
+                            label: Text(
+                              isActive ? 'Activo' : 'Inactivo',
+                              style: TextStyle(
+                                color: isActive
+                                    ? Colors.green.shade900
+                                    : Colors.grey.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            backgroundColor: isActive
+                                ? Colors.green.shade100
+                                : Colors.grey.shade300,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 0),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        // Actions Cell
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Edit Button
+                              Tooltip(
+                                message: 'Editar Categoría',
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.white),
+                                    iconSize: 22,
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(8),
+                                    tooltip: 'Editar',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        _showEditCategoryModal(category),
+                                  ),
+                                ),
+                              ),
+                              // Delete Button
+                              Tooltip(
+                                message: 'Eliminar Categoría',
+                                child: Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.white),
+                                    iconSize: 22,
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(8),
+                                    tooltip: 'Eliminar',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => _deleteCategory(category),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }
