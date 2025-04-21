@@ -2687,166 +2687,126 @@ class StatisticsViewState extends State<StatisticsView> {
             // Sort by percentage descending for better visualization
             chartData.sort((a, b) => b.percentage.compareTo(a.percentage));
 
-            // Get colors for this chart
-            final List<Color> emotionColors = [
-              Colors.green, // Happy
-              Colors.blue, // Sad
-              Colors.lightBlue, // Calm
-              Colors.amber, // Neutral
-              Colors.orange, // Surprised
-              Colors.red, // Angry
-              Colors.purple, // Fear
-              Colors.brown, // Disgust
-              Colors.grey, // Others
-            ];
-
             // Create a card with pie chart for this category
             categoryCharts.add(
-              Container(
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Category title
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withOpacity(0.1),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
+              SizedBox(
+                width: 240,
+                height: 240,
+                child: Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.all(4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Category title
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            topRight: Radius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      child: Text(
-                        category,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
 
-                    // Pie chart
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        height: 250,
+                      // Pie chart
+                      SizedBox(
+                        height: 130,
                         child: SfCircularChart(
-                          title: ChartTitle(
-                            text: 'Distribución de emociones',
-                            textStyle: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          legend: Legend(
-                            isVisible: true,
-                            position: LegendPosition.bottom,
-                            overflowMode: LegendItemOverflowMode.wrap,
-                          ),
-                          tooltipBehavior: TooltipBehavior(
-                            enable: true,
-                            format: 'point.x: point.y%',
-                            duration: 1000,
-                          ),
+                          margin: EdgeInsets.zero,
+                          legend: Legend(isVisible: false),
                           series: <CircularSeries>[
-                            PieSeries<EmotionPercentageData, String>(
+                            DoughnutSeries<EmotionPercentageData, String>(
                               dataSource: chartData,
                               xValueMapper: (EmotionPercentageData data, _) =>
                                   _translateEmotion(data.emotion),
                               yValueMapper: (EmotionPercentageData data, _) =>
                                   data.percentage,
-                              dataLabelMapper: (EmotionPercentageData data,
-                                      _) =>
-                                  '${_translateEmotion(data.emotion)}: ${data.percentage.toStringAsFixed(1)}%',
                               pointColorMapper:
-                                  (EmotionPercentageData data, index) =>
-                                      _getEmotionColor(
-                                          data.emotion, index, emotionColors),
-                              dataLabelSettings: DataLabelSettings(
-                                isVisible: chartData.length <=
-                                    3, // Only show labels if few emotions
-                                labelPosition: ChartDataLabelPosition.outside,
-                                connectorLineSettings:
-                                    const ConnectorLineSettings(
-                                  type: ConnectorType.curve,
-                                  length: '15%',
-                                ),
-                              ),
+                                  (EmotionPercentageData data, _) =>
+                                      _getEmotionColorForChart(data.emotion),
+                              dataLabelSettings:
+                                  const DataLabelSettings(isVisible: false),
                               enableTooltip: true,
-                              explode: true,
-                              explodeIndex:
-                                  0, // Explode the first segment (highest percentage)
+                              innerRadius: '60%',
                             ),
                           ],
                         ),
                       ),
-                    ),
 
-                    // Legend as text below
-                    Padding(
-                      padding: const EdgeInsets.only(
-                          left: 16, right: 16, bottom: 16),
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: chartData.map((data) {
-                          final emotionColor = _getEmotionColor(data.emotion,
-                              chartData.indexOf(data), emotionColors);
+                      // Legend text below
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                              left: 4, right: 4, bottom: 4, top: 0),
+                          child: Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 2,
+                            runSpacing: 2,
+                            children: chartData.map((data) {
+                              final emotionColor =
+                                  _getEmotionColorForChart(data.emotion);
 
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: emotionColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: emotionColor.withOpacity(0.5),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: emotionColor,
-                                    shape: BoxShape.circle,
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 1),
+                                margin: const EdgeInsets.only(bottom: 1),
+                                decoration: BoxDecoration(
+                                  color: emotionColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: emotionColor.withOpacity(0.5),
+                                    width: 1,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${_translateEmotion(data.emotion)}: ${data.percentage.toStringAsFixed(1)}%',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: emotionColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      '${_translateEmotion(data.emotion)}: ${data.percentage.toStringAsFixed(0)}%',
+                                      style: const TextStyle(
+                                        fontSize: 10,
                                         fontWeight: FontWeight.bold,
                                       ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -2862,12 +2822,11 @@ class StatisticsViewState extends State<StatisticsView> {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    // Return a scrollable list of all category pie charts
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    // Create a scrollable view with charts organized in pairs
+    return Column(
       children: [
         Text(
-          'Porcentaje de Emociones por Categoría',
+          'Visualización de emociones por categoría',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.bold,
@@ -2876,14 +2835,68 @@ class StatisticsViewState extends State<StatisticsView> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Distribución porcentual de emociones detectadas por categoría',
+          'Selecciona una gráfica para ver detalles o navega entre categorías.',
           style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 16),
-        ...categoryCharts,
+
+        // Scroll indicator
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.swipe_vertical, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(
+                'Desliza para ver más categorías',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Scrollable content
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: _arrangeChartsInPairs(categoryCharts),
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  // Helper to get specific colors for emotion chart
+  Color _getEmotionColorForChart(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'happy':
+        return Theme.of(context)
+            .colorScheme
+            .primary; // Use app's blue theme color for "Feliz"
+      case 'sad':
+        return Colors.green; // Green for "Triste"
+      case 'surprise':
+        return Colors.amber; // Yellow/Amber for "Sorprendido"
+      case 'neutral':
+        return Colors.grey;
+      case 'angry':
+        return Colors.red;
+      case 'fear':
+        return Colors.purple;
+      case 'disgust':
+        return Colors.brown;
+      case 'calm':
+        return Colors.lightBlue;
+      default:
+        return Colors.grey;
+    }
   }
 
   // Helper to get appropriate color for each emotion
@@ -2950,117 +2963,81 @@ class StatisticsViewState extends State<StatisticsView> {
           final emotion = value['emotion']?.toString() ?? 'Desconocido';
           final count = value['count'] ?? 0;
 
-          // Get emotion color
-          final Color emotionColor = _getEmotionColor(emotion, 0, [
-            Colors.green,
-            Colors.blue,
-            Colors.red,
-            Colors.lightBlue,
-            Colors.amber,
-            Colors.purple,
-            Colors.brown,
-            Colors.orange,
-          ]);
+          // Get color based on category
+          final Color bgColor = category == 'Alcohol'
+              ? Colors.red.shade50
+              : category == 'Snacks'
+                  ? Colors.green.shade50
+                  : category == 'Frutas'
+                      ? Colors.purple.shade50
+                      : category == 'Vegetales'
+                          ? Colors.teal.shade50
+                          : Colors.blue.shade50;
 
           categoryWidgets.add(
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: emotionColor.withOpacity(0.5),
-                    width: 2,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Category name at top
+                  Text(
+                    category,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Category header with colored background
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: emotionColor.withOpacity(0.2),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          topRight: Radius.circular(10),
+
+                  // Emotion in center with icon
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _getEmotionIcon(emotion),
+                          size: 20,
                         ),
-                      ),
-                      child: Text(
-                        category,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    // Emotion and count information
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: emotionColor.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              _getEmotionIcon(emotion),
-                              size: 40,
-                              color: emotionColor,
-                            ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _translateEmotion(emotion),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _translateEmotion(emotion),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: emotionColor,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: emotionColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    '$count visitantes',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+
+                  // User count at bottom right
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          count.toString(),
+                          style: TextStyle(
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'usuarios',
+                          style: TextStyle(
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -3075,34 +3052,55 @@ class StatisticsViewState extends State<StatisticsView> {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: categoryWidgets,
-    );
-  }
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Emociones más frecuentes',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue.shade800,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Emociones predominantes detectadas por categoría',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black54,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
 
-  // Helper to get emotion icon
-  IconData _getEmotionIcon(String emotion) {
-    switch (emotion.toUpperCase()) {
-      case 'HAPPY':
-        return Icons.sentiment_very_satisfied;
-      case 'SAD':
-        return Icons.sentiment_very_dissatisfied;
-      case 'ANGRY':
-        return Icons.mood_bad;
-      case 'CALM':
-        return Icons.sentiment_satisfied;
-      case 'NEUTRAL':
-        return Icons.sentiment_neutral;
-      case 'FEAR':
-        return Icons.sentiment_very_dissatisfied;
-      case 'DISGUST':
-        return Icons.mood_bad;
-      case 'CONFUSED':
-        return Icons.sentiment_neutral;
-      default:
-        return Icons.sentiment_neutral;
-    }
+          // Responsive grid layout
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Use grid with 2 columns for wider screens, 1 column for narrower screens
+                bool useTwoColumns = constraints.maxWidth > 600;
+
+                return GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: useTwoColumns ? 2 : 1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio:
+                        3.0, // Make cards much shorter (3:1 ratio)
+                  ),
+                  itemCount: categoryWidgets.length,
+                  itemBuilder: (context, index) => categoryWidgets[index],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Visualizador para comparación de emociones por día
@@ -4736,5 +4734,59 @@ class StatisticsViewState extends State<StatisticsView> {
 
     return categoryEmojis[category] ??
         '🏆'; // Default trophy emoji if category not found
+  }
+
+  // Helper to get emotion icon
+  IconData _getEmotionIcon(String emotion) {
+    switch (emotion.toUpperCase()) {
+      case 'HAPPY':
+        return Icons.sentiment_very_satisfied;
+      case 'SAD':
+        return Icons.sentiment_very_dissatisfied;
+      case 'ANGRY':
+        return Icons.mood_bad;
+      case 'CALM':
+        return Icons.sentiment_satisfied;
+      case 'NEUTRAL':
+        return Icons.sentiment_neutral;
+      case 'FEAR':
+        return Icons.sentiment_very_dissatisfied;
+      case 'DISGUST':
+        return Icons.mood_bad;
+      case 'CONFUSED':
+        return Icons.sentiment_neutral;
+      default:
+        return Icons.sentiment_neutral;
+    }
+  }
+
+  // Helper method to arrange charts in pairs (2 per row)
+  List<Widget> _arrangeChartsInPairs(List<Widget> charts) {
+    List<Widget> result = [];
+
+    for (int i = 0; i < charts.length; i += 2) {
+      // Create a row with 2 charts
+      List<Widget> rowCharts = [];
+
+      // Add first chart
+      rowCharts.add(charts[i]);
+
+      // Add second chart if available
+      if (i + 1 < charts.length) {
+        rowCharts.add(charts[i + 1]);
+      } else {
+        // Add an empty container to maintain the layout
+        rowCharts.add(SizedBox(width: 240, height: 240));
+      }
+
+      // Add the row to the result
+      result.add(Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: rowCharts,
+      ));
+    }
+
+    return result;
   }
 }
