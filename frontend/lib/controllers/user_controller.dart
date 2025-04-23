@@ -168,10 +168,55 @@ class UserController with ChangeNotifier {
     }
   }
 
-  // Toggle user status
+  // Toggle user status (simple version using existing update)
   Future<bool> toggleUserStatus(String token, User user) async {
     final updatedUser = user.copyWith(isActive: !user.isActive);
     return await updateUser(token, updatedUser);
+  }
+
+  // Toggle user status directly with endpoint
+  Future<bool> toggleUserStatusDirect(
+      String token, String userId, bool newStatus) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/users/$userId/toggle-status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'is_active': newStatus,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Update the user in the list
+        final index = _users.indexWhere((u) => u.id == userId);
+        if (index != -1) {
+          final updatedUser = _users[index].copyWith(isActive: newStatus);
+          _users[index] = updatedUser;
+        }
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final responseData = jsonDecode(response.body);
+        _error =
+            responseData['detail'] ?? 'Error al actualizar estado de usuario';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Intente de nuevo más tarde.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   // Delete user

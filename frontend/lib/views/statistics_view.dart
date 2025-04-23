@@ -1284,7 +1284,7 @@ class StatisticsViewState extends State<StatisticsView> {
       case 'snacks':
         return Icons.cookie;
       case 'frutas':
-        return Icons.apple;
+        return Icons.shopping_basket; // A basket icon to represent fruits
       case 'vegetales':
         return Icons.emoji_food_beverage;
       case 'carnes':
@@ -1606,8 +1606,6 @@ class StatisticsViewState extends State<StatisticsView> {
               'happy_count': item['happy_count'] is int
                   ? item['happy_count']
                   : int.tryParse(item['happy_count'].toString()) ?? 0,
-              'emoji': item['emoji']?.toString() ??
-                  _getCategoryEmoji(item['category']?.toString() ?? '')
             });
           }
         }
@@ -1721,27 +1719,53 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Helper method to build a single podium position
   Widget _buildPodiumPosition(Map<String, dynamic> categoryData, int position,
-      Color color, String trophy,
+      Color color, String trophyType,
       {required double height}) {
     final String categoryName = categoryData['category'] ?? 'Sin nombre';
     final int happyCount = categoryData['happy_count'] ?? 0;
-    final String emoji = categoryData['emoji'] ?? '🏆';
+
+    // Get appropriate icon for the position
+    IconData trophyIcon;
+    switch (trophyType) {
+      case '🏆':
+        trophyIcon = Icons.emoji_events;
+        break;
+      case '🥈':
+        trophyIcon = Icons.looks_two;
+        break;
+      case '🥉':
+        trophyIcon = Icons.looks_3;
+        break;
+      default:
+        trophyIcon = Icons.star;
+    }
 
     return Expanded(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           // Trophy or medal
-          Text(
-            trophy,
-            style: const TextStyle(fontSize: 32),
+          Icon(
+            trophyIcon,
+            size: 40,
+            color: color,
           ),
           const SizedBox(height: 8),
-
-          // Category emoji
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: 40),
+          // Category icon in circle
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Icon(
+                _getCategoryIcon(categoryName),
+                size: 30,
+                color: color,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
 
@@ -1756,10 +1780,17 @@ class StatisticsViewState extends State<StatisticsView> {
             overflow: TextOverflow.ellipsis,
           ),
 
-          // Reactions count
-          Text(
-            '$happyCount 😄',
-            style: Theme.of(context).textTheme.bodyMedium,
+          // Reactions count with happy icon
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$happyCount',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.sentiment_very_satisfied, size: 16),
+            ],
           ),
           const SizedBox(height: 8),
 
@@ -3527,288 +3558,345 @@ class StatisticsViewState extends State<StatisticsView> {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    // Mapeo de emociones a español y emojis
-    final Map<String, Map<String, String>> emotionTranslations = {
-      'HAPPY': {'es': 'Feliz', 'emoji': '😄'},
-      'SAD': {'es': 'Triste', 'emoji': '😢'},
-      'ANGRY': {'es': 'Enojado', 'emoji': '😡'},
-      'CONFUSED': {'es': 'Confundido', 'emoji': '😕'},
-      'DISGUSTED': {'es': 'Disgustado', 'emoji': '🤢'},
-      'SURPRISED': {'es': 'Sorprendido', 'emoji': '😲'},
-      'CALM': {'es': 'Calmado', 'emoji': '😌'},
-      'FEAR': {'es': 'Temeroso', 'emoji': '😨'},
-      'UNKNOWN': {'es': 'Desconocido', 'emoji': '❓'},
+    // Mapeo de emociones a español e iconos Material
+    final Map<String, Map<String, dynamic>> emotionTranslations = {
+      'HAPPY': {'es': 'Feliz', 'icon': Icons.sentiment_very_satisfied},
+      'SAD': {'es': 'Triste', 'icon': Icons.sentiment_very_dissatisfied},
+      'ANGRY': {'es': 'Enojado', 'icon': Icons.mood_bad},
+      'CONFUSED': {'es': 'Confundido', 'icon': Icons.sentiment_neutral},
+      'DISGUSTED': {'es': 'Disgustado', 'icon': Icons.sick},
+      'SURPRISED': {
+        'es': 'Sorprendido',
+        'icon': Icons.sentiment_very_satisfied_outlined
+      },
+      'CALM': {'es': 'Calmado', 'icon': Icons.sentiment_satisfied_alt},
+      'FEAR': {'es': 'Temeroso', 'icon': Icons.sentiment_dissatisfied},
+      'UNKNOWN': {'es': 'Desconocido', 'icon': Icons.help_outline},
     };
 
-    // Traducción de categorías a español si es necesario
-    final Map<String, String> categoryTranslations = {
-      'Alcohol': 'Alcohol',
-      'Frutas': 'Frutas',
-      'Vegetales': 'Vegetales',
-      'Snacks': 'Snacks',
-      'Dairy': 'Lácteos',
-      'Meat': 'Carnes',
-      'Bakery': 'Panadería',
+    // Categorías y sus íconos Material
+    final Map<String, IconData> categoryIcons = {
+      'Alcohol': Icons.liquor,
+      'Frutas': Icons.apple,
+      'Vegetales': Icons.eco,
+      'Snacks': Icons.fastfood,
+      'Dairy': Icons.water_drop,
+      'Meat': Icons.restaurant,
+      'Bakery': Icons.bakery_dining,
     };
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Diferencias Emocionales por Categoría',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Emociones predominantes por género en cada categoría',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            // Mostrar tarjetas por categoría
-            for (var categoryEntry in data.entries)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).shadowColor.withOpacity(0.1),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+    // Estado para rastrear qué categoría está expandida
+    Map<String, bool> expandedState = {};
+
+    return StatefulBuilder(builder: (context, setState) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Diferencias emocionales por categoría',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _getCategoryIcon(categoryEntry.key),
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 28,
+              ),
+              Text(
+                'Periodo: Semana',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              Text(
+                'Fecha de corte: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 24),
+
+              // Mostrar tarjetas por categoría en formato expandible
+              ...data.entries.map((categoryEntry) {
+                final String categoryName = categoryEntry.key;
+
+                // Inicializar el estado expandido si no existe
+                expandedState.putIfAbsent(categoryName, () => false);
+
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header de categoría (siempre visible y clicable)
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            // Cerrar todas las demás categorías
+                            final wasExpanded =
+                                expandedState[categoryName] ?? false;
+                            expandedState.forEach((key, _) {
+                              expandedState[key] = false;
+                            });
+                            // Invertir el estado de la categoría clicada
+                            expandedState[categoryName] = !wasExpanded;
+                          });
+                        },
+                        borderRadius: BorderRadius.vertical(
+                          top: const Radius.circular(8),
+                          bottom: Radius.circular(
+                              expandedState[categoryName]! ? 0 : 8),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          categoryTranslations[categoryEntry.key] ??
-                              categoryEntry.key,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.vertical(
+                              top: const Radius.circular(8),
+                              bottom: Radius.circular(
+                                  expandedState[categoryName]! ? 0 : 8),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                categoryIcons[categoryName] ?? Icons.category,
+                                size: 24,
                                 color: Theme.of(context).colorScheme.primary,
                               ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 16),
-                    // Mostrar información por género
-                    Row(
-                      children: [
-                        // Hombres
-                        Expanded(
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.man,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Hombres',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              if (categoryEntry.value is Map &&
-                                  categoryEntry.value['male'] != null)
-                                _buildEmotionCard(
-                                  context,
-                                  categoryEntry.value['male']
-                                      ['predominant_emotion'],
-                                  categoryEntry.value['male']['count'],
-                                  emotionTranslations,
-                                  Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  categoryName,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                 ),
-                              if (categoryEntry.value is Map &&
-                                  (categoryEntry.value['male'] == null ||
-                                      categoryEntry.value['male']
-                                              ['predominant_emotion'] ==
-                                          null))
-                                _buildNoDataCard(
-                                    context,
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .primaryContainer),
+                              ),
+                              Icon(
+                                expandedState[categoryName]!
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                             ],
                           ),
                         ),
+                      ),
 
+                      // Contenido expandible
+                      if (expandedState[categoryName]!)
                         Container(
-                          height: 100,
-                          width: 1,
-                          color: Theme.of(context).dividerColor,
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                        ),
-
-                        // Mujeres
-                        Expanded(
-                          child: Column(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          child: Row(
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.woman,
-                                    color:
-                                        Theme.of(context).colorScheme.secondary,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Mujeres',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              if (categoryEntry.value is Map &&
-                                  categoryEntry.value['female'] != null)
-                                _buildEmotionCard(
-                                  context,
-                                  categoryEntry.value['female']
-                                      ['predominant_emotion'],
-                                  categoryEntry.value['female']['count'],
-                                  emotionTranslations,
-                                  Theme.of(context)
-                                      .colorScheme
-                                      .secondaryContainer,
+                              // Hombres
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.man,
+                                          size: 16,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'HOMBRES',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (categoryEntry.value is Map &&
+                                        categoryEntry.value['male'] != null &&
+                                        categoryEntry.value['male']
+                                                ['predominant_emotion'] !=
+                                            null)
+                                      Column(
+                                        children: [
+                                          Icon(
+                                            emotionTranslations[categoryEntry
+                                                            .value['male']
+                                                        ['predominant_emotion']]
+                                                    ?['icon'] ??
+                                                Icons.help_outline,
+                                            size: 32,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            emotionTranslations[categoryEntry
+                                                            .value['male']
+                                                        ['predominant_emotion']]
+                                                    ?['es'] ??
+                                                'No disponible',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            '${categoryEntry.value['male']['count']} evaluaciones',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700]),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Column(
+                                        children: [
+                                          Icon(
+                                            Icons.help_outline,
+                                            size: 32,
+                                            color: Colors.grey[500],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Text(
+                                            'No disponible',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            'Sin datos',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700]),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
                                 ),
-                              if (categoryEntry.value is Map &&
-                                  (categoryEntry.value['female'] == null ||
-                                      categoryEntry.value['female']
-                                              ['predominant_emotion'] ==
-                                          null))
-                                _buildNoDataCard(
-                                    context,
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .secondaryContainer),
+                              ),
+
+                              // Línea vertical separadora
+                              Container(
+                                height: 80,
+                                width: 1,
+                                color: Colors.grey[300],
+                              ),
+
+                              // Mujeres
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.woman,
+                                          size: 16,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .secondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'MUJERES',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (categoryEntry.value is Map &&
+                                        categoryEntry.value['female'] != null &&
+                                        categoryEntry.value['female']
+                                                ['predominant_emotion'] !=
+                                            null)
+                                      Column(
+                                        children: [
+                                          Icon(
+                                            emotionTranslations[categoryEntry
+                                                            .value['female']
+                                                        ['predominant_emotion']]
+                                                    ?['icon'] ??
+                                                Icons.help_outline,
+                                            size: 32,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .secondary,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            emotionTranslations[categoryEntry
+                                                            .value['female']
+                                                        ['predominant_emotion']]
+                                                    ?['es'] ??
+                                                'No disponible',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            '${categoryEntry.value['female']['count']} evaluaciones',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700]),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Column(
+                                        children: [
+                                          Icon(
+                                            Icons.help_outline,
+                                            size: 32,
+                                            color: Colors.grey[500],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Text(
+                                            'No disponible',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            'Sin datos',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700]),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
+                    ],
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  // Widget para mostrar la emoción con emoji y contador
-  Widget _buildEmotionCard(
-    BuildContext context,
-    String? emotion,
-    int count,
-    Map<String, Map<String, String>> emotionTranslations,
-    Color backgroundColor,
-  ) {
-    final translatedEmotion = emotion != null
-        ? emotionTranslations[emotion]
-        : {'es': 'No disponible', 'emoji': '❓'};
-
-    final emotionText = translatedEmotion?['es'] ?? 'No disponible';
-    final emotionEmoji = translatedEmotion?['emoji'] ?? '❓';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            emotionEmoji,
-            style: const TextStyle(fontSize: 36),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            emotionText,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$count visitantes',
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget para mostrar cuando no hay datos disponibles
-  Widget _buildNoDataCard(BuildContext context, Color backgroundColor) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            '❓',
-            style: TextStyle(fontSize: 36),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Sin datos',
-            style: Theme.of(context).textTheme.titleSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '0 visitantes',
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
+      );
+    });
   }
 
   // Visualizador para distribución por edad y género por categoría
@@ -3817,213 +3905,297 @@ class StatisticsViewState extends State<StatisticsView> {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Distribución por Edad y Género por Categoría',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            // Mostrar datos por categoría
-            ...data.entries.map((categoryEntry) {
-              final String categoryName = categoryEntry.key;
-              final Map<String, dynamic> genderData = categoryEntry.value;
+    // Estado para rastrear qué categoría está expandida
+    Map<String, bool> expandedState = {};
 
-              return Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).shadowColor.withOpacity(0.1),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+    return StatefulBuilder(builder: (context, setState) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Título
+              Text(
+                'Distribución por Edad y Género por Categoría',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Encabezado de categoría
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _getCategoryIcon(categoryName),
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Categoría: $categoryName',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      Theme.of(context).colorScheme.onPrimary,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
 
-                    // Contenido por género
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Sección Masculina
-                          if (genderData.containsKey('male') &&
-                              genderData['male'] is List &&
-                              genderData['male'].isNotEmpty)
-                            _buildGenderSection(
-                              'Masculino',
-                              genderData['male'],
-                              Icons.male,
-                              Colors.blue.shade700,
-                            ),
+              // Mostrar datos por categoría en formato expandible
+              ...data.entries.map((categoryEntry) {
+                final String categoryName = categoryEntry.key;
+                final Map<String, dynamic> genderData = categoryEntry.value;
 
-                          const SizedBox(height: 16),
-
-                          // Sección Femenina
-                          if (genderData.containsKey('female') &&
-                              genderData['female'] is List &&
-                              genderData['female'].isNotEmpty)
-                            _buildGenderSection(
-                              'Femenino',
-                              genderData['female'],
-                              Icons.female,
-                              Colors.pink.shade700,
-                            ),
-
-                          // Mensaje si no hay datos para ningún género
-                          if ((genderData['male'] == null ||
-                                  genderData['male'].isEmpty) &&
-                              (genderData['female'] == null ||
-                                  genderData['female'].isEmpty))
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Text(
-                                  'No hay datos disponibles para esta categoría',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(fontStyle: FontStyle.italic),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Método auxiliar para construir la sección de cada género
-  Widget _buildGenderSection(
-      String genderTitle, List<dynamic> ageData, IconData icon, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Encabezado de género
-        Row(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 8),
-            Text(
-              genderTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Tarjetas de edad
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // Determinar cuántas tarjetas por fila basado en el ancho disponible
-            int crossAxisCount = constraints.maxWidth > 600
-                ? 3
-                : constraints.maxWidth > 400
-                    ? 2
-                    : 1;
-
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: ageData.map<Widget>((ageItem) {
-                final int age = ageItem['age'] ?? 0;
-                final int count = ageItem['count'] ?? 0;
+                // Inicializar el estado expandido si no existe
+                expandedState.putIfAbsent(categoryName, () => false);
 
                 return Container(
-                  width: (constraints.maxWidth / crossAxisCount) - 8,
-                  padding: const EdgeInsets.all(12),
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: color.withOpacity(0.3),
-                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).shadowColor.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Edad: $age años',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                      // Encabezado de categoría (siempre visible)
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            // Cerrar todas las demás categorías
+                            final wasExpanded =
+                                expandedState[categoryName] ?? false;
+                            expandedState.forEach((key, _) {
+                              expandedState[key] = false;
+                            });
+                            // Invertir el estado de la categoría clicada
+                            expandedState[categoryName] = !wasExpanded;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.vertical(
+                              top: const Radius.circular(12),
+                              bottom: Radius.circular(
+                                  expandedState[categoryName]! ? 0 : 12),
                             ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.people, size: 16, color: color),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Cantidad: $count',
-                            style: Theme.of(context).textTheme.bodySmall,
                           ),
-                        ],
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getCategoryIcon(categoryName),
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  categoryName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                expandedState[categoryName]!
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+
+                      // Contenido expandible
+                      if (expandedState[categoryName]!)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.vertical(
+                              bottom: Radius.circular(12),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Selector de género
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  FilterChip(
+                                    label: const Text('Masculino'),
+                                    selected: true,
+                                    onSelected: (_) {},
+                                    backgroundColor: Colors.blue.shade50,
+                                    selectedColor: Colors.blue.shade100,
+                                    labelStyle: TextStyle(
+                                      color: Colors.blue.shade800,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  FilterChip(
+                                    label: const Text('Femenino'),
+                                    selected: true,
+                                    onSelected: (_) {},
+                                    backgroundColor: Colors.pink.shade50,
+                                    selectedColor: Colors.pink.shade100,
+                                    labelStyle: TextStyle(
+                                      color: Colors.pink.shade800,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Datos de edad para masculino
+                              if (genderData.containsKey('male') &&
+                                  genderData['male'] is List &&
+                                  genderData['male'].isNotEmpty)
+                                Wrap(
+                                  spacing: 16,
+                                  runSpacing: 16,
+                                  children:
+                                      genderData['male'].map<Widget>((ageItem) {
+                                    final ageRange =
+                                        _formatAgeRange(ageItem['age'] ?? 0);
+                                    final count = ageItem['count'] ?? 0;
+
+                                    return _buildAgeCard(
+                                      ageRange: ageRange,
+                                      count: count,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    );
+                                  }).toList(),
+                                ),
+
+                              const SizedBox(height: 16),
+
+                              // Datos de edad para femenino
+                              if (genderData.containsKey('female') &&
+                                  genderData['female'] is List &&
+                                  genderData['female'].isNotEmpty)
+                                Wrap(
+                                  spacing: 16,
+                                  runSpacing: 16,
+                                  children: genderData['female']
+                                      .map<Widget>((ageItem) {
+                                    final ageRange =
+                                        _formatAgeRange(ageItem['age'] ?? 0);
+                                    final count = ageItem['count'] ?? 0;
+
+                                    return _buildAgeCard(
+                                      ageRange: ageRange,
+                                      count: count,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    );
+                                  }).toList(),
+                                ),
+
+                              // Mensaje cuando no hay datos
+                              if ((genderData['male'] == null ||
+                                      genderData['male'].isEmpty) &&
+                                  (genderData['female'] == null ||
+                                      genderData['female'].isEmpty))
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Text(
+                                      'No hay datos disponibles para esta categoría',
+                                      style: TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 );
               }).toList(),
-            );
-          },
+            ],
+          ),
         ),
-      ],
+      );
+    });
+  }
+
+  // Método auxiliar para formatear el rango de edad
+  String _formatAgeRange(int age) {
+    if (age < 18) return 'Menor de 18';
+    if (age >= 18 && age <= 25) return '18-25 años';
+    if (age >= 26 && age <= 35) return '26-35 años';
+    if (age >= 36 && age <= 45) return '36-45 años';
+    if (age >= 46 && age <= 55) return '46-55 años';
+    return 'Mayor de 55';
+  }
+
+  // Método auxiliar para construir una tarjeta de edad
+  Widget _buildAgeCard(
+      {required String ageRange, required int count, required Color color}) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Edad',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            ageRange,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'personas',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -4249,47 +4421,50 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Visualizador combinado para distribución por género y edad
   Widget _buildCombinedGenderAgeDistributionView(dynamic data) {
-    if (data == null ||
-        !data.containsKey('data') ||
-        !data['data'].containsKey('gender') ||
-        !data['data'].containsKey('age')) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.info_outline,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No hay datos disponibles para los parámetros seleccionados',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Prueba con otras fechas o período',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                _loadStatistics();
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Actualizar datos'),
-            ),
-          ],
-        ),
-      );
+    print('Building gender/age view with data: $data');
+
+    // Comprobar primero si tenemos datos básicos para mostrar
+    if (data == null) {
+      return _buildNoDataView(
+          'No hay datos disponibles para los parámetros seleccionados.');
     }
 
-    final genderData = data['data']['gender'] as Map<String, dynamic>;
-    final ageData = data['data']['age'] as Map<String, dynamic>;
+    // La estructura puede venir en diferentes formatos. Intentar adaptarnos a ambos.
+    Map<String, dynamic> genderData = {};
+    Map<String, dynamic> ageData = {};
 
+    // Extraer datos de gender y age
+    if (data.containsKey('data')) {
+      final dataContent = data['data'];
+
+      if (dataContent is Map) {
+        // Formato 1: data contiene gender y age
+        if (dataContent.containsKey('gender')) {
+          genderData = Map<String, dynamic>.from(dataContent['gender']);
+        }
+
+        if (dataContent.containsKey('age')) {
+          ageData = Map<String, dynamic>.from(dataContent['age']);
+        }
+      }
+    } else if (data.containsKey('gender') && data.containsKey('age')) {
+      // Formato 2: data es gender y age directamente
+      genderData = Map<String, dynamic>.from(data['gender']);
+      ageData = Map<String, dynamic>.from(data['age']);
+    }
+
+    print('Processed gender data: $genderData');
+    print('Processed age data: $ageData');
+
+    // Si no hay datos específicos, mostrar un mensaje
+    if ((genderData.isEmpty ||
+            (genderData['male'] == 0 && genderData['female'] == 0)) &&
+        ageData.isEmpty) {
+      return _buildNoDataView(
+          'No hay datos demográficos para el período seleccionado.');
+    }
+
+    // Resto del código para mostrar la vista...
     return Column(
       children: [
         // Selectores de período y fechas
@@ -4357,7 +4532,12 @@ class StatisticsViewState extends State<StatisticsView> {
                               _selectedEndDate = now;
                             }
                           }
+
+                          // Forzar recarga de datos
+                          _controller.clearCache(_selectedStat);
+                          _statisticsData = null;
                         });
+
                         // Recargar estadísticas inmediatamente
                         _loadStatistics();
                       },
@@ -4418,7 +4598,10 @@ class StatisticsViewState extends State<StatisticsView> {
                         onPressed: () async {
                           await _selectDate(context);
                           // Recargar inmediatamente después de seleccionar
-                          if (mounted) _loadStatistics();
+                          if (mounted) {
+                            _controller.clearCache(_selectedStat);
+                            _loadStatistics();
+                          }
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor:
@@ -4438,7 +4621,10 @@ class StatisticsViewState extends State<StatisticsView> {
                         onPressed: () async {
                           await _selectEndDate(context);
                           // Recargar inmediatamente después de seleccionar
-                          if (mounted) _loadStatistics();
+                          if (mounted) {
+                            _controller.clearCache(_selectedStat);
+                            _loadStatistics();
+                          }
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor:
@@ -4479,7 +4665,10 @@ class StatisticsViewState extends State<StatisticsView> {
                         onPressed: () async {
                           await _selectMonth(context);
                           // Recargar inmediatamente después de seleccionar
-                          if (mounted) _loadStatistics();
+                          if (mounted) {
+                            _controller.clearCache(_selectedStat);
+                            _loadStatistics();
+                          }
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor:
@@ -4487,6 +4676,22 @@ class StatisticsViewState extends State<StatisticsView> {
                           foregroundColor:
                               Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Botón para actualizar manualmente
+                    FilledButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Actualizar'),
+                      onPressed: () {
+                        // Forzar recarga de datos
+                        _controller.clearCache(_selectedStat);
+                        _loadStatistics();
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
                       ),
                     ),
                   ],
@@ -4541,7 +4746,10 @@ class StatisticsViewState extends State<StatisticsView> {
                       Expanded(
                         child: _buildGenderCard(
                           'Masculino',
-                          genderData['male'] ?? 0,
+                          genderData['male'] is int
+                              ? genderData['male']
+                              : int.tryParse(genderData['male'].toString()) ??
+                                  0,
                           Icons.man,
                           Colors.blue,
                         ),
@@ -4551,7 +4759,10 @@ class StatisticsViewState extends State<StatisticsView> {
                       Expanded(
                         child: _buildGenderCard(
                           'Femenino',
-                          genderData['female'] ?? 0,
+                          genderData['female'] is int
+                              ? genderData['female']
+                              : int.tryParse(genderData['female'].toString()) ??
+                                  0,
                           Icons.woman,
                           Colors.pink,
                         ),
@@ -4570,14 +4781,75 @@ class StatisticsViewState extends State<StatisticsView> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Gráfico de edades
-                  _buildAgeDistributionChart(ageData),
+                  // Gráfico de edades o mensaje cuando no hay datos
+                  ageData.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.show_chart_outlined,
+                                  size: 48,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.7),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No hay datos de edad para este período',
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _buildAgeDistributionChart(ageData),
                 ],
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  // Método para mostrar mensaje cuando no hay datos
+  Widget _buildNoDataView(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 48,
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Prueba con otras fechas o período',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () {
+              // Forzar recarga de datos
+              _controller.clearCache(_selectedStat);
+              _loadStatistics();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Actualizar datos'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4630,27 +4902,22 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Construir gráfico de distribución de edad
   Widget _buildAgeDistributionChart(Map<String, dynamic> ageData) {
+    print('Building age chart with data: $ageData');
+
     // Transformar los datos para la visualización
     final List<Map<String, dynamic>> chartData = [];
 
-    // Reorganizar datos según el tipo de API (rangos o promedio)
-    if (ageData.containsKey('0-18')) {
-      // API anterior con rangos fijos
-      chartData.add({'edad': '0-18', 'count': ageData['0-18'] ?? 0});
-      chartData.add({'edad': '19-25', 'count': ageData['19-25'] ?? 0});
-      chartData.add({'edad': '26-35', 'count': ageData['26-35'] ?? 0});
-      chartData.add({'edad': '36-50', 'count': ageData['36-50'] ?? 0});
-      chartData.add({'edad': '51+', 'count': ageData['51+'] ?? 0});
-    } else {
-      // Nueva API con edades promedio
-      // Ordenar las edades numéricamente
-      final List<MapEntry<String, dynamic>> sortedEntries =
-          ageData.entries.toList();
-      sortedEntries.sort((a, b) {
-        final int ageA = int.tryParse(a.key) ?? 0;
-        final int ageB = int.tryParse(b.key) ?? 0;
-        return ageA.compareTo(ageB);
-      });
+    // Verificar si los datos ya están en forma de edades promedio
+    bool isAverageAges = true;
+    for (var key in ageData.keys) {
+      if (key.contains('-') || key == '51+') {
+        isAverageAges = false;
+        break;
+      }
+    }
+
+    if (isAverageAges) {
+      print('Datos de edad promedio detectados');
 
       // Agrupar edades en rangos para visualización
       final Map<String, int> groupedAges = {
@@ -4661,6 +4928,16 @@ class StatisticsViewState extends State<StatisticsView> {
         '51+': 0,
       };
 
+      // Ordenar las edades numéricamente
+      final List<MapEntry<String, dynamic>> sortedEntries =
+          ageData.entries.toList();
+      sortedEntries.sort((a, b) {
+        final int ageA = int.tryParse(a.key) ?? 0;
+        final int ageB = int.tryParse(b.key) ?? 0;
+        return ageA.compareTo(ageB);
+      });
+
+      // Agrupar edades en rangos
       for (var entry in sortedEntries) {
         final int age = int.tryParse(entry.key) ?? 0;
         final int count = entry.value is int
@@ -4682,9 +4959,50 @@ class StatisticsViewState extends State<StatisticsView> {
 
       // Convertir a formato de gráfico
       groupedAges.forEach((range, count) {
-        chartData.add({'edad': range, 'count': count});
+        if (count > 0) {
+          // Solo agregar rangos con datos
+          chartData.add({'edad': range, 'count': count});
+        }
       });
+    } else {
+      print('Datos de rangos de edad detectados');
+      // API antigua con rangos fijos
+      if (ageData.containsKey('0-18'))
+        chartData.add({'edad': '0-18', 'count': ageData['0-18'] ?? 0});
+      if (ageData.containsKey('19-25'))
+        chartData.add({'edad': '19-25', 'count': ageData['19-25'] ?? 0});
+      if (ageData.containsKey('26-35'))
+        chartData.add({'edad': '26-35', 'count': ageData['26-35'] ?? 0});
+      if (ageData.containsKey('36-50'))
+        chartData.add({'edad': '36-50', 'count': ageData['36-50'] ?? 0});
+      if (ageData.containsKey('51+'))
+        chartData.add({'edad': '51+', 'count': ageData['51+'] ?? 0});
     }
+
+    // Si no hay datos después de procesar, mostrar mensaje
+    if (chartData.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Column(
+            children: [
+              Icon(
+                Icons.show_chart_outlined,
+                size: 48,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No hay datos de edad para este período',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    print('Datos procesados para gráfico: $chartData');
 
     // Colores para las barras del gráfico
     final List<Color> barColors = [
@@ -4695,7 +5013,7 @@ class StatisticsViewState extends State<StatisticsView> {
       const Color(0xFF5D4037), // Brown
     ];
 
-    return Container(
+    return SizedBox(
       height: 300,
       child: SfCartesianChart(
         primaryXAxis: CategoryAxis(
@@ -4888,7 +5206,7 @@ class StatisticsViewState extends State<StatisticsView> {
       'Snacks': '🍿',
       'Alcohol': '🍷',
       'Bebidas': '🥤',
-      'Frutas': '🍎',
+      'Frutas': '🍌',
       'Verduras': '🥦',
       'Lácteos': '🥛',
       'Carnes': '🥩',

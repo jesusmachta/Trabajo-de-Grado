@@ -4,6 +4,8 @@ import '../controllers/user_controller.dart';
 // Hide the User class from auth_controller to avoid conflict
 import '../controllers/auth_controller.dart' hide User;
 import '../models/user_model.dart'; // Use this User model
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class UsersView extends StatefulWidget {
   final Function toggleTheme;
@@ -412,6 +414,85 @@ class _UsersViewState extends State<UsersView> {
     return filtered;
   }
 
+  Future<bool> _toggleUserStatus(String userId, bool currentStatus) async {
+    final authController = Provider.of<AuthController>(context, listen: false);
+    final userController = Provider.of<UserController>(context, listen: false);
+
+    // Check if token is available
+    if (authController.token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: No autenticado.')),
+      );
+      return false;
+    }
+
+    // Calculate the new status (opposite of current)
+    final newStatus = !currentStatus;
+
+    // Find the index of the user in the list
+    final int userIndex =
+        userController.users.indexWhere((u) => u.id == userId);
+    if (userIndex == -1) {
+      // User not found
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Usuario no encontrado.')),
+      );
+      return false;
+    }
+
+    // First update UI immediately (optimistic update)
+    setState(() {
+      // Create a new user object with updated status
+      final updatedUser =
+          userController.users[userIndex].copyWith(isActive: newStatus);
+      // Replace the user in the list with the updated version
+      userController.users[userIndex] = updatedUser;
+    });
+
+    try {
+      // Call API to update status
+      final response = await http.put(
+        Uri.parse('http://127.0.0.1:8000/api/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${authController.token!}',
+        },
+        body: jsonEncode({'is_active': newStatus}),
+      );
+
+      if (response.statusCode == 200) {
+        // Success - UI already updated
+        return true;
+      } else {
+        // API call failed, revert the UI change
+        setState(() {
+          final revertedUser =
+              userController.users[userIndex].copyWith(isActive: currentStatus);
+          userController.users[userIndex] = revertedUser;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Error al actualizar estado. Código: ${response.statusCode}')),
+        );
+        return false;
+      }
+    } catch (e) {
+      // Network or other error, revert the UI change
+      setState(() {
+        final revertedUser =
+            userController.users[userIndex].copyWith(isActive: currentStatus);
+        userController.users[userIndex] = revertedUser;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de red: ${e.toString()}')),
+      );
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userController = Provider.of<UserController>(context);
@@ -667,25 +748,36 @@ class _UsersViewState extends State<UsersView> {
                       // Rol cell
                       DataCell(
                           Text(user.role == 'admin' ? 'Admin' : 'Usuario')),
-                      // Estado cell
+                      // Estado cell - replaced with Switch
                       DataCell(
-                        Chip(
-                          label: Text(
-                            user.isActive ? 'Activo' : 'Inactivo',
-                            style: TextStyle(
-                              color: user.isActive
-                                  ? Colors.green.shade900
-                                  : Colors.grey.shade700,
-                              fontSize: 13,
-                            ),
+                        Container(
+                          constraints: const BoxConstraints(minWidth: 140),
+                          child: Row(
+                            children: [
+                              Switch(
+                                value: user.isActive,
+                                onChanged: (authController.currentUser?.id ==
+                                        user.id)
+                                    ? null // Disable switch for current user
+                                    : (newValue) {
+                                        _toggleUserStatus(
+                                            user.id, user.isActive);
+                                      },
+                                activeColor: Colors.green,
+                                inactiveThumbColor: Colors.grey,
+                                inactiveTrackColor: Colors.grey.shade300,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(user.isActive ? 'Activo' : 'Inactivo',
+                                  style: TextStyle(
+                                      color: user.isActive
+                                          ? Colors.green
+                                          : Colors.red.shade700,
+                                      fontWeight: FontWeight.w500)),
+                            ],
                           ),
-                          backgroundColor: user.isActive
-                              ? Colors.green.shade100
-                              : Colors.grey.shade300,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 0),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
                       // Acciones cell
@@ -693,50 +785,34 @@ class _UsersViewState extends State<UsersView> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Edit Button
+                            // Edit Button - Remove border, keep blue icon
                             Tooltip(
                               message: 'Editar Usuario',
-                              child: Container(
-                                margin: const EdgeInsets.only(right: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade600,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.edit,
-                                      color: Colors.white),
-                                  iconSize: 22,
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.all(8),
-                                  tooltip: 'Editar',
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: () => _showEditUserDialog(user),
-                                ),
+                              child: IconButton(
+                                icon: Icon(Icons.edit,
+                                    color: Colors.blue.shade600),
+                                iconSize: 22,
+                                padding: const EdgeInsets.all(8),
+                                tooltip: 'Editar',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => _showEditUserDialog(user),
                               ),
                             ),
-                            // Delete Button
+                            // Delete Button - Remove border, keep red icon
                             Tooltip(
                               message: 'Eliminar Usuario',
-                              child: Container(
-                                margin: const EdgeInsets.only(left: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade600,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      color: Colors.white),
-                                  iconSize: 22,
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.all(8),
-                                  tooltip: 'Eliminar',
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: (authController.currentUser?.id ==
-                                          user.id)
-                                      ? null
-                                      : () => _confirmDeleteUser(
-                                          user.id, user.fullName),
-                                ),
+                              child: IconButton(
+                                icon: Icon(Icons.delete_outline,
+                                    color: Colors.red.shade600),
+                                iconSize: 22,
+                                padding: const EdgeInsets.all(8),
+                                tooltip: 'Eliminar',
+                                visualDensity: VisualDensity.compact,
+                                onPressed:
+                                    (authController.currentUser?.id == user.id)
+                                        ? null
+                                        : () => _confirmDeleteUser(
+                                            user.id, user.fullName),
                               ),
                             ),
                           ],

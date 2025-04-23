@@ -276,7 +276,7 @@ class StatisticsController {
               topCategories.add({
                 'category': category,
                 'happy_count': happyCount,
-                'emoji': _getCategoryEmoji(category)
+                'categoryName': category
               });
             }
           }
@@ -291,42 +291,35 @@ class StatisticsController {
     }
   }
 
-  // Helper method to assign emojis to categories
-  String _getCategoryEmoji(String category) {
-    final Map<String, String> categoryEmojis = {
-      'Snacks': '🍿',
-      'Alcohol': '🍷',
-      'Bebidas': '🥤',
-      'Frutas': '🍎',
-      'Verduras': '🥦',
-      'Lácteos': '🥛',
-      'Carnes': '🥩',
-      'Panadería': '🍞',
-      'Dulces': '🍬',
-      'Limpieza': '🧹',
-      'Electrónicos': '📱',
-      'Ropa': '👕',
-      // Add more categories as needed
-    };
-
-    return categoryEmojis[category] ??
-        '🏆'; // Default trophy emoji if category not found
-  }
-
   // Fetch both gender and age distribution in one call
   Future<Map<String, dynamic>> getGenderAgeDistributionStatistics(
       {Map<String, String>? params}) async {
     try {
+      print('Fetching gender distribution with params: $params');
       final genderResponse =
           await getStatistics('gender-distribution', params: params);
+
+      print('Fetching age distribution with same params: $params');
       final ageResponse =
           await getStatistics('age-distribution', params: params);
 
-      // Extract data
-      final genderData = genderResponse['data'] ?? {'male': 0, 'female': 0};
-      final ageData = ageResponse['data'] ??
-          {'0-18': 0, '19-25': 0, '26-35': 0, '36-50': 0, '51+': 0};
+      print('Gender Response: $genderResponse');
+      print('Age Response: $ageResponse');
 
+      // Ensure both responses have data
+      if (genderResponse == null || ageResponse == null) {
+        throw Exception('One or both API responses are null');
+      }
+
+      // Extract data from both responses
+      final genderData = genderResponse.containsKey('data')
+          ? genderResponse['data']
+          : {'male': 0, 'female': 0};
+
+      final ageData =
+          ageResponse.containsKey('data') ? ageResponse['data'] : {};
+
+      // Return combined data
       return {
         'message': 'Success',
         'data': {'gender': genderData, 'age': ageData}
