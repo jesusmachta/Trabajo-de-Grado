@@ -62,15 +62,26 @@ class StatisticsViewState extends State<StatisticsView> {
     _loadStatistics();
   }
 
-  // Cargar las estadísticas desde el API
+  // Cargar estadísticas según la opción seleccionada
   Future<void> _loadStatistics() async {
-    if (!mounted) return;
+    // Si ya estamos cargando, evitar múltiples llamadas
+    if (_isLoading) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
+      print('Cargando estadísticas para: $_selectedStat');
+      print('Período: $_selectedPeriod');
+      print('Fecha: ${_selectedDate.toString()}');
+      print('Fecha fin: ${_selectedEndDate?.toString() ?? "No seleccionada"}');
+      print('Mes: $_selectedMonth');
+      print('Año: $_selectedYear');
+
       // Preparar parámetros según el tipo de estadística
       Map<String, String>? params;
 
@@ -113,48 +124,25 @@ class StatisticsViewState extends State<StatisticsView> {
           params = {'period': _selectedPeriod};
 
           // Determinar el formato de la fecha según el período
-          if (_selectedPeriod == 'week' || _selectedPeriod == 'month') {
+          if (_selectedPeriod == 'week') {
             final formatter = DateFormat('yyyy-MM-dd');
-            DateTime startDate;
+            params['date'] = formatter.format(_selectedDate);
 
-            if (_selectedPeriod == 'week') {
-              startDate = _selectedDate;
-            } else {
-              // Para período mensual
-              if (_selectedMonth != null && _selectedYear != null) {
-                // Usar el primer día del mes seleccionado
-                startDate = DateTime(_selectedYear!, _selectedMonth!, 1);
-              } else {
-                // Usar el primer día del mes actual si no hay selección
-                final now = DateTime.now();
-                startDate = DateTime(now.year, now.month, 1);
-              }
+            if (_selectedEndDate != null) {
+              params['end_date'] = formatter.format(_selectedEndDate!);
             }
-
-            final formattedDate = formatter.format(startDate);
-            params = {
-              'period': _selectedPeriod,
-              'date': formattedDate,
-            };
+          } else if (_selectedPeriod == 'month' &&
+              _selectedMonth != null &&
+              _selectedYear != null) {
+            params['month'] = _selectedMonth.toString();
+            params['year'] = _selectedYear.toString();
           }
         }
       }
 
-      // Clear any previous error state
-      if (mounted) {
-        setState(() {
-          _error = null;
-        });
-      }
+      print('Parámetros enviados a la API: $params');
 
-      // Reset data if endpoint changed to prevent showing stale data
-      if (mounted && _statisticsData != null) {
-        setState(() {
-          _statisticsData = null;
-        });
-      }
-
-      // Special handling for combined statistics
+      // Special handling for combined busy days
       if (_selectedStat == 'busy-days-combined') {
         final data = await _controller.getBusyDaysStatistics();
 
@@ -196,8 +184,13 @@ class StatisticsViewState extends State<StatisticsView> {
 
       // Special handling for combined gender and age distribution
       if (_selectedStat == 'gender-age-combined') {
+        // Limpiar caché para asegurar datos frescos
+        _controller.clearCache(_selectedStat);
+
         final data = await _controller.getGenderAgeDistributionStatistics(
             params: params);
+
+        print('Datos recibidos de la API: $data');
 
         if (mounted) {
           setState(() {
@@ -368,130 +361,92 @@ class StatisticsViewState extends State<StatisticsView> {
     // Mostrar un diálogo simple para seleccionar mes y año
     await showDialog(
       context: context,
-      builder: (BuildContext context) {
-        int selectedYear = currentYear;
-        int selectedMonth = currentMonth;
-
-        return AlertDialog(
-          title: const Text('Seleccionar mes'),
-          content: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Selector de año
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_left),
-                        onPressed: () {
-                          if (selectedYear > 2020) {
-                            setState(() {
-                              selectedYear--;
-                            });
-                          }
-                        },
-                      ),
-                      Text(
-                        '$selectedYear',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.arrow_right),
-                        onPressed: () {
-                          if (selectedYear < now.year) {
-                            setState(() {
-                              selectedYear++;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Grid de meses
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: List.generate(12, (index) {
-                      final int month = index + 1;
-                      // Deshabilitar meses futuros en el año actual
-                      final bool isDisabled =
-                          selectedYear == now.year && month > now.month;
-                      final bool isSelected = month == selectedMonth &&
-                          selectedYear == selectedYear;
-
-                      return InkWell(
-                        onTap: isDisabled
-                            ? null
-                            : () {
-                                setState(() {
-                                  selectedMonth = month;
-                                });
-                              },
-                        child: Container(
-                          width: 60,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primary
-                                : isDisabled
-                                    ? Theme.of(context)
-                                        .disabledColor
-                                        .withOpacity(0.1)
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .surfaceVariant,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            _getMonthName(month),
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.onPrimary
-                                  : isDisabled
-                                      ? Theme.of(context).disabledColor
-                                      : Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                            ),
-                          ),
+      builder: (context) => AlertDialog(
+        title: const Text('Seleccionar mes y año'),
+        content: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Selector de año
+                Row(
+                  children: [
+                    const Text('Año: '),
+                    const SizedBox(width: 8),
+                    DropdownButton<int>(
+                      value: currentYear,
+                      items: List.generate(
+                        5,
+                        (index) => DropdownMenuItem(
+                          value: now.year - index,
+                          child: Text('${now.year - index}'),
                         ),
-                      );
-                    }),
-                  ),
-                ],
-              );
-            },
+                      ),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedYear = value;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Selector de mes
+                Row(
+                  children: [
+                    const Text('Mes: '),
+                    const SizedBox(width: 8),
+                    DropdownButton<int>(
+                      value: currentMonth,
+                      items: List.generate(
+                        12,
+                        (index) => DropdownMenuItem(
+                          value: index + 1,
+                          child: Text(_formatMonthName(index + 1)),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedMonth = value;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _selectedYear = selectedYear;
-                  _selectedMonth = selectedMonth;
+          FilledButton(
+            onPressed: () {
+              // Al aceptar, actualizar el estado global y recargar las estadísticas
+              this.setState(() {
+                _selectedMonth = currentMonth;
+                _selectedYear = currentYear;
 
-                  // Clear cache for emotion-comparison to ensure fresh data
-                  if (_selectedStat == 'emotion-comparison') {
-                    _controller.clearCache(_selectedStat);
-                    _statisticsData = null;
-                  }
-                });
-                _loadStatistics();
-              },
-              child: const Text('Seleccionar'),
-            ),
-          ],
-        );
-      },
+                // Limpiar caché para asegurar datos frescos
+                _controller.clearCache(_selectedStat);
+                _statisticsData = null;
+              });
+              // Cerrar el diálogo
+              Navigator.pop(context);
+
+              // Recargar estadísticas con los nuevos parámetros
+              _loadStatistics();
+            },
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -706,7 +661,7 @@ class StatisticsViewState extends State<StatisticsView> {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.calendar_today,
+                                  Icons.event_repeat,
                                   color: Theme.of(context).colorScheme.primary,
                                   size: 18,
                                 ),
@@ -4295,307 +4250,519 @@ class StatisticsViewState extends State<StatisticsView> {
   // Visualizador combinado para distribución por género y edad
   Widget _buildCombinedGenderAgeDistributionView(dynamic data) {
     if (data == null ||
-        !data.containsKey('gender') ||
-        !data.containsKey('age')) {
-      return const Center(child: Text('No hay datos disponibles'));
+        !data.containsKey('data') ||
+        !data['data'].containsKey('gender') ||
+        !data['data'].containsKey('age')) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No hay datos disponibles para los parámetros seleccionados',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Prueba con otras fechas o período',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                _loadStatistics();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Actualizar datos'),
+            ),
+          ],
+        ),
+      );
     }
 
-    final genderData = data['gender'] as Map<String, dynamic>;
-    final ageData = data['age'] as Map<String, dynamic>;
+    final genderData = data['data']['gender'] as Map<String, dynamic>;
+    final ageData = data['data']['age'] as Map<String, dynamic>;
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'Distribución por género y edad',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-
-          // Container dividido verticalmente en dos partes
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Mitad izquierda: Distribución por género
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Distribución por género',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      // Tarjetas de género en layout horizontal
-                      Row(
-                        children: [
-                          // Tarjeta Masculino
-                          Expanded(
-                            child: Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: Colors.blue.withOpacity(0.3),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  children: [
-                                    // Icono de género masculino
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.man,
-                                        size: 40,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // Etiqueta de género
-                                    Text(
-                                      'Masculino',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Contador
-                                    Text(
-                                      '${genderData['male'] ?? 0}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue,
-                                          ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // Tarjeta Femenino
-                          Expanded(
-                            child: Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: Colors.pink.withOpacity(0.3),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  children: [
-                                    // Icono de género femenino
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.pink.withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.woman,
-                                        size: 40,
-                                        color: Colors.pink,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // Etiqueta de género
-                                    Text(
-                                      'Femenino',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Contador
-                                    Text(
-                                      '${genderData['female'] ?? 0}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.pink,
-                                          ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+    return Column(
+      children: [
+        // Selectores de período y fechas
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Selector de período (semana/mes)
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Período:',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment<String>(
+                          value: 'week',
+                          label: Text('Semana'),
+                          icon: Icon(Icons.view_week),
+                        ),
+                        ButtonSegment<String>(
+                          value: 'month',
+                          label: Text('Mes'),
+                          icon: Icon(Icons.calendar_month),
+                        ),
+                      ],
+                      selected: {_selectedPeriod},
+                      onSelectionChanged: (Set<String> newSelection) {
+                        setState(() {
+                          _selectedPeriod = newSelection.first;
+                          // Si cambiamos a mes, resetear fecha de fin
+                          if (_selectedPeriod == 'month') {
+                            _selectedEndDate = null;
 
-                // Separador vertical
-                Container(
-                  width: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  color: Theme.of(context).dividerColor,
-                ),
-
-                // Mitad derecha: Distribución por edad
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Distribución por edad',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                        textAlign: TextAlign.center,
+                            // Asegurar que tenemos mes y año seleccionados
+                            if (_selectedMonth == null) {
+                              _selectedMonth = DateTime.now().month;
+                            }
+                            if (_selectedYear == null) {
+                              _selectedYear = DateTime.now().year;
+                            }
+                          } else {
+                            // Si cambiamos a semana, establecer fecha fin
+                            _selectedEndDate =
+                                _selectedDate.add(const Duration(days: 6));
+                            // Si la fecha de fin es futura, limitarla a hoy
+                            final now = DateTime.now();
+                            if (_selectedEndDate!.isAfter(now)) {
+                              _selectedEndDate = now;
+                            }
+                          }
+                        });
+                        // Recargar estadísticas inmediatamente
+                        _loadStatistics();
+                      },
+                      style: ButtonStyle(
+                        backgroundColor:
+                            MaterialStateProperty.resolveWith<Color>(
+                          (Set<MaterialState> states) {
+                            if (states.contains(MaterialState.selected)) {
+                              return Theme.of(context).colorScheme.primary;
+                            }
+                            return Theme.of(context).colorScheme.surfaceVariant;
+                          },
+                        ),
+                        foregroundColor:
+                            MaterialStateProperty.resolveWith<Color>(
+                          (Set<MaterialState> states) {
+                            if (states.contains(MaterialState.selected)) {
+                              return Theme.of(context).colorScheme.onPrimary;
+                            }
+                            return Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant;
+                          },
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      // Tarjetas de edad en un scroll
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: ageData.entries.map<Widget>((entry) {
-                              // Determinar color e icono basado en el rango de edad
-                              late Color color;
-                              late IconData icon;
+                    ),
+                  ),
+                ],
+              ),
 
-                              if (entry.key == '0-18') {
-                                color = Colors.green;
-                                icon = Icons.child_care;
-                              } else if (entry.key == '19-25') {
-                                color = Colors.teal;
-                                icon = Icons.school;
-                              } else if (entry.key == '26-35') {
-                                color = Colors.indigo;
-                                icon = Icons.work;
-                              } else if (entry.key == '36-50') {
-                                color = Colors.amber;
-                                icon = Icons.business_center;
-                              } else {
-                                color = Colors.red;
-                                icon = Icons.elderly;
-                              }
+              const SizedBox(height: 16),
 
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12.0),
-                                child: Card(
-                                  elevation: 2,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(
-                                      color: color.withOpacity(0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Row(
-                                      children: [
-                                        // Icono representando el rango de edad
-                                        Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: color.withOpacity(0.2),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            icon,
-                                            size: 24,
-                                            color: color,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        // Información del rango de edad
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Edad: ${entry.key}',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleSmall
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              // Cantidad
-                                              Text(
-                                                'Cantidad: ${entry.value}',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Valor numérico grande
-                                        Text(
-                                          '${entry.value}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .headlineSmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: color,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+              // Selector de fechas según el período
+              if (_selectedPeriod == 'week') ...[
+                Row(
+                  children: [
+                    Icon(
+                      Icons.date_range,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Rango de fechas:',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.start),
+                        label: Text('Inicio: ${_formatDate(_selectedDate)}'),
+                        onPressed: () async {
+                          await _selectDate(context);
+                          // Recargar inmediatamente después de seleccionar
+                          if (mounted) _loadStatistics();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceVariant,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.event_repeat),
+                        label: Text(
+                          'Fin: ${_selectedEndDate != null ? _formatDate(_selectedEndDate!) : "No seleccionado"}',
+                        ),
+                        onPressed: () async {
+                          await _selectEndDate(context);
+                          // Recargar inmediatamente después de seleccionar
+                          if (mounted) _loadStatistics();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceVariant,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (_selectedPeriod == 'month') ...[
+                Row(
+                  children: [
+                    Icon(
+                      Icons.event,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Mes y año:',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.calendar_month),
+                        label: Text(
+                          'Mes: ${_formatMonthName(_selectedMonth)} ${_selectedYear}',
+                        ),
+                        onPressed: () async {
+                          await _selectMonth(context);
+                          // Recargar inmediatamente después de seleccionar
+                          if (mounted) _loadStatistics();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceVariant,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+
+        // Sección de resultados
+        Expanded(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Título
+                  Text(
+                    'Distribución demográfica',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _selectedPeriod == 'week'
+                        ? 'Semana del ${_formatDate(_selectedDate)} al ${_formatDate(_selectedEndDate ?? _selectedDate.add(const Duration(days: 6)))}'
+                        : 'Mes de ${_formatMonthName(_selectedMonth)} de ${_selectedYear}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Distribución por género
+                  Text(
+                    'Distribución por género',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Tarjetas de género
+                  Row(
+                    children: [
+                      // Masculino
+                      Expanded(
+                        child: _buildGenderCard(
+                          'Masculino',
+                          genderData['male'] ?? 0,
+                          Icons.man,
+                          Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Femenino
+                      Expanded(
+                        child: _buildGenderCard(
+                          'Femenino',
+                          genderData['female'] ?? 0,
+                          Icons.woman,
+                          Colors.pink,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 32),
+
+                  // Distribución por edad
+                  Text(
+                    'Distribución por edad',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Gráfico de edades
+                  _buildAgeDistributionChart(ageData),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Construir tarjeta para género
+  Widget _buildGenderCard(
+      String gender, int count, IconData icon, Color color) {
+    final total = ((_statisticsData?['data']?['gender']?['male'] ?? 0) +
+            (_statisticsData?['data']?['gender']?['female'] ?? 0))
+        .toDouble();
+
+    final percentage =
+        total > 0 ? (count / total * 100).toStringAsFixed(1) : '0';
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 42,
+              color: color,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              gender,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$count',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$percentage%',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: color,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Construir gráfico de distribución de edad
+  Widget _buildAgeDistributionChart(Map<String, dynamic> ageData) {
+    // Transformar los datos para la visualización
+    final List<Map<String, dynamic>> chartData = [];
+
+    // Reorganizar datos según el tipo de API (rangos o promedio)
+    if (ageData.containsKey('0-18')) {
+      // API anterior con rangos fijos
+      chartData.add({'edad': '0-18', 'count': ageData['0-18'] ?? 0});
+      chartData.add({'edad': '19-25', 'count': ageData['19-25'] ?? 0});
+      chartData.add({'edad': '26-35', 'count': ageData['26-35'] ?? 0});
+      chartData.add({'edad': '36-50', 'count': ageData['36-50'] ?? 0});
+      chartData.add({'edad': '51+', 'count': ageData['51+'] ?? 0});
+    } else {
+      // Nueva API con edades promedio
+      // Ordenar las edades numéricamente
+      final List<MapEntry<String, dynamic>> sortedEntries =
+          ageData.entries.toList();
+      sortedEntries.sort((a, b) {
+        final int ageA = int.tryParse(a.key) ?? 0;
+        final int ageB = int.tryParse(b.key) ?? 0;
+        return ageA.compareTo(ageB);
+      });
+
+      // Agrupar edades en rangos para visualización
+      final Map<String, int> groupedAges = {
+        '0-18': 0,
+        '19-25': 0,
+        '26-35': 0,
+        '36-50': 0,
+        '51+': 0,
+      };
+
+      for (var entry in sortedEntries) {
+        final int age = int.tryParse(entry.key) ?? 0;
+        final int count = entry.value is int
+            ? entry.value
+            : int.tryParse(entry.value.toString()) ?? 0;
+
+        if (age <= 18) {
+          groupedAges['0-18'] = (groupedAges['0-18'] ?? 0) + count;
+        } else if (age <= 25) {
+          groupedAges['19-25'] = (groupedAges['19-25'] ?? 0) + count;
+        } else if (age <= 35) {
+          groupedAges['26-35'] = (groupedAges['26-35'] ?? 0) + count;
+        } else if (age <= 50) {
+          groupedAges['36-50'] = (groupedAges['36-50'] ?? 0) + count;
+        } else {
+          groupedAges['51+'] = (groupedAges['51+'] ?? 0) + count;
+        }
+      }
+
+      // Convertir a formato de gráfico
+      groupedAges.forEach((range, count) {
+        chartData.add({'edad': range, 'count': count});
+      });
+    }
+
+    // Colores para las barras del gráfico
+    final List<Color> barColors = [
+      const Color(0xFF6200EA), // Deep Purple
+      const Color(0xFF00BFA5), // Teal
+      const Color(0xFFFFAB00), // Amber
+      const Color(0xFFE64A19), // Deep Orange
+      const Color(0xFF5D4037), // Brown
+    ];
+
+    return Container(
+      height: 300,
+      child: SfCartesianChart(
+        primaryXAxis: CategoryAxis(
+          title: AxisTitle(text: 'Rango de edad'),
+        ),
+        primaryYAxis: NumericAxis(
+          title: AxisTitle(text: 'Cantidad'),
+          labelFormat: '{value}',
+          majorGridLines: const MajorGridLines(width: 0.5, dashArray: [5, 5]),
+        ),
+        series: <CartesianSeries>[
+          ColumnSeries<Map<String, dynamic>, String>(
+            dataSource: chartData,
+            xValueMapper: (Map<String, dynamic> data, _) => data['edad'],
+            yValueMapper: (Map<String, dynamic> data, _) => data['count'],
+            name: 'Edad',
+            pointColorMapper: (Map<String, dynamic> data, index) =>
+                barColors[index % barColors.length],
+            borderRadius: BorderRadius.circular(8),
+            dataLabelSettings: DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.top,
+              textStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
         ],
+        tooltipBehavior: TooltipBehavior(enable: true),
+        palette: barColors,
       ),
     );
+  }
+
+  // Obtener nombre del mes
+  String _formatMonthName(int? month) {
+    if (month == null) return '';
+
+    switch (month) {
+      case 1:
+        return 'enero';
+      case 2:
+        return 'febrero';
+      case 3:
+        return 'marzo';
+      case 4:
+        return 'abril';
+      case 5:
+        return 'mayo';
+      case 6:
+        return 'junio';
+      case 7:
+        return 'julio';
+      case 8:
+        return 'agosto';
+      case 9:
+        return 'septiembre';
+      case 10:
+        return 'octubre';
+      case 11:
+        return 'noviembre';
+      case 12:
+        return 'diciembre';
+      default:
+        return '';
+    }
   }
 
   // Visualizador combinado para categorías más y menos visitadas
@@ -4788,5 +4955,9 @@ class StatisticsViewState extends State<StatisticsView> {
     }
 
     return result;
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
