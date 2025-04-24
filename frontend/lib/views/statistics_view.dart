@@ -924,11 +924,20 @@ class StatisticsViewState extends State<StatisticsView> {
             orElse: () => {'value': _selectedStat, 'label': 'Estadística'},
           );
 
-      return StatisticCard(
-        title: selectedStatOption['label']!,
-        icon: _getIconForStatistic(_selectedStat),
-        content: const Center(child: Text('Datos no disponibles')),
-      );
+      // Directamente llamar a _buildTopCategoriesView con la lista de datos
+      // Asegurarse de que _statisticsData es una lista
+      if (_statisticsData is List) {
+        return _buildTopCategoriesView(_statisticsData);
+      } else {
+        print(
+            'Error: Expected List for top-successful-categories, but got ${_statisticsData.runtimeType}');
+        return StatisticCard(
+          title: selectedStatOption['label']!,
+          icon: _getIconForStatistic(_selectedStat),
+          content:
+              const Center(child: Text('Error: formato de datos incorrecto')),
+        );
+      }
     }
 
     // For all other statistics that use the Map structure with 'data' field
@@ -1580,10 +1589,231 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Visualizador para categorías mejor evaluadas
-  Widget _buildTopCategoriesView(dynamic data) {
-    // Return a placeholder
-    return Center(child: Text('Datos no disponibles'));
+  // Visualizador para categorías mejor evaluadas (Podio)
+  Widget _buildTopCategoriesView(List<dynamic> data) {
+    print('Building top categories view with data: $data');
+
+    if (data is! List || data.length < 3) {
+      print(
+          'Error: Invalid data format for top categories. Expected List of 3 items.');
+      return const Center(
+        child: Text('No hay suficientes datos para mostrar el podio.'),
+      );
+    }
+
+    // Asegurarse de que los datos son Map<String, dynamic>
+    List<Map<String, dynamic>> topCategories = data.map((item) {
+      if (item is Map<String, dynamic>) {
+        return item;
+      } else {
+        // Intentar convertir si es posible, o devolver un mapa vacío
+        try {
+          return Map<String, dynamic>.from(item as Map);
+        } catch (_) {
+          print('Error: Could not convert item to Map<String, dynamic>: $item');
+          return <String, dynamic>{}; // Devolver mapa vacío en caso de error
+        }
+      }
+    }).toList();
+
+    // Filtrar elementos vacíos que pudieron resultar de errores de conversión
+    topCategories = topCategories.where((map) => map.isNotEmpty).toList();
+
+    if (topCategories.length < 3) {
+      print('Error: Not enough valid category data after filtering.');
+      return const Center(
+        child: Text('Formato de datos inválido para algunas categorías.'),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Top Categorías Mejor Evaluadas',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Usar Row para pantallas anchas, Column para estrechas
+              bool useRow = constraints.maxWidth > 600;
+              final children = topCategories.map((categoryData) {
+                // Extraer datos con chequeos
+                final rank = categoryData['rank'] as int? ?? 0;
+                final category = categoryData['category'] as String? ?? 'Error';
+                final count = categoryData['happy_count'] as int? ?? 0;
+
+                // Crear la tarjeta
+                Widget card = _buildTopCategoryCard(
+                  rank: rank,
+                  category: category,
+                  happyCount: count,
+                );
+
+                // Envolver en Expanded si estamos en Row
+                return useRow ? Expanded(child: card) : card;
+              }).toList();
+
+              if (useRow) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Espaciado entre tarjetas
+                    children[0],
+                    const SizedBox(width: 16),
+                    children[1],
+                    const SizedBox(width: 16),
+                    children[2],
+                  ],
+                );
+              } else {
+                return Column(
+                  children: [
+                    // Espaciado entre tarjetas
+                    children[0],
+                    const SizedBox(height: 16),
+                    children[1],
+                    const SizedBox(height: 16),
+                    children[2],
+                  ],
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper widget para una tarjeta del podio
+  Widget _buildTopCategoryCard({
+    required int rank,
+    required String category,
+    required int happyCount,
+  }) {
+    // Determinar colores e icono según el ranking
+    Color cardColor;
+    Color iconColor;
+    Color borderColor;
+    IconData iconData;
+
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    switch (rank) {
+      case 1: // Oro
+        cardColor = isDarkMode
+            ? Colors.yellow.shade900.withOpacity(0.3)
+            : const Color(0xFFFFF9C4);
+        iconColor =
+            isDarkMode ? Colors.yellow.shade600 : const Color(0xFFFBC02D);
+        borderColor =
+            isDarkMode ? Colors.yellow.shade700 : const Color(0xFFFBC02D);
+        iconData = Icons.emoji_events; // Trofeo
+        break;
+      case 2: // Plata
+        cardColor = isDarkMode
+            ? Colors.grey.shade800.withOpacity(0.5)
+            : const Color(0xFFF5F5F5);
+        iconColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFFB0BEC5);
+        borderColor =
+            isDarkMode ? Colors.grey.shade500 : const Color(0xFFB0BEC5);
+        iconData = Icons.military_tech; // Medalla (podría ser diferente)
+        break;
+      case 3: // Bronce
+        cardColor = isDarkMode
+            ? Colors.brown.shade800.withOpacity(0.5)
+            : const Color(0xFFFFE0B2);
+        iconColor = isDarkMode
+            ? Colors.brown.shade300
+            : const Color(0xFFD7CCC8); // Ajustado para más contraste
+        borderColor =
+            isDarkMode ? Colors.brown.shade400 : const Color(0xFFA1887F);
+        iconData = Icons.military_tech; // Medalla
+        break;
+      default:
+        cardColor = Colors.grey.shade200;
+        iconColor = Colors.grey.shade600;
+        borderColor = Colors.grey.shade400;
+        iconData = Icons.error_outline;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+      constraints: const BoxConstraints(
+          minHeight: 220), // Altura mínima para consistencia
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: borderColor,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment:
+            MainAxisAlignment.spaceBetween, // Espaciar elementos verticalmente
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Icono
+          Icon(
+            iconData,
+            size: 48,
+            color: iconColor,
+          ),
+          const SizedBox(height: 16),
+
+          // Nombre de la categoría
+          Text(
+            category,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+
+          // Evaluaciones positivas
+          Text(
+            'Evaluaciones positivas: $happyCount',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.color
+                      ?.withOpacity(0.8),
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+
+          // Ranking
+          Text(
+            '#$rank',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: iconColor, // Usar el color del icono para el rank
+                ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 
   // Normaliza un valor para visualizaciones de barras
