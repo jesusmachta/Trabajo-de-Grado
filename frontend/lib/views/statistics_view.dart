@@ -6,6 +6,13 @@ import '../models/chart_data.dart';
 import 'widgets/statistic_card.dart';
 import 'widgets/statistics_selector.dart';
 
+// String extension to add capitalize functionality
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${this.substring(1)}";
+  }
+}
+
 // Clase para datos de porcentaje de emociones
 class EmotionPercentageData {
   final String emotion;
@@ -920,19 +927,7 @@ class StatisticsViewState extends State<StatisticsView> {
       return StatisticCard(
         title: selectedStatOption['label']!,
         icon: _getIconForStatistic(_selectedStat),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Resultados:',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _buildTopCategoriesView(_statisticsData),
-            ),
-          ],
-        ),
+        content: const Center(child: Text('Datos no disponibles')),
       );
     }
 
@@ -1587,242 +1582,8 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Visualizador para categorías mejor evaluadas
   Widget _buildTopCategoriesView(dynamic data) {
-    print('Top categories view - data type: ${data.runtimeType}');
-    print('Top categories data content: $data');
-
-    // Initialize an empty list to store our processed categories
-    List<Map<String, dynamic>> processedCategories = [];
-
-    try {
-      // If data is already a List<Map<String, dynamic>> or List
-      if (data is List) {
-        for (var item in data) {
-          if (item is Map<String, dynamic>) {
-            processedCategories.add(item);
-          } else if (item is Map) {
-            // Convert to the right type with consistent keys
-            processedCategories.add({
-              'category': item['category']?.toString() ?? 'Sin nombre',
-              'happy_count': item['happy_count'] is int
-                  ? item['happy_count']
-                  : int.tryParse(item['happy_count'].toString()) ?? 0,
-            });
-          }
-        }
-      }
-
-      print('Processed categories: $processedCategories');
-    } catch (e) {
-      print('Error processing top categories data: $e');
-      return Center(child: Text('Error al procesar datos: $e'));
-    }
-
-    if (processedCategories.isEmpty) {
-      return const Center(
-          child: Text('No hay categorías con emociones positivas'));
-    }
-
-    final int categoriesCount = processedCategories.length;
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'Categorías Mejor Evaluadas',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-
-          // Podium visualization
-          Container(
-            constraints: const BoxConstraints(maxWidth: 600),
-            height: MediaQuery.of(context).size.height * 0.4,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                // Base line
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 4,
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                  ),
-                ),
-
-                // Podium positions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // 2nd place (left)
-                    if (categoriesCount >= 2)
-                      _buildPodiumPosition(
-                        processedCategories[1],
-                        2,
-                        Colors.grey.shade400,
-                        '🥈',
-                        height: MediaQuery.of(context).size.height * 0.25,
-                      ),
-
-                    const SizedBox(width: 10),
-
-                    // 1st place (center)
-                    if (categoriesCount >= 1)
-                      _buildPodiumPosition(
-                        processedCategories[0],
-                        1,
-                        Colors.amber,
-                        '🏆',
-                        height: MediaQuery.of(context).size.height * 0.35,
-                      ),
-
-                    const SizedBox(width: 10),
-
-                    // 3rd place (right)
-                    if (categoriesCount >= 3)
-                      _buildPodiumPosition(
-                        processedCategories[2],
-                        3,
-                        Colors.brown.shade300,
-                        '🥉',
-                        height: MediaQuery.of(context).size.height * 0.18,
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // Legend
-          Text(
-            'Basado en reacciones positivas de los clientes',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method to build a single podium position
-  Widget _buildPodiumPosition(Map<String, dynamic> categoryData, int position,
-      Color color, String trophyType,
-      {required double height}) {
-    final String categoryName = categoryData['category'] ?? 'Sin nombre';
-    final int happyCount = categoryData['happy_count'] ?? 0;
-
-    // Get appropriate icon for the position
-    IconData trophyIcon;
-    switch (trophyType) {
-      case '🏆':
-        trophyIcon = Icons.emoji_events;
-        break;
-      case '🥈':
-        trophyIcon = Icons.looks_two;
-        break;
-      case '🥉':
-        trophyIcon = Icons.looks_3;
-        break;
-      default:
-        trophyIcon = Icons.star;
-    }
-
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          // Trophy or medal
-          Icon(
-            trophyIcon,
-            size: 40,
-            color: color,
-          ),
-          const SizedBox(height: 8),
-          // Category icon in circle
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Icon(
-                _getCategoryIcon(categoryName),
-                size: 30,
-                color: color,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Category name
-          Text(
-            categoryName,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          // Reactions count with happy icon
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$happyCount',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.sentiment_very_satisfied, size: 16),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Podium block
-          Container(
-            height: height,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 5,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                position.toString(),
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Return a placeholder
+    return Center(child: Text('Datos no disponibles'));
   }
 
   // Normaliza un valor para visualizaciones de barras
@@ -2039,62 +1800,80 @@ class StatisticsViewState extends State<StatisticsView> {
     String mostBusyDayName = dayTranslations[mostBusyDayEn] ?? mostBusyDayEn;
     String leastBusyDayName = dayTranslations[leastBusyDayEn] ?? leastBusyDayEn;
 
-    // Calcular fechas para la semana actual (para mostrar números de día)
+    // Calcular fechas para la semana anterior (7 días hasta hoy)
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final weekAgo = now.subtract(const Duration(days: 6));
 
-    // Definir la información de cada día de la semana
-    final List<Map<String, dynamic>> weekDaysInfo = [
-      {
-        'letter': 'M',
-        'full': 'Martes',
-        'date': monday.add(const Duration(days: 1)).day,
-        'isMostBusy': 'Martes' == mostBusyDayName,
-        'isLeastBusy': 'Martes' == leastBusyDayName,
-      },
-      {
-        'letter': 'M',
-        'full': 'Miércoles',
-        'date': monday.add(const Duration(days: 2)).day,
-        'isMostBusy': 'Miércoles' == mostBusyDayName,
-        'isLeastBusy': 'Miércoles' == leastBusyDayName,
-      },
-      {
-        'letter': 'J',
-        'full': 'Jueves',
-        'date': monday.add(const Duration(days: 3)).day,
-        'isMostBusy': 'Jueves' == mostBusyDayName,
-        'isLeastBusy': 'Jueves' == leastBusyDayName,
-      },
-      {
-        'letter': 'V',
-        'full': 'Viernes',
-        'date': monday.add(const Duration(days: 4)).day,
-        'isMostBusy': 'Viernes' == mostBusyDayName,
-        'isLeastBusy': 'Viernes' == leastBusyDayName,
-      },
-      {
-        'letter': 'S',
-        'full': 'Sábado',
-        'date': monday.add(const Duration(days: 5)).day,
-        'isMostBusy': 'Sábado' == mostBusyDayName,
-        'isLeastBusy': 'Sábado' == leastBusyDayName,
-      },
-      {
-        'letter': 'D',
-        'full': 'Domingo',
-        'date': monday.add(const Duration(days: 6)).day,
-        'isMostBusy': 'Domingo' == mostBusyDayName,
-        'isLeastBusy': 'Domingo' == leastBusyDayName,
-      },
-      {
-        'letter': 'L',
-        'full': 'Lunes',
-        'date': monday.day,
-        'isMostBusy': 'Lunes' == mostBusyDayName,
-        'isLeastBusy': 'Lunes' == leastBusyDayName,
-      },
-    ];
+    // Crear una lista de días en el rango de la semana anterior hasta hoy
+    final List<Map<String, dynamic>> pastWeekDaysInfo = [];
+
+    // Generar información para cada día de la semana pasada
+    for (int i = 0; i < 7; i++) {
+      final date = weekAgo.add(Duration(days: i));
+      // Format weekday name in Spanish
+      String weekdayName;
+      switch (date.weekday) {
+        case 1:
+          weekdayName = 'Lunes';
+          break;
+        case 2:
+          weekdayName = 'Martes';
+          break;
+        case 3:
+          weekdayName = 'Miércoles';
+          break;
+        case 4:
+          weekdayName = 'Jueves';
+          break;
+        case 5:
+          weekdayName = 'Viernes';
+          break;
+        case 6:
+          weekdayName = 'Sábado';
+          break;
+        case 7:
+          weekdayName = 'Domingo';
+          break;
+        default:
+          weekdayName = '';
+      }
+
+      // Get initial letter of the day
+      String initialLetter;
+      switch (date.weekday) {
+        case 1:
+          initialLetter = 'L';
+          break;
+        case 2:
+          initialLetter = 'M';
+          break;
+        case 3:
+          initialLetter = 'M';
+          break;
+        case 4:
+          initialLetter = 'J';
+          break;
+        case 5:
+          initialLetter = 'V';
+          break;
+        case 6:
+          initialLetter = 'S';
+          break;
+        case 7:
+          initialLetter = 'D';
+          break;
+        default:
+          initialLetter = '';
+      }
+
+      pastWeekDaysInfo.add({
+        'letter': initialLetter,
+        'full': weekdayName,
+        'date': date.day,
+        'isMostBusy': weekdayName == mostBusyDayName,
+        'isLeastBusy': weekdayName == leastBusyDayName,
+      });
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -2141,7 +1920,7 @@ class StatisticsViewState extends State<StatisticsView> {
                 LayoutBuilder(builder: (context, constraints) {
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: weekDaysInfo.map((dayInfo) {
+                    children: pastWeekDaysInfo.map((dayInfo) {
                       // Determinamos si es el día más o menos concurrido
                       final bool isMostBusy = dayInfo['isMostBusy'];
                       final bool isLeastBusy = dayInfo['isLeastBusy'];
@@ -2676,11 +2455,11 @@ class StatisticsViewState extends State<StatisticsView> {
             // Create a card with pie chart for this category
             categoryCharts.add(
               SizedBox(
-                width: 240,
-                height: 240,
+                width: 320, // Increased from 240 to make charts larger
+                height: 320, // Increased from 240 to make charts larger
                 child: Card(
                   elevation: 2,
-                  margin: const EdgeInsets.all(4),
+                  margin: const EdgeInsets.all(8), // Increased margin
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -2691,7 +2470,7 @@ class StatisticsViewState extends State<StatisticsView> {
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 16),
+                            vertical: 12, horizontal: 16), // Larger padding
                         decoration: BoxDecoration(
                           color: Theme.of(context)
                               .colorScheme
@@ -2705,7 +2484,7 @@ class StatisticsViewState extends State<StatisticsView> {
                         child: Text(
                           category,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16, // Increased font size
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary,
                           ),
@@ -2717,7 +2496,7 @@ class StatisticsViewState extends State<StatisticsView> {
 
                       // Pie chart
                       SizedBox(
-                        height: 130,
+                        height: 180, // Increased from 130 to make chart larger
                         child: SfCircularChart(
                           margin: EdgeInsets.zero,
                           legend: Legend(isVisible: false),
@@ -2744,19 +2523,22 @@ class StatisticsViewState extends State<StatisticsView> {
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.only(
-                              left: 4, right: 4, bottom: 4, top: 0),
+                              left: 8,
+                              right: 8,
+                              bottom: 8,
+                              top: 0), // Adjusted padding
                           child: Wrap(
                             alignment: WrapAlignment.center,
-                            spacing: 2,
-                            runSpacing: 2,
+                            spacing: 4, // More spacing
+                            runSpacing: 4, // More spacing
                             children: chartData.map((data) {
                               final emotionColor =
                                   _getEmotionColorForChart(data.emotion);
 
                               return Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 1),
-                                margin: const EdgeInsets.only(bottom: 1),
+                                    horizontal: 6, vertical: 3), // More padding
+                                margin: const EdgeInsets.only(bottom: 2),
                                 decoration: BoxDecoration(
                                   color: emotionColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
@@ -2769,18 +2551,18 @@ class StatisticsViewState extends State<StatisticsView> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
-                                      width: 6,
-                                      height: 6,
+                                      width: 8, // Slightly larger dot
+                                      height: 8, // Slightly larger dot
                                       decoration: BoxDecoration(
                                         color: emotionColor,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    const SizedBox(width: 2),
+                                    const SizedBox(width: 4),
                                     Text(
                                       '${_translateEmotion(data.emotion)}: ${data.percentage.toStringAsFixed(0)}%',
                                       style: const TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 12, // Increased font size
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -2808,54 +2590,41 @@ class StatisticsViewState extends State<StatisticsView> {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    // Create a scrollable view with charts organized in pairs
-    return Column(
-      children: [
-        Text(
-          'Visualización de emociones por categoría',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Selecciona una gráfica para ver detalles o navega entre categorías.',
-          style: Theme.of(context).textTheme.bodyMedium,
-          textAlign: TextAlign.center,
-        ),
-
-        // Scroll indicator
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.swipe_vertical, size: 16, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text(
-                'Desliza para ver más categorías',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                  fontStyle: FontStyle.italic,
+    // Changed: Use SingleChildScrollView for the whole view instead of nested scrolling
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Visualización de emociones por categoría',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
                 ),
-              ),
-            ],
+            textAlign: TextAlign.center,
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            'Selecciona una gráfica para ver detalles o navega entre categorías.',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
 
-        // Scrollable content
-        Expanded(
-          child: SingleChildScrollView(
+          // Removed scroll indicator since we're using page-level scrolling
+
+          const SizedBox(height: 16), // Added spacing
+
+          // Center the horizontally scrollable row of charts
+          Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: _arrangeChartsInPairs(categoryCharts),
+              children: categoryCharts.isEmpty
+                  ? [const Center(child: Text('No hay datos disponibles'))]
+                  : _arrangeChartsInPairs(categoryCharts),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -3373,12 +3142,6 @@ class StatisticsViewState extends State<StatisticsView> {
       ),
     );
   }
-
-  // Construir celda de encabezado de tabla (No longer needed with DataTable)
-  /* Widget _buildTableHeader(String text) { ... } */
-
-  // Construir celda de tabla básica (No longer needed with DataTable)
-  /* Widget _buildTableCell(String text, {bool isBold = false, Color? textColor}) { ... } */
 
   // Construir celda de conteo de emociones con ícono (Updated for DataTable)
   Widget _buildEmotionCountCell(int count, Color color, IconData? iconData,
@@ -5245,34 +5008,24 @@ class StatisticsViewState extends State<StatisticsView> {
     }
   }
 
-  // Helper method to arrange charts in pairs (2 per row)
+  // Helper method to arrange charts in a horizontal scrollable row
   List<Widget> _arrangeChartsInPairs(List<Widget> charts) {
-    List<Widget> result = [];
-
-    for (int i = 0; i < charts.length; i += 2) {
-      // Create a row with 2 charts
-      List<Widget> rowCharts = [];
-
-      // Add first chart
-      rowCharts.add(charts[i]);
-
-      // Add second chart if available
-      if (i + 1 < charts.length) {
-        rowCharts.add(charts[i + 1]);
-      } else {
-        // Add an empty container to maintain the layout
-        rowCharts.add(SizedBox(width: 240, height: 240));
-      }
-
-      // Add the row to the result
-      result.add(Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: rowCharts,
-      ));
-    }
-
-    return result;
+    // Create a single scrollable row with all charts
+    return [
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ...charts.map((chart) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: chart,
+                )),
+          ],
+        ),
+      ),
+    ];
   }
 
   String _formatDate(DateTime date) {

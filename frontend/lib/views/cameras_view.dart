@@ -30,7 +30,8 @@ class _CamerasViewState extends State<CamerasView> {
   String? _categoriesError;
   CameraStatusFilter _selectedStatus =
       CameraStatusFilter.todos; // Default filter status
-  String _searchTerm = ''; // For future search functionality
+  String _searchTerm = ''; // For search functionality
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -38,6 +39,12 @@ class _CamerasViewState extends State<CamerasView> {
     // Fetch both data concurrently
     _fetchCameras();
     _fetchActiveCategories();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCameras() async {
@@ -919,16 +926,68 @@ class _CamerasViewState extends State<CamerasView> {
     );
   }
 
-  // Method to filter cameras by status
+  // Method to filter cameras by status and search term
   void _filterCameras() {
     setState(() {
+      // First filter by status
+      List<Map<String, dynamic>> statusFiltered;
       if (_selectedStatus == CameraStatusFilter.todos) {
-        _filteredCameras = List.from(_cameras);
+        statusFiltered = List.from(_cameras);
       } else {
         bool isActiveFilter = _selectedStatus == CameraStatusFilter.activo;
-        _filteredCameras = _cameras.where((camera) {
+        statusFiltered = _cameras.where((camera) {
           final isActive = camera['isActive'] as bool? ?? false;
           return isActive == isActiveFilter;
+        }).toList();
+      }
+
+      // Then apply search filter if search term is not empty
+      if (_searchTerm.trim().isEmpty) {
+        _filteredCameras = statusFiltered;
+      } else {
+        final searchLower = _searchTerm.toLowerCase().trim();
+        _filteredCameras = statusFiltered.where((camera) {
+          // Check if camera ID contains search term
+          final idContains = camera['Id_Camara']
+              .toString()
+              .toLowerCase()
+              .contains(searchLower);
+
+          // Get category name - improved method
+          String categoryName = '';
+
+          // First try to get the category directly from the camera data
+          if (camera.containsKey('Categoria_Producto') &&
+              camera['Categoria_Producto'] != null) {
+            categoryName =
+                camera['Categoria_Producto'].toString().toLowerCase();
+          } else {
+            // Then try to match with category list
+            final typeId = camera['Tipo_Producto'];
+            if (typeId != null) {
+              for (var category in _activeCategories) {
+                final catId =
+                    category['Tipo_Producto'] ?? category['Id_Tipo_Producto'];
+                if (catId == typeId) {
+                  categoryName = (category['Categoria_Producto'] ??
+                          category['Nombre'] ??
+                          '')
+                      .toString()
+                      .toLowerCase();
+                  break;
+                }
+              }
+            }
+          }
+
+          // Add debug prints to help identify issues
+          print(
+              'Camera ID: ${camera['Id_Camara']}, Category: $categoryName, Search: $searchLower');
+          print(
+              'ID Match: $idContains, Category Match: ${categoryName.contains(searchLower)}');
+
+          // Return true if either ID or category name contains search term
+          return idContains || categoryName.contains(searchLower);
         }).toList();
       }
     });
@@ -1126,8 +1185,42 @@ class _CamerasViewState extends State<CamerasView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Future search field can be added here
-                      const Spacer(),
+                      // Search field
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por ID o Categoría',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 0),
+                            suffixIcon: _searchTerm.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchTerm = '';
+                                        _filterCameras();
+                                      });
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchTerm = value;
+                              _filterCameras();
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       // Status filter dropdown
                       Container(
                         padding: const EdgeInsets.symmetric(

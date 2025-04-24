@@ -246,45 +246,17 @@ class StatisticsController {
     }
   }
 
-  // Fetch top successful categories data for podium display
-  Future<List<Map<String, dynamic>>> getTopSuccessfulCategories() async {
+  // Método para obtener las categorías mejor evaluadas
+  Future<List<dynamic>> getTopSuccessfulCategories() async {
     try {
+      // Get statistics data
       final response = await getStatistics('top-successful-categories');
 
-      // Print detailed information about the response
-      print('API Response for top-successful-categories:');
-      print('Response type: ${response.runtimeType}');
-      print('Response keys: ${response.keys.toList()}');
-      print('Full response: $response');
-
-      List<Map<String, dynamic>> topCategories = [];
-
-      // Extract data from the response
-      if (response is Map && response.containsKey('data')) {
-        final rawData = response['data'];
-        print('Raw data type: ${rawData.runtimeType}');
-
-        if (rawData is List) {
-          // Convert each item to a proper Map with required fields
-          for (var item in rawData) {
-            if (item is Map) {
-              final category = item['category']?.toString() ?? 'Sin nombre';
-              final happyCount = item['happy_count'] is int
-                  ? item['happy_count']
-                  : int.tryParse(item['happy_count'].toString()) ?? 0;
-
-              topCategories.add({
-                'category': category,
-                'happy_count': happyCount,
-                'categoryName': category
-              });
-            }
-          }
-        }
+      if (response.containsKey('data')) {
+        return response['data'];
       }
 
-      print('Final processed categories: $topCategories');
-      return topCategories;
+      return [];
     } catch (e) {
       print('Error al obtener categorías mejor evaluadas: $e');
       return []; // Return empty list instead of throwing to avoid crashes
