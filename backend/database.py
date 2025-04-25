@@ -8,7 +8,8 @@ collections = {
     "Tipo_Producto_Zona_Camara": db['Tipo_Producto_Zona_Camara'],
     "counters": db['counters'],
     "HeatMap": db['HeatMap'],
-    "Users": db['Users']
+    "Users": db['Users'],
+    "Estadisticas": db['Estadisticas']
 }
 
 # Inicializar el contador si no existe
