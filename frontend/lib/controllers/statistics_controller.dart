@@ -183,11 +183,12 @@ class StatisticsController {
       final mostBusyDaysResponse = await getStatistics('busy-days');
       final leastBusyDaysResponse = await getStatistics('least-days');
 
-      // Extraer directamente el día de la semana de la respuesta
+      // Extraer los datos teniendo en cuenta la estructura actual:
+      // data: {"day": "Wednesday", "count": 11}
       String mostBusyDay =
-          mostBusyDaysResponse['data']['most_busy_day'] ?? 'No disponible';
+          mostBusyDaysResponse['data']?['day'] ?? 'No disponible';
       String leastBusyDay =
-          leastBusyDaysResponse['data']['least_busy_day'] ?? 'No disponible';
+          leastBusyDaysResponse['data']?['day'] ?? 'No disponible';
 
       return {
         'message': 'Success',
