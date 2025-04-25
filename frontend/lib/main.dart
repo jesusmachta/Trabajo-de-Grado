@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'views/home_view.dart';
 import 'views/login_view.dart';
 import 'views/dashboard_view.dart';
@@ -7,6 +8,9 @@ import 'controllers/auth_controller.dart';
 import 'controllers/user_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+
+// Create a global theme controller
+final themeController = StreamController<ThemeMode>.broadcast();
 
 void main() {
   // Ensure Flutter bindings are initialized
@@ -35,17 +39,35 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  late StreamSubscription _themeSub;
 
   // Color azul claro para el tema claro
   static const Color lightBlue = Color(0xFFE1F5FF);
   // Color azul oscuro/océano para el tema oscuro
   static const Color darkBlue = Color(0xFF0D47A1);
 
-  void toggleThemeMode() {
-    setState(() {
-      _themeMode =
-          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+  @override
+  void initState() {
+    super.initState();
+
+    // Listen for theme changes
+    _themeSub = themeController.stream.listen((newThemeMode) {
+      setState(() {
+        _themeMode = newThemeMode;
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _themeSub.cancel();
+    super.dispose();
+  }
+
+  void toggleThemeMode() {
+    final newMode =
+        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    themeController.add(newMode);
   }
 
   @override

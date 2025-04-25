@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../controllers/categories_controller.dart';
 
+// Add enum for category status filter similar to user filter
+enum CategoryStatusFilter { todos, activo, inactivo }
+
 class CategoriesView extends StatefulWidget {
   final Function toggleTheme;
 
@@ -16,6 +19,8 @@ class _CategoriesViewState extends State<CategoriesView> {
   List<Map<String, dynamic>> filteredCategories = [];
   bool isLoading = true;
   String searchQuery = '';
+  CategoryStatusFilter _selectedStatus =
+      CategoryStatusFilter.todos; // Default filter status
 
   @override
   void initState() {
@@ -34,7 +39,8 @@ class _CategoriesViewState extends State<CategoriesView> {
 
       setState(() {
         categories = categoryData;
-        filteredCategories = categoryData;
+        // Apply filters after loading
+        _applyFilters();
         isLoading = false;
       });
     } catch (e) {
@@ -47,14 +53,38 @@ class _CategoriesViewState extends State<CategoriesView> {
     }
   }
 
+  // Updated method to handle both search query and status filter
+  void _applyFilters() {
+    setState(() {
+      List<Map<String, dynamic>> result = categories;
+
+      // Apply status filter first
+      if (_selectedStatus != CategoryStatusFilter.todos) {
+        bool isActiveFilter = _selectedStatus == CategoryStatusFilter.activo;
+        result = result.where((category) {
+          final isActive = category["isActive"] as bool? ?? false;
+          return isActive == isActiveFilter;
+        }).toList();
+      }
+
+      // Then apply search filter if needed
+      if (searchQuery.isNotEmpty) {
+        result = result
+            .where((category) => category["Categoria_Producto"]
+                .toLowerCase()
+                .contains(searchQuery.toLowerCase()))
+            .toList();
+      }
+
+      filteredCategories = result;
+    });
+  }
+
+  // Update the existing filter method to call the new combined method
   void _filterCategories(String query) {
     setState(() {
       searchQuery = query;
-      filteredCategories = categories
-          .where((category) => category["Categoria_Producto"]
-              .toLowerCase()
-              .contains(query.toLowerCase()))
-          .toList();
+      _applyFilters();
     });
   }
 
@@ -105,7 +135,7 @@ class _CategoriesViewState extends State<CategoriesView> {
         await _controller.deleteCategory(category["_id"]);
 
         // Recargar la lista de categorías
-        await _loadCategories();
+        await _loadCategories(); // This will also call _applyFilters() now
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -204,10 +234,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                       await Future.delayed(const Duration(milliseconds: 200));
 
                       // Recargamos
-                      await _loadCategories();
-
-                      // Aplicamos el filtro otra vez
-                      _filterCategories(searchQuery);
+                      await _loadCategories(); // This will also call _applyFilters() now
 
                       // Cerramos modal
                       if (mounted) Navigator.of(context).pop();
@@ -336,7 +363,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                       );
 
                       // Recargar la lista de categorías
-                      await _loadCategories();
+                      await _loadCategories(); // This will also call _applyFilters() now
 
                       // Cerrar el modal
                       if (mounted) Navigator.of(context).pop();
@@ -361,6 +388,63 @@ class _CategoriesViewState extends State<CategoriesView> {
     );
   }
 
+  void _toggleCategoryStatus(Map<String, dynamic> category) async {
+    final bool currentStatus = category["isActive"] as bool? ?? false;
+    final String categoryId = category["_id"] as String;
+    final String categoryName = category["Categoria_Producto"] ?? "Categoría";
+
+    try {
+      // Optimistically update UI first
+      setState(() {
+        // Find the category in our list and update its status
+        final index = categories.indexWhere((c) => c["_id"] == categoryId);
+        if (index != -1) {
+          categories[index]["isActive"] = !currentStatus;
+        }
+
+        // Update the filtered list through our filter method
+        _applyFilters();
+      });
+
+      // Call API to update status
+      await _controller.updateCategory(
+        categoryId,
+        category["Categoria_Producto"],
+        !currentStatus,
+      );
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}'),
+          ),
+        );
+      }
+    } catch (e) {
+      // If there was an error, revert the optimistic update
+      setState(() {
+        final index = categories.indexWhere((c) => c["_id"] == categoryId);
+        if (index != -1) {
+          categories[index]["isActive"] = currentStatus;
+        }
+
+        // Update filtered list after reverting
+        _applyFilters();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al actualizar estado: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -376,49 +460,129 @@ class _CategoriesViewState extends State<CategoriesView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Categorías',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Explora las categorías en el sistema asociadas a una cámara.',
-              style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: 300,
-                child: TextField(
-                  onChanged: _filterCategories,
-                  decoration: InputDecoration(
-                    hintText: 'Buscar categorías...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor:
-                        theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+            // Header and filter card
+            Card(
+              elevation: 2,
+              margin: const EdgeInsets.only(bottom: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Categorías',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Explora las categorías en el sistema asociadas a una cámara.',
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Search and filter row
+                    Row(
+                      children: [
+                        // Search field
+                        Expanded(
+                          child: TextField(
+                            onChanged: _filterCategories,
+                            decoration: InputDecoration(
+                              hintText: 'Buscar categorías...',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: theme.colorScheme.surfaceVariant
+                                  .withOpacity(0.5),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 0, horizontal: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 16),
+
+                        // Status filter dropdown
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceVariant
+                                .withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<CategoryStatusFilter>(
+                              focusColor: Colors.transparent,
+                              value: _selectedStatus,
+                              icon: const Icon(Icons.filter_list),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: CategoryStatusFilter.todos,
+                                  child: Text('Estado: Todos'),
+                                ),
+                                DropdownMenuItem(
+                                  value: CategoryStatusFilter.activo,
+                                  child: Text('Estado: Activo'),
+                                ),
+                                DropdownMenuItem(
+                                  value: CategoryStatusFilter.inactivo,
+                                  child: Text('Estado: Inactivo'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedStatus = value;
+                                    _applyFilters();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : RefreshIndicator(
                       onRefresh: _loadCategories,
-                      child: _buildCategoriesTable(),
+                      child: filteredCategories.isEmpty
+                          ? Center(
+                              child: Text(
+                                searchQuery.isEmpty &&
+                                        _selectedStatus ==
+                                            CategoryStatusFilter.todos
+                                    ? 'No hay categorías disponibles.'
+                                    : 'No se encontraron categorías que coincidan con los filtros.',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                            )
+                          : _buildCategoriesTable(),
                     ),
+            ),
+
+            // Optional footer text
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+              child: Center(
+                  child: Text('Lista de categorías y sus estados',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.secondary))),
             ),
           ],
         ),
@@ -486,25 +650,28 @@ class _CategoriesViewState extends State<CategoriesView> {
                         ),
                         // Category name cell
                         DataCell(Text(nombre)),
-                        // Status Cell with Chip
+                        // Status Cell with Switch instead of Chip
                         DataCell(
-                          Chip(
-                            label: Text(
-                              isActive ? 'Activo' : 'Inactivo',
-                              style: TextStyle(
-                                color: isActive
-                                    ? Colors.green.shade900
-                                    : Colors.grey.shade700,
-                                fontSize: 13,
+                          Row(
+                            children: [
+                              Switch(
+                                value: isActive,
+                                onChanged: (newValue) {
+                                  _toggleCategoryStatus(category);
+                                },
+                                activeColor: Colors.green,
+                                inactiveThumbColor: Colors.grey,
+                                inactiveTrackColor: Colors.grey.shade300,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
-                            ),
-                            backgroundColor: isActive
-                                ? Colors.green.shade100
-                                : Colors.grey.shade300,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 0),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                              const SizedBox(width: 8),
+                              Text(isActive ? 'Activo' : 'Inactivo',
+                                  style: TextStyle(
+                                      color: isActive
+                                          ? Colors.green
+                                          : Colors.red.shade700)),
+                            ],
                           ),
                         ),
                         // Actions Cell
@@ -512,47 +679,31 @@ class _CategoriesViewState extends State<CategoriesView> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Edit Button
+                              // Edit Button - Removed border, keep blue icon
                               Tooltip(
                                 message: 'Editar Categoría',
-                                child: Container(
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade600,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.edit,
-                                        color: Colors.white),
-                                    iconSize: 22,
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(8),
-                                    tooltip: 'Editar',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        _showEditCategoryModal(category),
-                                  ),
+                                child: IconButton(
+                                  icon: Icon(Icons.edit,
+                                      color: Colors.blue.shade600),
+                                  iconSize: 22,
+                                  padding: const EdgeInsets.all(8),
+                                  tooltip: 'Editar',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () =>
+                                      _showEditCategoryModal(category),
                                 ),
                               ),
-                              // Delete Button
+                              // Delete Button - Removed border, keep red icon
                               Tooltip(
                                 message: 'Eliminar Categoría',
-                                child: Container(
-                                  margin: const EdgeInsets.only(left: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade600,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.delete_outline,
-                                        color: Colors.white),
-                                    iconSize: 22,
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(8),
-                                    tooltip: 'Eliminar',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => _deleteCategory(category),
-                                  ),
+                                child: IconButton(
+                                  icon: Icon(Icons.delete_outline,
+                                      color: Colors.red.shade600),
+                                  iconSize: 22,
+                                  padding: const EdgeInsets.all(8),
+                                  tooltip: 'Eliminar',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => _deleteCategory(category),
                                 ),
                               ),
                             ],

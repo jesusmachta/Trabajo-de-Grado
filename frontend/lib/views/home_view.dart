@@ -7,6 +7,7 @@ import 'categories_view.dart';
 import '../controllers/statistics_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/route_guard.dart';
+import '../main.dart'; // Importar para acceder al themeController
 import 'cameras_view.dart';
 import 'profile_view.dart';
 
@@ -217,12 +218,47 @@ class _HomeViewState extends State<HomeView> {
               },
               children:
                   _statisticsController.getStatisticsOptions().map((option) {
+                // Map de valores de estadísticas a iconos apropiados
+                IconData getStatIcon(String value) {
+                  switch (value) {
+                    case 'peak-hours':
+                      return Icons.access_time;
+                    case 'least-hours':
+                      return Icons.hourglass_empty;
+                    case 'busy-days-combined':
+                      return Icons.calendar_today;
+                    case 'visited-categories-combined':
+                      return Icons.category;
+                    case 'most-frequent-emotions':
+                      return Icons.emoji_emotions;
+                    case 'emotion-percentage':
+                      return Icons.pie_chart;
+                    case 'gender-age-combined':
+                      return Icons.people;
+                    case 'emotion-comparison':
+                      return Icons.compare_arrows;
+                    case 'visited-categories-historical':
+                      return Icons.history;
+                    case 'preferred-category-by-gender':
+                      return Icons.wc;
+                    case 'top-successful-categories':
+                      return Icons.trending_up;
+                    case 'emotional-differences-by-category':
+                      return Icons.mood;
+                    case 'age-gender-distribution-by-category':
+                      return Icons.group;
+                    default:
+                      return Icons.analytics;
+                  }
+                }
+
                 return ListTile(
                   contentPadding: const EdgeInsets.only(left: 70),
                   dense: true,
-                  leading: Text(
-                    option['emoji'] ?? '📊',
-                    style: const TextStyle(fontSize: 24),
+                  leading: Icon(
+                    getStatIcon(option['value']!),
+                    color: Colors.grey,
+                    size: 20,
                   ),
                   title: Text(option['label']!,
                       style: const TextStyle(fontSize: 14)),
@@ -283,8 +319,15 @@ class _HomeViewState extends State<HomeView> {
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w500)),
               onTap: () {
-                widget.toggleTheme();
+                // Cerrar el drawer inmediatamente
                 Navigator.pop(context);
+
+                // Comunicar directamente con el controlador de tema global
+                // para cambiar el tema inmediatamente
+                final newMode = Theme.of(context).brightness == Brightness.dark
+                    ? ThemeMode.light
+                    : ThemeMode.dark;
+                themeController.add(newMode);
               },
             ),
             ListTile(

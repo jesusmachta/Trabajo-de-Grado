@@ -341,16 +341,30 @@ def most_frequent_emotions():
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/age-distribution/")
-def age_distribution(period: str, date: Optional[str] = None, end_date: Optional[str] = None):
+def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
-    Endpoint para obtener la distribución de visitantes por rango de edad en un período (semana o mes).
-    :param period: "week" o "month"
-    :param date: Fecha de inicio (opcional, formato YYYY-MM-DD)
-    :param end_date: Fecha de fin para período "week" (opcional, formato YYYY-MM-DD)
+    Endpoint para obtener la distribución de visitantes por edad promedio.
+    
+    Puede filtrar por:
+    - Semana: especificar period="week", date (fecha inicial) y opcionalmente end_date (fecha final)
+    - Mes: especificar month (1-12) y opcionalmente year (default=año actual)
+    
+    :param period: "week" para análisis semanal
+    :param date: Fecha inicial para period="week" (formato YYYY-MM-DD)
+    :param end_date: Fecha final para period="week" (formato YYYY-MM-DD)
+    :param month: Número de mes (1-12) para análisis mensual
+    :param year: Año para análisis mensual
     """
     try:
+        # Validar parámetros
+        if period is None and month is None:
+            return {"message": "Error", "error": "Debe especificar 'period' o 'month'"}
+            
+        if period == "week" and date is None:
+            return {"message": "Error", "error": "Para period='week', debe especificar 'date'"}
+            
         # Llamar a la función con los parámetros proporcionados
-        data = get_age_distribution(period=period, date=date, end_date=end_date)
+        data = get_age_distribution(period=period, date=date, end_date=end_date, month=month, year=year)
         return {"message": "Success", "data": data}
     except ValueError as ve:
         return {"message": "Error", "error": str(ve)}
@@ -359,16 +373,30 @@ def age_distribution(period: str, date: Optional[str] = None, end_date: Optional
     
 
 @router.get("/statistics/gender-distribution/")
-def gender_distribution(period: str, date: Optional[str] = None, end_date: Optional[str] = None):
+def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
-    Endpoint para obtener la distribución de visitantes por sexo en un período (semana o mes).
-    :param period: "week" o "month"
-    :param date: Fecha de inicio (opcional, formato YYYY-MM-DD)
-    :param end_date: Fecha de fin para período "week" (opcional, formato YYYY-MM-DD)
+    Endpoint para obtener la distribución de visitantes por sexo.
+    
+    Puede filtrar por:
+    - Semana: especificar period="week", date (fecha inicial) y opcionalmente end_date (fecha final)
+    - Mes: especificar month (1-12) y opcionalmente year (default=año actual)
+    
+    :param period: "week" para análisis semanal
+    :param date: Fecha inicial para period="week" (formato YYYY-MM-DD)
+    :param end_date: Fecha final para period="week" (formato YYYY-MM-DD)
+    :param month: Número de mes (1-12) para análisis mensual
+    :param year: Año para análisis mensual
     """
     try:
+        # Validar parámetros
+        if period is None and month is None:
+            return {"message": "Error", "error": "Debe especificar 'period' o 'month'"}
+            
+        if period == "week" and date is None:
+            return {"message": "Error", "error": "Para period='week', debe especificar 'date'"}
+            
         # Llamar a la función con los parámetros proporcionados
-        data = get_gender_distribution(period=period, date=date, end_date=end_date)
+        data = get_gender_distribution(period=period, date=date, end_date=end_date, month=month, year=year)
         return {"message": "Success", "data": data}
     except ValueError as ve:
         return {"message": "Error", "error": str(ve)}

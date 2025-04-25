@@ -8,6 +8,9 @@ import '../controllers/auth_controller.dart'; // To get the base URL potentially
 const String _apiBaseUrl =
     'http://127.0.0.1:8000/api'; // Using default FastAPI port
 
+// Add enum for camera status filter similar to user filter
+enum CameraStatusFilter { todos, activo, inactivo }
+
 class CamerasView extends StatefulWidget {
   final Function toggleTheme;
 
@@ -19,11 +22,16 @@ class CamerasView extends StatefulWidget {
 
 class _CamerasViewState extends State<CamerasView> {
   List<Map<String, dynamic>> _cameras = [];
+  List<Map<String, dynamic>> _filteredCameras = []; // New filtered list
   List<Map<String, dynamic>> _activeCategories = [];
   bool _isLoadingCameras = true;
   bool _isLoadingCategories = true;
   String? _camerasError;
   String? _categoriesError;
+  CameraStatusFilter _selectedStatus =
+      CameraStatusFilter.todos; // Default filter status
+  String _searchTerm = ''; // For search functionality
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -31,6 +39,12 @@ class _CamerasViewState extends State<CamerasView> {
     // Fetch both data concurrently
     _fetchCameras();
     _fetchActiveCategories();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCameras() async {
@@ -53,6 +67,9 @@ class _CamerasViewState extends State<CamerasView> {
             ..sort((a, b) =>
                 (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
           _isLoadingCameras = false;
+
+          // Apply filters after loading data
+          _filterCameras();
         });
       } else {
         throw Exception(
@@ -267,7 +284,7 @@ class _CamerasViewState extends State<CamerasView> {
       if (!mounted) return;
 
       if (response.statusCode == 201) {
-        _fetchCameras();
+        await _fetchCameras(); // This will also call _filterCameras() now
         Navigator.of(currentContext).pop();
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
@@ -311,6 +328,7 @@ class _CamerasViewState extends State<CamerasView> {
     if (index != -1) {
       setState(() {
         _cameras[index]['isActive'] = newStatus;
+        _filterCameras(); // Apply filters after updating camera status
       });
     }
 
@@ -329,6 +347,7 @@ class _CamerasViewState extends State<CamerasView> {
         if (index != -1) {
           setState(() {
             _cameras[index]['isActive'] = currentStatus;
+            _filterCameras(); // Apply filters after reverting to original status
           });
         }
         throw Exception(
@@ -338,6 +357,7 @@ class _CamerasViewState extends State<CamerasView> {
       if (index != -1 && _cameras[index]['isActive'] != currentStatus) {
         setState(() {
           _cameras[index]['isActive'] = currentStatus;
+          _filterCameras(); // Apply filters after handling error
         });
       }
       if (mounted) {
@@ -362,7 +382,7 @@ class _CamerasViewState extends State<CamerasView> {
       if (!mounted) return;
 
       if (response.statusCode == 204) {
-        _fetchCameras();
+        await _fetchCameras(); // This will also call _filterCameras() now
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
               content: Text('Cámara eliminada con éxito.'),
@@ -403,7 +423,7 @@ class _CamerasViewState extends State<CamerasView> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        _fetchCameras();
+        await _fetchCameras(); // This will also call _filterCameras() now
         Navigator.of(currentContext).pop();
         ScaffoldMessenger.of(currentContext).showSnackBar(
           const SnackBar(
@@ -906,6 +926,73 @@ class _CamerasViewState extends State<CamerasView> {
     );
   }
 
+  // Method to filter cameras by status and search term
+  void _filterCameras() {
+    setState(() {
+      // First filter by status
+      List<Map<String, dynamic>> statusFiltered;
+      if (_selectedStatus == CameraStatusFilter.todos) {
+        statusFiltered = List.from(_cameras);
+      } else {
+        bool isActiveFilter = _selectedStatus == CameraStatusFilter.activo;
+        statusFiltered = _cameras.where((camera) {
+          final isActive = camera['isActive'] as bool? ?? false;
+          return isActive == isActiveFilter;
+        }).toList();
+      }
+
+      // Then apply search filter if search term is not empty
+      if (_searchTerm.trim().isEmpty) {
+        _filteredCameras = statusFiltered;
+      } else {
+        final searchLower = _searchTerm.toLowerCase().trim();
+        _filteredCameras = statusFiltered.where((camera) {
+          // Check if camera ID contains search term
+          final idContains = camera['Id_Camara']
+              .toString()
+              .toLowerCase()
+              .contains(searchLower);
+
+          // Get category name - improved method
+          String categoryName = '';
+
+          // First try to get the category directly from the camera data
+          if (camera.containsKey('Categoria_Producto') &&
+              camera['Categoria_Producto'] != null) {
+            categoryName =
+                camera['Categoria_Producto'].toString().toLowerCase();
+          } else {
+            // Then try to match with category list
+            final typeId = camera['Tipo_Producto'];
+            if (typeId != null) {
+              for (var category in _activeCategories) {
+                final catId =
+                    category['Tipo_Producto'] ?? category['Id_Tipo_Producto'];
+                if (catId == typeId) {
+                  categoryName = (category['Categoria_Producto'] ??
+                          category['Nombre'] ??
+                          '')
+                      .toString()
+                      .toLowerCase();
+                  break;
+                }
+              }
+            }
+          }
+
+          // Add debug prints to help identify issues
+          print(
+              'Camera ID: ${camera['Id_Camara']}, Category: $categoryName, Search: $searchLower');
+          print(
+              'ID Match: $idContains, Category Match: ${categoryName.contains(searchLower)}');
+
+          // Return true if either ID or category name contains search term
+          return idContains || categoryName.contains(searchLower);
+        }).toList();
+      }
+    });
+  }
+
   // Helper widget to build the main content (DataTable)
   Widget _buildCamerasTable() {
     return Column(
@@ -943,7 +1030,7 @@ class _CamerasViewState extends State<CamerasView> {
                         label: Text('Acciones',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                  rows: _cameras.map((camera) {
+                  rows: _filteredCameras.map((camera) {
                     final mongoId = camera['_id'] as String;
                     final idCamara = camera['Id_Camara'] ?? 'N/A';
                     final categoriaFallback =
@@ -995,49 +1082,33 @@ class _CamerasViewState extends State<CamerasView> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Edit Button
+                              // Edit Button - Removed border, keep blue icon
                               Tooltip(
                                 message: 'Editar Cámara',
-                                child: Container(
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade600,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.edit,
-                                        color: Colors.white),
-                                    iconSize: 22,
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(8),
-                                    tooltip: 'Editar',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        _showEditCameraDialog(camera),
-                                  ),
+                                child: IconButton(
+                                  icon: Icon(Icons.edit,
+                                      color: Colors.blue.shade600),
+                                  iconSize: 22,
+                                  padding: const EdgeInsets.all(8),
+                                  tooltip: 'Editar',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () =>
+                                      _showEditCameraDialog(camera),
                                 ),
                               ),
-                              // Delete Button
+                              // Delete Button - Removed border, keep red icon
                               Tooltip(
                                 message: 'Eliminar Cámara',
-                                child: Container(
-                                  margin: const EdgeInsets.only(left: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade600,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.delete_outline,
-                                        color: Colors.white),
-                                    iconSize: 22,
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(8),
-                                    tooltip: 'Eliminar',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        _showDeleteConfirmationDialog(
-                                            mongoId, idCamara as int? ?? 0),
-                                  ),
+                                child: IconButton(
+                                  icon: Icon(Icons.delete_outline,
+                                      color: Colors.red.shade600),
+                                  iconSize: 22,
+                                  padding: const EdgeInsets.all(8),
+                                  tooltip: 'Eliminar',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () =>
+                                      _showDeleteConfirmationDialog(
+                                          mongoId, idCamara as int? ?? 0),
                                 ),
                               ),
                             ],
@@ -1057,6 +1128,7 @@ class _CamerasViewState extends State<CamerasView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     Widget bodyContent;
 
     if (_isLoadingCameras) {
@@ -1090,17 +1162,137 @@ class _CamerasViewState extends State<CamerasView> {
                 ],
               )));
     } else {
-      bodyContent = RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([
-            _fetchCameras(),
-            _fetchActiveCategories(),
-          ]);
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [_buildCamerasTable()],
-        ),
+      bodyContent = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header and Filters Card
+          Card(
+            elevation: 2,
+            margin: const EdgeInsets.all(16),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Gestión de Cámaras',
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Search field
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por ID o Categoría',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 0),
+                            suffixIcon: _searchTerm.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchTerm = '';
+                                        _filterCameras();
+                                      });
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchTerm = value;
+                              _filterCameras();
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Status filter dropdown
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<CameraStatusFilter>(
+                            focusColor: Colors.transparent,
+                            value: _selectedStatus,
+                            icon: const Icon(Icons.filter_list),
+                            items: const [
+                              DropdownMenuItem(
+                                value: CameraStatusFilter.todos,
+                                child: Text('Estado: Todos'),
+                              ),
+                              DropdownMenuItem(
+                                value: CameraStatusFilter.activo,
+                                child: Text('Estado: Activo'),
+                              ),
+                              DropdownMenuItem(
+                                value: CameraStatusFilter.inactivo,
+                                child: Text('Estado: Inactivo'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _selectedStatus = value;
+                                  _filterCameras();
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Table Content
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await Future.wait([
+                  _fetchCameras(),
+                  _fetchActiveCategories(),
+                ]);
+              },
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                children: [_buildCamerasTable()],
+              ),
+            ),
+          ),
+
+          // Optional footer text
+          Padding(
+            padding:
+                const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
+            child: Center(
+                child: Text('Lista de cámaras y sus estados',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.secondary))),
+          ),
+        ],
       );
     }
 

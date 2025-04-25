@@ -248,6 +248,13 @@ class _DashboardViewState extends State<DashboardView> {
               ],
             ),
           ),
+
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/top-categories');
+            },
+            child: const Text('Ver Top Categorías (Test)'),
+          ),
         ],
       ),
     );

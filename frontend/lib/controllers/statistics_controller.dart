@@ -246,87 +246,52 @@ class StatisticsController {
     }
   }
 
-  // Fetch top successful categories data for podium display
-  Future<List<Map<String, dynamic>>> getTopSuccessfulCategories() async {
+  // Método para obtener las categorías mejor evaluadas
+  Future<List<dynamic>> getTopSuccessfulCategories() async {
     try {
+      // Get statistics data
       final response = await getStatistics('top-successful-categories');
 
-      // Print detailed information about the response
-      print('API Response for top-successful-categories:');
-      print('Response type: ${response.runtimeType}');
-      print('Response keys: ${response.keys.toList()}');
-      print('Full response: $response');
-
-      List<Map<String, dynamic>> topCategories = [];
-
-      // Extract data from the response
-      if (response is Map && response.containsKey('data')) {
-        final rawData = response['data'];
-        print('Raw data type: ${rawData.runtimeType}');
-
-        if (rawData is List) {
-          // Convert each item to a proper Map with required fields
-          for (var item in rawData) {
-            if (item is Map) {
-              final category = item['category']?.toString() ?? 'Sin nombre';
-              final happyCount = item['happy_count'] is int
-                  ? item['happy_count']
-                  : int.tryParse(item['happy_count'].toString()) ?? 0;
-
-              topCategories.add({
-                'category': category,
-                'happy_count': happyCount,
-                'emoji': _getCategoryEmoji(category)
-              });
-            }
-          }
-        }
+      if (response.containsKey('data')) {
+        return response['data'];
       }
 
-      print('Final processed categories: $topCategories');
-      return topCategories;
+      return [];
     } catch (e) {
       print('Error al obtener categorías mejor evaluadas: $e');
       return []; // Return empty list instead of throwing to avoid crashes
     }
   }
 
-  // Helper method to assign emojis to categories
-  String _getCategoryEmoji(String category) {
-    final Map<String, String> categoryEmojis = {
-      'Snacks': '🍿',
-      'Alcohol': '🍷',
-      'Bebidas': '🥤',
-      'Frutas': '🍎',
-      'Verduras': '🥦',
-      'Lácteos': '🥛',
-      'Carnes': '🥩',
-      'Panadería': '🍞',
-      'Dulces': '🍬',
-      'Limpieza': '🧹',
-      'Electrónicos': '📱',
-      'Ropa': '👕',
-      // Add more categories as needed
-    };
-
-    return categoryEmojis[category] ??
-        '🏆'; // Default trophy emoji if category not found
-  }
-
   // Fetch both gender and age distribution in one call
   Future<Map<String, dynamic>> getGenderAgeDistributionStatistics(
       {Map<String, String>? params}) async {
     try {
+      print('Fetching gender distribution with params: $params');
       final genderResponse =
           await getStatistics('gender-distribution', params: params);
+
+      print('Fetching age distribution with same params: $params');
       final ageResponse =
           await getStatistics('age-distribution', params: params);
 
-      // Extract data
-      final genderData = genderResponse['data'] ?? {'male': 0, 'female': 0};
-      final ageData = ageResponse['data'] ??
-          {'0-18': 0, '19-25': 0, '26-35': 0, '36-50': 0, '51+': 0};
+      print('Gender Response: $genderResponse');
+      print('Age Response: $ageResponse');
 
+      // Ensure both responses have data
+      if (genderResponse == null || ageResponse == null) {
+        throw Exception('One or both API responses are null');
+      }
+
+      // Extract data from both responses
+      final genderData = genderResponse.containsKey('data')
+          ? genderResponse['data']
+          : {'male': 0, 'female': 0};
+
+      final ageData =
+          ageResponse.containsKey('data') ? ageResponse['data'] : {};
+
+      // Return combined data
       return {
         'message': 'Success',
         'data': {'gender': genderData, 'age': ageData}
