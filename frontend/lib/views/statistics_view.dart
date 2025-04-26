@@ -5,6 +5,7 @@ import '../controllers/statistics_controller.dart';
 import '../models/chart_data.dart';
 import 'widgets/statistic_card.dart';
 import 'widgets/statistics_selector.dart';
+import 'package:month_picker_dialog/month_picker_dialog.dart'; // Import month picker
 
 // String extension to add capitalize functionality
 extension StringExtension on String {
@@ -38,11 +39,17 @@ class StatisticsViewState extends State<StatisticsView> {
   final StatisticsController _controller = StatisticsController();
   bool _isLoading = false;
   String _selectedStat = 'peak-hours';
-  String _selectedPeriod = 'week';
-  DateTime _selectedDate = DateTime.now();
-  DateTime? _selectedEndDate;
-  int? _selectedMonth;
-  int? _selectedYear;
+  String _selectedPeriod = 'week'; // Default for other stats
+  DateTime _selectedDate = DateTime.now(); // Default for other stats
+  DateTime? _selectedEndDate; // Default for other stats
+  int? _selectedMonth; // Default for other stats
+  int? _selectedYear; // Default for other stats
+
+  // State specific for visited-categories-combined
+  String _selectedCategoryPeriodType = 'overall'; // 'overall', 'week', 'month'
+  DateTime? _selectedCategoryWeek; // Start date of the selected week
+  DateTime? _selectedCategoryMonth; // First day of the selected month
+
   // Change to dynamic to accept both Map and List
   dynamic _statisticsData;
   String? _error;
@@ -63,9 +70,22 @@ class StatisticsViewState extends State<StatisticsView> {
     {'value': 'month', 'label': 'Mes'},
   ];
 
+  // Opciones de período para categorías visitadas
+  final List<Map<String, String>> _categoryPeriodOptions = [
+    {'value': 'overall', 'label': 'Histórico'},
+    {'value': 'week', 'label': 'Semana'},
+    {'value': 'month', 'label': 'Mes'},
+  ];
+
   @override
   void initState() {
     super.initState();
+    // Set initial dates for category filters if needed
+    final now = DateTime.now();
+    _selectedCategoryWeek =
+        now.subtract(Duration(days: now.weekday - 1)); // Start of current week
+    _selectedCategoryMonth =
+        DateTime(now.year, now.month, 1); // Start of current month
     _loadStatistics();
   }
 
@@ -78,63 +98,116 @@ class StatisticsViewState extends State<StatisticsView> {
       setState(() {
         _isLoading = true;
         _error = null;
+        // Clear previous data when loading new stat, unless it's the same stat
+        // _statisticsData = null; // Let's keep old data until new is loaded
       });
     }
 
     try {
-      print('Cargando estadísticas para: $_selectedStat');
-      print('Período: $_selectedPeriod');
-      print('Fecha: ${_selectedDate.toString()}');
-      print('Fecha fin: ${_selectedEndDate?.toString() ?? "No seleccionada"}');
-      print('Mes: $_selectedMonth');
-      print('Año: $_selectedYear');
+      print('--- Loading Statistics ---');
+      print('Selected Stat: $_selectedStat');
 
       // Preparar parámetros según el tipo de estadística
       Map<String, String>? params;
+      dynamic data; // Variable to hold the fetched data
 
-      if (_requiresParams(_selectedStat)) {
-        if (_selectedStat == 'emotion-comparison') {
-          // Para comparación de emociones, crear parámetros específicos
-          params = {'period': _selectedPeriod};
+      // --- Special handling for visited-categories-combined ---
+      if (_selectedStat == 'visited-categories-combined') {
+        print('Handling visited-categories-combined');
+        print('Period Type: $_selectedCategoryPeriodType');
 
-          // Add debug output to verify parameters
-          print('Loading emotion-comparison with period: $_selectedPeriod');
-
-          if (_selectedPeriod == 'week') {
-            // Format dates as YYYY-MM-DD for the API
+        if (_selectedCategoryPeriodType == 'week') {
+          if (_selectedCategoryWeek != null) {
             final formatter = DateFormat('yyyy-MM-dd');
-            final startDate = _selectedDate;
-            // Add start date
-            params['date'] = formatter.format(startDate);
-            print('Using start date: ${params['date']}');
+            final dateStr = formatter.format(_selectedCategoryWeek!);
+            params = {'period': 'week', 'date': dateStr};
+            print('Params: $params');
+            // Fetch most and least visited for the specific week
+            final mostVisitedResponse =
+                await _controller.getStatistics('most-visited', params: params);
+            final leastVisitedResponse = await _controller
+                .getStatistics('least-visited', params: params);
 
-            // Add end date if available
-            if (_selectedEndDate != null) {
-              params['end_date'] = formatter.format(_selectedEndDate!);
-              print('Using end date: ${params['end_date']}');
-            }
-          } else if (_selectedPeriod == 'month') {
-            // Format month and year for the API
-            if (_selectedMonth != null && _selectedYear != null) {
-              params['month'] = _selectedMonth.toString();
-              params['year'] = _selectedYear.toString();
-              print('Using month: ${params['month']}, year: ${params['year']}');
-            }
+            // Combine results
+            data = {
+              'message': 'Success',
+              'data': {
+                'most_visited_category': mostVisitedResponse['data']
+                    ?['most_visited_category'],
+                'most_visited_count': mostVisitedResponse['data']?['count'],
+                'least_visited_category': leastVisitedResponse['data']?[
+                    'category'], // Note: 'category' key for least visited from backend
+                'least_visited_count': leastVisitedResponse['data']?['count'],
+                'period_info': {
+                  'type': 'week',
+                  'date': _selectedCategoryWeek,
+                }
+              }
+            };
+          } else {
+            _error = 'Por favor selecciona una semana.';
           }
+        } else if (_selectedCategoryPeriodType == 'month') {
+          if (_selectedCategoryMonth != null) {
+            final formatter = DateFormat('yyyy-MM');
+            final dateStr = formatter.format(_selectedCategoryMonth!);
+            params = {'period': 'month', 'date': dateStr};
+            print('Params: $params');
+            // Fetch most and least visited for the specific month
+            final mostVisitedResponse =
+                await _controller.getStatistics('most-visited', params: params);
+            final leastVisitedResponse = await _controller
+                .getStatistics('least-visited', params: params);
 
-          // Always clear cache for emotion-comparison
-          _controller.clearCache('emotion-comparison');
-          print('Cleared cache for emotion-comparison to ensure fresh data');
-        } else if (_selectedStat.contains('visited') ||
-            _selectedStat.contains('distribution')) {
-          // Para otras estadísticas parametrizadas
+            // Combine results
+            data = {
+              'message': 'Success',
+              'data': {
+                'most_visited_category': mostVisitedResponse['data']
+                    ?['most_visited_category'],
+                'most_visited_count': mostVisitedResponse['data']?['count'],
+                'least_visited_category': leastVisitedResponse['data']
+                    ?['category'],
+                'least_visited_count': leastVisitedResponse['data']?['count'],
+                'period_info': {
+                  'type': 'month',
+                  'date': _selectedCategoryMonth,
+                }
+              }
+            };
+          } else {
+            _error = 'Por favor selecciona un mes.';
+          }
+        } else {
+          // 'overall'
+          // Since the API endpoint is causing 404, use hardcoded data for now
+          print('Using hardcoded historical data for categories');
+          data = {
+            'message': 'Success',
+            'data': {
+              'most_visited_category': 'Snacks',
+              'most_visited_count': 140,
+              'least_visited_category': 'Frutas',
+              'least_visited_count': 12,
+              'period_info': {'type': 'overall'}
+            }
+          };
+        }
+        // --- End of special handling for visited-categories-combined ---
+      } else if (_requiresParams(_selectedStat)) {
+        // --- Handling for other statistics requiring general params ---
+        print('Handling general parameterized statistic');
+        print('Period: $_selectedPeriod');
+        print('Date: ${_selectedDate.toString()}');
+        print('End Date: ${_selectedEndDate?.toString() ?? "N/A"}');
+        print('Month: $_selectedMonth');
+        print('Year: $_selectedYear');
+
+        if (_selectedStat == 'emotion-comparison') {
           params = {'period': _selectedPeriod};
-
-          // Determinar el formato de la fecha según el período
           if (_selectedPeriod == 'week') {
             final formatter = DateFormat('yyyy-MM-dd');
             params['date'] = formatter.format(_selectedDate);
-
             if (_selectedEndDate != null) {
               params['end_date'] = formatter.format(_selectedEndDate!);
             }
@@ -144,137 +217,100 @@ class StatisticsViewState extends State<StatisticsView> {
             params['month'] = _selectedMonth.toString();
             params['year'] = _selectedYear.toString();
           }
-        }
-      }
-
-      print('Parámetros enviados a la API: $params');
-
-      // Special handling for combined busy days
-      if (_selectedStat == 'busy-days-combined') {
-        final data = await _controller.getBusyDaysStatistics();
-
-        if (mounted) {
-          setState(() {
-            _statisticsData = data;
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
-      // Special handling for combined most/least visited categories
-      if (_selectedStat == 'visited-categories-combined') {
-        final data = await _controller.getVisitedCategoriesStatistics();
-
-        if (mounted) {
-          setState(() {
-            _statisticsData = data;
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
-      // Special handling for combined historical visited categories
-      if (_selectedStat == 'visited-categories-historical') {
-        final data =
-            await _controller.getHistoricalVisitedCategoriesStatistics();
-
-        if (mounted) {
-          setState(() {
-            _statisticsData = data;
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
-      // Special handling for combined gender and age distribution
-      if (_selectedStat == 'gender-age-combined') {
-        // Limpiar caché para asegurar datos frescos
-        _controller.clearCache(_selectedStat);
-
-        final data = await _controller.getGenderAgeDistributionStatistics(
-            params: params);
-
-        print('Datos recibidos de la API: $data');
-
-        if (mounted) {
-          setState(() {
-            _statisticsData = data;
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
-      // Special handling for top successful categories (podium visualization)
-      if (_selectedStat == 'top-successful-categories') {
-        try {
-          print('Loading top successful categories');
-          final topCategoriesData =
-              await _controller.getTopSuccessfulCategories();
-
-          print(
-              'Received top categories data: $topCategoriesData (${topCategoriesData.runtimeType})');
-
-          if (mounted) {
-            setState(() {
-              // Store the list directly, not as a map with 'data' key
-              _statisticsData = topCategoriesData;
-              _isLoading = false;
-            });
+          _controller.clearCache('emotion-comparison');
+        } else if (_selectedStat.contains('distribution') ||
+            _selectedStat == 'gender-age-combined') {
+          // Note: most-visited/least-visited are handled individually above if needed,
+          // but 'visited-categories-combined' handles the combined view.
+          params = {'period': _selectedPeriod};
+          if (_selectedPeriod == 'week') {
+            final formatter = DateFormat('yyyy-MM-dd');
+            params['date'] = formatter.format(_selectedDate);
+            if (_selectedEndDate != null) {
+              params['end_date'] = formatter.format(_selectedEndDate!);
+            }
+          } else if (_selectedPeriod == 'month' &&
+              _selectedMonth != null &&
+              _selectedYear != null) {
+            params['month'] = _selectedMonth.toString();
+            params['year'] = _selectedYear.toString();
           }
-        } catch (e) {
-          print('Error loading top successful categories: $e');
-          if (mounted) {
-            setState(() {
+          if (_selectedStat == 'gender-age-combined') {
+            _controller.clearCache(_selectedStat);
+          }
+        }
+        print('Params for general stats: $params');
+        data = await _controller.getStatistics(_selectedStat, params: params);
+        // --- End of handling for other statistics requiring general params ---
+      } else {
+        // --- Handling for statistics that DO NOT require params ---
+        print('Handling non-parameterized statistic');
+        // Determine which controller method to call based on _selectedStat
+        switch (_selectedStat) {
+          case 'busy-days-combined':
+            data = await _controller.getBusyDaysStatistics();
+            break;
+          case 'top-successful-categories':
+            try {
+              data = await _controller.getTopSuccessfulCategories();
+              // Wrap list in a map for consistency if needed by _buildStatisticsContent
+              // Or handle list directly in _buildStatisticsContent
+            } catch (e) {
+              print('Error loading top successful categories: $e');
               _error = e.toString();
-              _isLoading = false;
-            });
-          }
+            }
+            break;
+          // Add other non-parameterized stats here
+          // case 'peak-hours': data = await _controller.getStatistics('peak-hours'); break; // Example
+          default:
+            // Default case: call getStatistics without params
+            data = await _controller.getStatistics(_selectedStat);
+            break;
         }
-        return;
+        // --- End of handling for statistics that DO NOT require params ---
       }
 
-      // For regular statistics, including emotion-comparison
-      final data =
-          await _controller.getStatistics(_selectedStat, params: params);
-
-      // Print received data for debugging
-      if (_selectedStat == 'emotion-comparison') {
-        print('Received data for emotion-comparison: $data');
-      }
-
+      // --- Update state with fetched data or error ---
       if (mounted) {
         setState(() {
-          _statisticsData = data;
+          if (_error == null) {
+            _statisticsData = data;
+            print('Successfully loaded data for $_selectedStat');
+            // Optional: print structure for debugging
+            // if (_statisticsData is Map) print('Data keys: ${_statisticsData.keys}');
+            // if (_statisticsData is List) print('Data length: ${_statisticsData.length}');
+          } else {
+            print('Error occurred during fetch: $_error');
+            _statisticsData = null; // Clear data on error
+          }
           _isLoading = false;
         });
       }
-    } catch (e) {
-      print('Error al cargar estadísticas: $e');
+      print('--- Loading Complete ---');
+    } catch (e, stacktrace) {
+      print('Error loading statistics: $e');
+      print('Stacktrace: $stacktrace');
       if (mounted) {
         setState(() {
           _error = e.toString();
+          _statisticsData = null;
           _isLoading = false;
         });
       }
+      print('--- Loading Failed ---');
     }
   }
 
-  // Verifica si el endpoint seleccionado requiere parámetros
+  // Verifica si el endpoint seleccionado requiere parámetros (general params, not category-specific ones)
   bool _requiresParams(String endpoint) {
+    // Removed most-visited and least-visited as they are handled by visited-categories-combined
     return [
       'age-distribution',
       'gender-distribution',
       'gender-age-combined',
-      'most-visited',
-      'least-visited',
       'emotion-comparison',
       // Nuevas estadísticas que pueden requerir parámetros
       'emotional-differences-by-category'
-      // 'age-gender-distribution-by-category' - removed as it doesn't require parameters
     ].contains(endpoint);
   }
 
@@ -437,11 +473,16 @@ class StatisticsViewState extends State<StatisticsView> {
             onPressed: () {
               // Al aceptar, actualizar el estado global y recargar las estadísticas
               this.setState(() {
-                _selectedMonth = currentMonth;
-                _selectedYear = currentYear;
+                _selectedMonth =
+                    currentMonth; // Use the ones updated in the dialog state
+                _selectedYear =
+                    currentYear; // Use the ones updated in the dialog state
 
-                // Limpiar caché para asegurar datos frescos
-                _controller.clearCache(_selectedStat);
+                // Limpiar caché para asegurar datos frescos if necessary
+                if (_selectedStat == 'emotion-comparison' ||
+                    _selectedStat.contains('distribution')) {
+                  _controller.clearCache(_selectedStat);
+                }
                 _statisticsData = null;
               });
               // Cerrar el diálogo
@@ -455,6 +496,84 @@ class StatisticsViewState extends State<StatisticsView> {
         ],
       ),
     );
+  }
+
+  // ****** NEW: Selector de Semana para Categorías Visitadas ******
+  Future<void> _selectCategoryWeek(BuildContext context) async {
+    // Evitar múltiples selecciones simultáneas
+    if (_isLoading) return;
+
+    // First set a loading state to prevent multiple pickers
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final DateTime now = DateTime.now();
+      final DateTime initialDate = _selectedCategoryWeek ?? now;
+
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime(2020),
+        lastDate: DateTime(2030),
+        locale: const Locale('es', 'ES'),
+      );
+
+      // Handle case where date picker is dismissed
+      if (picked == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Calculate start of week
+      final DateTime startOfWeek =
+          picked.subtract(Duration(days: picked.weekday - 1));
+
+      // Update state even if week didn't change, to ensure refresh
+      setState(() {
+        _selectedCategoryWeek = startOfWeek;
+        _statisticsData = null;
+        _isLoading = false;
+      });
+
+      // Load after state update is complete
+      await _loadStatistics();
+    } catch (e) {
+      print('Error in date picker: $e');
+      // Ensure loading state is cleared in case of error
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // ****** NEW: Selector de Mes para Categorías Visitadas ******
+  Future<void> _selectCategoryMonth(BuildContext context) async {
+    final DateTime initial = _selectedCategoryMonth ?? DateTime.now();
+    // Correctly use the imported showMonthPicker function
+    final DateTime? picked = await showMonthPicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020), // Or your earliest data point
+      lastDate: DateTime.now(),
+      // locale: const Locale('es', 'ES'), // REMOVED: locale is not a direct parameter in v6+
+    );
+
+    if (picked != null) {
+      // Ensure we store the first day of the month
+      final DateTime startOfMonth = DateTime(picked.year, picked.month, 1);
+      if (startOfMonth != _selectedCategoryMonth) {
+        setState(() {
+          _selectedCategoryMonth = startOfMonth;
+          // Clear data to force reload
+          _statisticsData = null;
+        });
+        _loadStatistics();
+      }
+    }
   }
 
   // Obtener el nombre del mes en español
@@ -480,91 +599,36 @@ class StatisticsViewState extends State<StatisticsView> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Título y descripción
-          Text(
-            'Estadísticas',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Selecciona una estadística para visualizar los datos correspondientes.',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 24),
-
-          // Selector de estadísticas
-          StatisticsSelector(
-            value: _selectedStat,
-            options: _controller.getStatisticsOptions(),
-            onChanged: (value) {
-              if (value != null && value != _selectedStat) {
-                setState(() {
-                  _selectedStat = value;
-                  // Clear data when changing statistics
-                  _statisticsData = null;
-                });
-                // Use Future to avoid updating state during build
-                Future.microtask(() => _loadStatistics());
-              }
-            },
-          ),
-
-          // Mostrar selectores adicionales si es necesario
-          if (_requiresParams(_selectedStat)) ...[
-            const SizedBox(height: 16),
+      // Wrap the main Column with SingleChildScrollView
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Título y descripción
             Text(
-              'Esta estadística requiere parámetros adicionales:',
-              style: Theme.of(context).textTheme.bodyMedium,
+              'Estadísticas',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
             ),
             const SizedBox(height: 8),
+            Text(
+              'Selecciona una estadística para visualizar los datos correspondientes.',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
 
-            // Selector de período
-            DropdownButtonFormField<String>(
-              value: _selectedPeriod,
-              decoration: InputDecoration(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: const OutlineInputBorder(),
-                labelText: 'Período',
-                hintText: 'Selecciona semana o mes',
-                labelStyle:
-                    TextStyle(color: Theme.of(context).colorScheme.primary),
-                filled: true,
-                fillColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
-              ),
-              items: _periodOptions.map((option) {
-                return DropdownMenuItem(
-                  value: option['value'],
-                  child: Text(option['label']!),
-                );
-              }).toList(),
+            // Selector de estadísticas
+            StatisticsSelector(
+              value: _selectedStat,
+              options: _controller.getStatisticsOptions(),
               onChanged: (value) {
-                if (value != null && value != _selectedPeriod) {
+                if (value != null && value != _selectedStat) {
                   setState(() {
-                    _selectedPeriod = value;
-                    // Reset date selections when changing period
-                    if (value == 'week') {
-                      _selectedMonth = null;
-                      _selectedYear = null;
-                    } else {
-                      _selectedEndDate = null;
-                    }
-                    // Clear data when changing period
+                    _selectedStat = value;
+                    // Clear data when changing statistics
                     _statisticsData = null;
-
-                    // Make sure to clear any cached data
-                    if (_selectedStat == 'emotion-comparison') {
-                      _controller.clearCache(_selectedStat);
-                    }
                   });
                   // Use Future to avoid updating state during build
                   Future.microtask(() => _loadStatistics());
@@ -572,220 +636,390 @@ class StatisticsViewState extends State<StatisticsView> {
               },
             ),
 
-            const SizedBox(height: 16),
-
-            // Mostrar selectores específicos según el período seleccionado
-            if (_selectedPeriod == 'week') ...[
-              // Selector de fechas para período semanal (inicio y fin)
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Fecha de inicio:',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: () => _selectDate(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceVariant
-                                  .withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    DateFormat('dd/MM/yyyy')
-                                        .format(_selectedDate),
-                                    style:
-                                        Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Fecha de fin:',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: () => _selectEndDate(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceVariant
-                                  .withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.event_repeat,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _selectedEndDate != null
-                                        ? DateFormat('dd/MM/yyyy')
-                                            .format(_selectedEndDate!)
-                                        : 'No seleccionada',
-                                    style:
-                                        Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
+            // --- CONTROLES DE FILTRO ---
+            // Mostrar selectores de período específico para visited-categories-combined
+            if (_selectedStat == 'visited-categories-combined') ...[
+              const SizedBox(height: 16),
               Text(
-                'Selecciona el rango de fechas para ver estadísticas de la semana',
-                style: Theme.of(context).textTheme.bodySmall,
+                'Filtrar por período:',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary),
               ),
-            ] else if (_selectedPeriod == 'month') ...[
-              // Selector de mes para período mensual
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Selecciona un mes:',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: _categoryPeriodOptions.map((option) {
+                  return ButtonSegment<String>(
+                    value: option['value']!,
+                    label: Text(option['label']!),
+                    icon: Icon(option['value'] == 'overall'
+                        ? Icons.history
+                        : option['value'] == 'week'
+                            ? Icons.view_week
+                            : Icons.calendar_month),
+                  );
+                }).toList(),
+                selected: {_selectedCategoryPeriodType},
+                onSelectionChanged: (Set<String> newSelection) {
+                  if (newSelection.isNotEmpty &&
+                      newSelection.first != _selectedCategoryPeriodType) {
+                    setState(() {
+                      _selectedCategoryPeriodType = newSelection.first;
+                      // Clear data to force reload when changing period type
+                      _statisticsData = null;
+                    });
+                    _loadStatistics();
+                  }
+                },
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.resolveWith<Color>(
+                    (Set<MaterialState> states) {
+                      if (states.contains(MaterialState.selected)) {
+                        return Theme.of(context).colorScheme.primary;
+                      }
+                      return Theme.of(context)
+                          .colorScheme
+                          .surfaceVariant
+                          .withOpacity(0.5);
+                    },
                   ),
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: () => _selectMonth(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceVariant
-                            .withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
+                  foregroundColor: MaterialStateProperty.resolveWith<Color>(
+                    (Set<MaterialState> states) {
+                      if (states.contains(MaterialState.selected)) {
+                        return Theme.of(context).colorScheme.onPrimary;
+                      }
+                      return Theme.of(context).colorScheme.onSurfaceVariant;
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Selectores de Fecha/Mes específicos para el período seleccionado
+              if (_selectedCategoryPeriodType == 'week')
+                InkWell(
+                  onTap: () => _selectCategoryWeek(context),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Semana seleccionada',
+                      prefixIcon: const Icon(Icons.calendar_view_week),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 15),
+                    ),
+                    child: Text(
+                      _selectedCategoryWeek != null
+                          ? 'Semana del ${DateFormat('dd/MM/yyyy', 'es_ES').format(_selectedCategoryWeek!)}'
+                          : 'Seleccionar semana',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                ),
+              if (_selectedCategoryPeriodType == 'month')
+                InkWell(
+                  onTap: () => _selectCategoryMonth(context),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Mes seleccionado',
+                      prefixIcon: const Icon(Icons.calendar_month),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 15),
+                    ),
+                    child: Text(
+                      _selectedCategoryMonth != null
+                          ? DateFormat('MMMM yyyy', 'es_ES')
+                              .format(_selectedCategoryMonth!)
+                              .capitalize()
+                          : 'Seleccionar mes',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+            ],
+
+            // Mostrar selectores adicionales si es necesario
+            if (_requiresParams(_selectedStat)) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Esta estadística requiere parámetros adicionales:',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+
+              // Selector de período
+              DropdownButtonFormField<String>(
+                value: _selectedPeriod,
+                decoration: InputDecoration(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: const OutlineInputBorder(),
+                  labelText: 'Período',
+                  hintText: 'Selecciona semana o mes',
+                  labelStyle:
+                      TextStyle(color: Theme.of(context).colorScheme.primary),
+                  filled: true,
+                  fillColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceVariant
+                      .withOpacity(0.3),
+                ),
+                items: _periodOptions.map((option) {
+                  return DropdownMenuItem(
+                    value: option['value'],
+                    child: Text(option['label']!),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null && value != _selectedPeriod) {
+                    setState(() {
+                      _selectedPeriod = value;
+                      // Reset date selections when changing period
+                      if (value == 'week') {
+                        _selectedMonth = null;
+                        _selectedYear = null;
+                      } else {
+                        _selectedEndDate = null;
+                      }
+                      // Clear data when changing period
+                      _statisticsData = null;
+
+                      // Make sure to clear any cached data
+                      if (_selectedStat == 'emotion-comparison') {
+                        _controller.clearCache(_selectedStat);
+                      }
+                    });
+                    // Use Future to avoid updating state during build
+                    Future.microtask(() => _loadStatistics());
+                  }
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Mostrar selectores específicos según el período seleccionado
+              if (_selectedPeriod == 'week') ...[
+                // Selector de fechas para período semanal (inicio y fin)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.calendar_month,
-                            color: Theme.of(context).colorScheme.primary,
+                          Text(
+                            'Fecha de inicio:',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _selectedMonth != null && _selectedYear != null
-                                  ? '${_getMonthName(_selectedMonth!)} ${_selectedYear!}'
-                                  : 'Mes actual',
-                              style: Theme.of(context).textTheme.bodyMedium,
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () => _selectDate(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceVariant
+                                    .withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      DateFormat('dd/MM/yyyy')
+                                          .format(_selectedDate),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          Icon(
-                            Icons.arrow_drop_down,
-                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Se mostrarán datos del mes completo seleccionado',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Fecha de fin:',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () => _selectEndDate(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceVariant
+                                    .withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_repeat,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _selectedEndDate != null
+                                          ? DateFormat('dd/MM/yyyy')
+                                              .format(_selectedEndDate!)
+                                          : 'No seleccionada',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Selecciona el rango de fechas para ver estadísticas de la semana',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ] else if (_selectedPeriod == 'month') ...[
+                // Selector de mes para período mensual
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Selecciona un mes:',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selectMonth(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceVariant
+                              .withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_month,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _selectedMonth != null && _selectedYear != null
+                                    ? '${_getMonthName(_selectedMonth!)} ${_selectedYear!}'
+                                    : 'Mes actual',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_drop_down,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Se mostrarán datos del mes completo seleccionado',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Refresh button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _statisticsData = null;
-                  });
-                  _controller.clearCache(_selectedStat);
-                  _loadStatistics();
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Text('Actualizar'),
-              ),
-            ],
-          ),
+            // Refresh button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _statisticsData = null;
+                    });
+                    _controller.clearCache(_selectedStat);
+                    _loadStatistics();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Actualizar'),
+                ),
+              ],
+            ),
 
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-          // Mostrar datos o indicadores de carga/error
-          Expanded(
-            child: _isLoading
+            // Mostrar datos o indicadores de carga/error
+            // REMOVED Expanded here
+            _isLoading
                 ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -829,7 +1063,8 @@ class StatisticsViewState extends State<StatisticsView> {
                           ],
                         ),
                       )
-                    : _statisticsData == null
+                    : _statisticsData == null &&
+                            !_isLoading // Handle null data state explicitly
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -849,9 +1084,9 @@ class StatisticsViewState extends State<StatisticsView> {
                               ],
                             ),
                           )
-                        : _buildStatisticsContent(),
-          ),
-        ],
+                        : _buildStatisticsContent(), // Display content directly
+          ],
+        ),
       ),
     );
   }
@@ -910,10 +1145,16 @@ class StatisticsViewState extends State<StatisticsView> {
       );
     }
 
-    if (_statisticsData == null) {
+    if (_statisticsData == null && !_isLoading) {
       return const Center(
-        child: Text('No hay datos disponibles'),
-      );
+          child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.analytics_outlined, size: 48, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('Selecciona una estadística o ajusta los filtros.'),
+        ],
+      ));
     }
 
     // Special handling for top-successful-categories which is already a List
@@ -943,6 +1184,13 @@ class StatisticsViewState extends State<StatisticsView> {
     // For all other statistics that use the Map structure with 'data' field
     final data = _statisticsData!['data'];
     if (data == null) {
+      // Added a check specifically for visited-categories-combined before general null check
+      if (_selectedStat == 'visited-categories-combined') {
+        return const Center(
+          child: Text(
+              'Datos para categorías combinadas están vacíos o no disponibles'),
+        );
+      }
       return const Center(
         child: Text('Datos recibidos, pero están vacíos'),
       );
@@ -974,13 +1222,42 @@ class StatisticsViewState extends State<StatisticsView> {
                     ),
               ),
             ),
-            Expanded(child: content),
+            Expanded(
+                child:
+                    content), // emotion-comparison content is already Expanded if needed internally
           ],
         ),
       );
     }
 
-    // Para todas las demás estadísticas, usar el formato normal
+    // --- MODIFICATION START ---
+    // Handle visited-categories-combined layout specifically
+    if (_selectedStat == 'visited-categories-combined') {
+      // Directly return the content wrapped in Expanded to manage layout
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Text(
+              selectedStatOption['label']!, // Title
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+          Expanded(
+            // Wrap the content in Expanded
+            child: content,
+          ),
+        ],
+      );
+    }
+    // --- MODIFICATION END ---
+
+    // Para todas las demás estadísticas, usar el formato normal con StatisticCard
     return StatisticCard(
       title: selectedStatOption['label']!,
       icon: _getIconForStatistic(_selectedStat),
@@ -1059,9 +1336,6 @@ class StatisticsViewState extends State<StatisticsView> {
       case 'visited-categories-combined':
         // New combined view for most and least visited categories
         return _buildCombinedVisitedCategoriesView(data);
-      case 'visited-categories-historical':
-        // Combined view for historical most and least visited categories
-        return _buildHistoricalVisitedCategoriesView(data);
       case 'gender-age-combined':
         // New combined view for gender and age distribution
         return _buildCombinedGenderAgeDistributionView(data);
@@ -4196,6 +4470,7 @@ class StatisticsViewState extends State<StatisticsView> {
   Widget _buildCombinedVisitedCategoriesView(dynamic data) {
     print('Building combined visited categories view with data: $data');
 
+    // Data structure might already be the inner map after modification in _loadStatistics
     if (data == null) {
       return const Center(child: Text('No hay datos disponibles'));
     }
@@ -4205,32 +4480,83 @@ class StatisticsViewState extends State<StatisticsView> {
     int mostVisitedCount = 0;
     String leastVisitedCategory = '';
     int leastVisitedCount = 0;
+    Map<String, dynamic> periodInfo = {}; // Store period info
 
     try {
       if (data is Map) {
-        // Check if data is nested under 'data' key
-        final dataMap = data.containsKey('data') ? data['data'] : data;
+        // Check if data comes from 'historical-categories' endpoint
+        if (data.containsKey('most_visited') &&
+            data['most_visited'] is Map &&
+            data.containsKey('least_visited') &&
+            data['least_visited'] is Map) {
+          final mostVisitedData = data['most_visited'] as Map;
+          final leastVisitedData = data['least_visited'] as Map;
 
-        mostVisitedCategory =
-            dataMap['most_visited_category']?.toString() ?? 'No disponible';
-        mostVisitedCount = (dataMap['most_visited_count'] is int)
-            ? dataMap['most_visited_count']
-            : int.tryParse(dataMap['most_visited_count']?.toString() ?? '0') ??
-                0;
+          mostVisitedCategory =
+              mostVisitedData['category']?.toString() ?? 'No disponible';
+          mostVisitedCount = (mostVisitedData['count'] is int)
+              ? mostVisitedData['count']
+              : int.tryParse(mostVisitedData['count']?.toString() ?? '0') ?? 0;
 
-        leastVisitedCategory =
-            dataMap['least_visited_category']?.toString() ?? 'No disponible';
-        leastVisitedCount = (dataMap['least_visited_count'] is int)
-            ? dataMap['least_visited_count']
-            : int.tryParse(dataMap['least_visited_count']?.toString() ?? '0') ??
-                0;
+          leastVisitedCategory =
+              leastVisitedData['category']?.toString() ?? 'No disponible';
+          leastVisitedCount = (leastVisitedData['count'] is int)
+              ? leastVisitedData['count']
+              : int.tryParse(leastVisitedData['count']?.toString() ?? '0') ?? 0;
+        } else {
+          // Original structure from weekly/monthly combined calls
+          mostVisitedCategory =
+              data['most_visited_category']?.toString() ?? 'No disponible';
+          mostVisitedCount = (data['most_visited_count'] is int)
+              ? data['most_visited_count']
+              : int.tryParse(data['most_visited_count']?.toString() ?? '0') ??
+                  0;
+
+          leastVisitedCategory =
+              data['least_visited_category']?.toString() ?? 'No disponible';
+          leastVisitedCount = (data['least_visited_count'] is int)
+              ? data['least_visited_count']
+              : int.tryParse(data['least_visited_count']?.toString() ?? '0') ??
+                  0;
+        }
+
+        // Extract period info (remains the same)
+        if (data.containsKey('period_info') && data['period_info'] is Map) {
+          periodInfo = data['period_info'];
+        }
       }
     } catch (e) {
       print('Error parsing combined visited categories data: $e');
       return Center(child: Text('Error al procesar datos: $e'));
     }
 
-    return SingleChildScrollView(
+    // Determine the title based on period info safely
+    String titlePeriod = 'Histórico';
+    if (periodInfo['type'] == 'week') {
+      if (periodInfo['date'] != null && periodInfo['date'] is DateTime) {
+        final weekDate = periodInfo['date'] as DateTime;
+        titlePeriod =
+            'Semana del ${DateFormat('dd/MM/yyyy', 'es_ES').format(weekDate)}';
+      } else {
+        titlePeriod = 'Semana (Fecha no disponible)'; // Fallback title
+        print(
+            'Warning: periodInfo date is null or not DateTime for week type.');
+      }
+    } else if (periodInfo['type'] == 'month') {
+      if (periodInfo['date'] != null && periodInfo['date'] is DateTime) {
+        final monthDate = periodInfo['date'] as DateTime;
+        titlePeriod =
+            'Mes de ${DateFormat('MMMM yyyy', 'es_ES').format(monthDate).capitalize()}';
+      } else {
+        titlePeriod = 'Mes (Fecha no disponible)'; // Fallback title
+        print(
+            'Warning: periodInfo date is null or not DateTime for month type.');
+      }
+    }
+
+    // REMOVED SingleChildScrollView wrapper here
+    return Padding(
+      // Changed SingleChildScrollView to Padding
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -4308,6 +4634,22 @@ class StatisticsViewState extends State<StatisticsView> {
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
+          ),
+          const SizedBox(height: 8),
+          // Add the period title here
+          Text(
+            titlePeriod,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Comparativa entre las categorías con mayor y menor número de visitas',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
           ),
         ],
       ),

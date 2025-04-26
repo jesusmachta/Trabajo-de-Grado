@@ -348,11 +348,6 @@ class StatisticsController {
 
       // Estadísticas históricas
       {
-        'value': 'visited-categories-historical',
-        'label': 'Histórico de categorías más y menos visitadas',
-        'emoji': '📈'
-      },
-      {
         'value': 'preferred-category-by-gender',
         'label': 'Categorías preferidas por género',
         'emoji': '👫'
