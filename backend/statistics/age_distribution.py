@@ -75,14 +75,18 @@ def get_age_distribution(period: str = None, date: str = None, end_date: str = N
             return {"message": "No data found for the specified parameters"}
         
         # Recuperar documentos que cumplan con el filtro
-        personas = persona_collection.find(query, {"age_range": 1})
+        personas = persona_collection.find(query, {"age_range": 1, "date": 1})
         
         # Inicializar diccionario para contar edades promedio
         age_distribution = {}
         
+        # Diccionario para contar edades por día
+        daily_distribution = {}
+        
         # Procesar cada documento y calcular la edad promedio
         for persona in personas:
             age_range = persona.get("age_range", {})
+            date = persona.get("date", "")
             low = age_range.get("low")
             high = age_range.get("high")
             
@@ -95,11 +99,29 @@ def get_age_distribution(period: str = None, date: str = None, end_date: str = N
                     age_distribution[avg_age] += 1
                 else:
                     age_distribution[avg_age] = 1
+                
+                # Contar por edad y día
+                if date:
+                    if date not in daily_distribution:
+                        daily_distribution[date] = {}
+                    
+                    if avg_age in daily_distribution[date]:
+                        daily_distribution[date][avg_age] += 1
+                    else:
+                        daily_distribution[date][avg_age] = 1
         
         # Ordenar el diccionario por edad
         sorted_distribution = dict(sorted(age_distribution.items()))
         
-        return sorted_distribution
+        # Incluir información diaria si se solicita
+        if period == "week" or month is not None:
+            result = {
+                "ages": sorted_distribution,
+                "daily": daily_distribution
+            }
+            return result
+        else:
+            return sorted_distribution
 
     except ValueError as ve:
         raise ValueError(f"Error: {ve}")

@@ -279,18 +279,136 @@ class StatisticsController {
       print('Gender Response: $genderResponse');
       print('Age Response: $ageResponse');
 
-      // Ensure both responses have data
+      // Fix: Extract complete response for debugging
+      print('Full Gender Response Structure: ${jsonEncode(genderResponse)}');
+      print('Full Age Response Structure: ${jsonEncode(ageResponse)}');
+
+      // Ensure both responses exist
       if (genderResponse == null || ageResponse == null) {
         throw Exception('One or both API responses are null');
       }
 
-      // Extract data from both responses
-      final genderData = genderResponse.containsKey('data')
-          ? genderResponse['data']
-          : {'male': 0, 'female': 0};
+      // Extract gender data - default values
+      Map<String, dynamic> genderData = {'male': 0, 'female': 0};
 
-      final ageData =
-          ageResponse.containsKey('data') ? ageResponse['data'] : {};
+      // Check if data exists directly in the response
+      if (genderResponse.containsKey('data')) {
+        var responseData = genderResponse['data'];
+
+        // Direct format with male/female
+        if (responseData is Map) {
+          // Check for capitalized keys (Male/Female)
+          if (responseData.containsKey('Male')) {
+            genderData['male'] = responseData['Male'] ?? 0;
+          }
+          if (responseData.containsKey('Female')) {
+            genderData['female'] = responseData['Female'] ?? 0;
+          }
+
+          // Check for lowercase keys (male/female)
+          if (responseData.containsKey('male')) {
+            genderData['male'] = responseData['male'] ?? 0;
+          }
+          if (responseData.containsKey('female')) {
+            genderData['female'] = responseData['female'] ?? 0;
+          }
+
+          // Check for monthly data
+          if (responseData.containsKey('monthly')) {
+            var monthlyData = responseData['monthly'];
+
+            if (params != null &&
+                params.containsKey('month') &&
+                params.containsKey('year')) {
+              final month = params['month'] ?? '';
+              final monthPadded =
+                  month.isNotEmpty ? month.padLeft(2, '0') : '00';
+              final monthKey = "${params['year']}-$monthPadded";
+
+              print('Looking for month key: $monthKey in monthly data');
+
+              if (monthlyData is Map && monthlyData.containsKey(monthKey)) {
+                var monthData = monthlyData[monthKey];
+                print('Found month data: $monthData');
+
+                if (monthData is Map) {
+                  // Check for capitalized keys in monthly data
+                  if (monthData.containsKey('Male')) {
+                    genderData['male'] = monthData['Male'] ?? 0;
+                  }
+                  if (monthData.containsKey('Female')) {
+                    genderData['female'] = monthData['Female'] ?? 0;
+                  }
+                }
+              }
+            }
+          }
+
+          // Check overall data
+          if (responseData.containsKey('overall')) {
+            var overallData = responseData['overall'];
+
+            if (overallData is Map) {
+              if (overallData.containsKey('Male')) {
+                genderData['male'] = overallData['Male'] ?? 0;
+              }
+              if (overallData.containsKey('Female')) {
+                genderData['female'] = overallData['Female'] ?? 0;
+              }
+            }
+          }
+        }
+      }
+
+      print('Extracted gender data: $genderData');
+
+      // Extract age data with a similar approach
+      Map<String, dynamic> ageData = {'ages': {}};
+
+      if (ageResponse.containsKey('data')) {
+        var responseData = ageResponse['data'];
+
+        if (responseData is Map) {
+          // Check if ages is directly in the data
+          if (responseData.containsKey('ages')) {
+            ageData['ages'] = responseData['ages'];
+          }
+
+          // Check for monthly data
+          if (responseData.containsKey('monthly')) {
+            var monthlyData = responseData['monthly'];
+
+            if (params != null &&
+                params.containsKey('month') &&
+                params.containsKey('year')) {
+              final month = params['month'] ?? '';
+              final monthPadded =
+                  month.isNotEmpty ? month.padLeft(2, '0') : '00';
+              final monthKey = "${params['year']}-$monthPadded";
+
+              print('Looking for month key: $monthKey in age monthly data');
+
+              if (monthlyData is Map && monthlyData.containsKey(monthKey)) {
+                ageData['ages'] = monthlyData[monthKey];
+                print('Found age month data: ${ageData['ages']}');
+              }
+            }
+          }
+
+          // Check overall data
+          if (responseData.containsKey('overall')) {
+            ageData['ages'] = responseData['overall'];
+          }
+
+          // Last resort: if we found nothing in standard places, use direct data
+          if (ageData['ages'] == null ||
+              (ageData['ages'] is Map && (ageData['ages'] as Map).isEmpty)) {
+            ageData['ages'] = responseData;
+          }
+        }
+      }
+
+      print('Extracted age data: $ageData');
 
       // Return combined data
       return {

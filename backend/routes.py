@@ -472,7 +472,7 @@ def most_frequent_emotions():
 @router.get("/statistics/age-distribution/")
 def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
-    Endpoint para obtener la distribución de visitantes por edad promedio.
+    Endpoint para obtener la distribución de visitantes por edad.
     
     Puede filtrar por:
     - Semana: especificar period="week", date (fecha inicial) y opcionalmente end_date (fecha final)
@@ -485,61 +485,60 @@ def age_distribution(period: str = None, date: Optional[str] = None, end_date: O
     :param year: Año para análisis mensual
     """
     try:
-        # Obtener datos de la colección Estadisticas
+        # Obtener directamente el documento de estadísticas
         stats = collections["Estadisticas"].find_one({"_id": "age_distribution"})
         if not stats:
-            raise Exception("Estadísticas no encontradas")
+            return {"message": "Error", "error": "Estadísticas de edad no encontradas"}
         
-        # Validar parámetros
+        # Si no se especifican parámetros, devolver distribución general
         if period is None and month is None:
-            # Si no se especifican parámetros, devolver distribución general
             return {"message": "Success", "data": stats.get("overall", {})}
         
-        # Procesar según los parámetros
-        if period == "week":
-            if date is None:
-                raise ValueError("Para period='week', debe especificar 'date'")
-            
-            # Calcular el lunes de la semana
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-            
-            data = stats.get("weekly", {}).get(monday, {})
-            if not data:
+        # Si es análisis semanal
+        if period == "week" and date:
+            # Calcular la fecha de inicio de la semana
+            try:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                # Calcular el lunes de la semana (inicio de semana)
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                
+                # Verificar si hay datos para esta semana
+                if monday in stats.get("weekly", {}):
+                    return {"message": "Success", "data": stats["weekly"][monday]}
+                
                 return {"message": "Success", "data": {}}
-            
-            return {"message": "Success", "data": data}
+            except ValueError:
+                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
         
+        # Si es análisis mensual
         elif month is not None:
-            # Validar mes
-            if month < 1 or month > 12:
-                raise ValueError("El mes debe estar entre 1 y 12")
+            # Validar el mes
+            if not 1 <= month <= 12:
+                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
             
-            # Determinar el año
-            current_year = datetime.now().year
-            target_year = year or current_year
+            # Usar año actual si no se especifica
+            if year is None:
+                year = datetime.now().year
             
-            # Formato YYYY-MM
-            month_key = f"{target_year}-{month:02d}"
+            # Formato YYYY-MM para buscar en monthly
+            month_key = f"{year}-{month:02d}"
             
-            data = stats.get("monthly", {}).get(month_key, {})
-            if not data:
-                return {"message": "Success", "data": {}}
+            # Verificar si hay datos para este mes
+            if month_key in stats.get("monthly", {}):
+                return {"message": "Success", "data": stats["monthly"][month_key]}
             
-            return {"message": "Success", "data": data}
+            return {"message": "Success", "data": {}}
         
-        else:
-            return {"message": "Success", "data": stats.get("overall", {})}
+        # Si no coincide ningún caso, devolver datos generales
+        return {"message": "Success", "data": stats.get("overall", {})}
     
-    except ValueError as ve:
-        return {"message": "Error", "error": str(ve)}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
-    
+
 @router.get("/statistics/gender-distribution/")
 def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
-    Endpoint para obtener la distribución de visitantes por sexo.
+    Endpoint para obtener la distribución de visitantes por género.
     
     Puede filtrar por:
     - Semana: especificar period="week", date (fecha inicial) y opcionalmente end_date (fecha final)
@@ -552,54 +551,53 @@ def gender_distribution(period: str = None, date: Optional[str] = None, end_date
     :param year: Año para análisis mensual
     """
     try:
-        # Obtener datos de la colección Estadisticas
+        # Obtener directamente el documento de estadísticas
         stats = collections["Estadisticas"].find_one({"_id": "gender_distribution"})
         if not stats:
-            raise Exception("Estadísticas no encontradas")
+            return {"message": "Error", "error": "Estadísticas de género no encontradas"}
         
-        # Validar parámetros
+        # Si no se especifican parámetros, devolver distribución general
         if period is None and month is None:
-            # Si no se especifican parámetros, devolver distribución general
             return {"message": "Success", "data": stats.get("overall", {})}
         
-        # Procesar según los parámetros
-        if period == "week":
-            if date is None:
-                raise ValueError("Para period='week', debe especificar 'date'")
-            
-            # Calcular el lunes de la semana
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-            
-            data = stats.get("weekly", {}).get(monday, {})
-            if not data:
+        # Si es análisis semanal
+        if period == "week" and date:
+            # Calcular la fecha de inicio de la semana
+            try:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                # Calcular el lunes de la semana (inicio de semana)
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                
+                # Verificar si hay datos para esta semana
+                if monday in stats.get("weekly", {}):
+                    return {"message": "Success", "data": stats["weekly"][monday]}
+                
                 return {"message": "Success", "data": {}}
-            
-            return {"message": "Success", "data": data}
+            except ValueError:
+                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
         
+        # Si es análisis mensual
         elif month is not None:
-            # Validar mes
-            if month < 1 or month > 12:
-                raise ValueError("El mes debe estar entre 1 y 12")
+            # Validar el mes
+            if not 1 <= month <= 12:
+                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
             
-            # Determinar el año
-            current_year = datetime.now().year
-            target_year = year or current_year
+            # Usar año actual si no se especifica
+            if year is None:
+                year = datetime.now().year
             
-            # Formato YYYY-MM
-            month_key = f"{target_year}-{month:02d}"
+            # Formato YYYY-MM para buscar en monthly
+            month_key = f"{year}-{month:02d}"
             
-            data = stats.get("monthly", {}).get(month_key, {})
-            if not data:
-                return {"message": "Success", "data": {}}
+            # Verificar si hay datos para este mes
+            if month_key in stats.get("monthly", {}):
+                return {"message": "Success", "data": stats["monthly"][month_key]}
             
-            return {"message": "Success", "data": data}
+            return {"message": "Success", "data": {}}
         
-        else:
-            return {"message": "Success", "data": stats.get("overall", {})}
+        # Si no coincide ningún caso, devolver datos generales
+        return {"message": "Success", "data": stats.get("overall", {})}
     
-    except ValueError as ve:
-        return {"message": "Error", "error": str(ve)}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
