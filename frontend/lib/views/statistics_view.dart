@@ -3210,156 +3210,143 @@ class StatisticsViewState extends State<StatisticsView> {
   Widget _buildFrequentEmotionsView(dynamic data) {
     print('Building frequent emotions view with data: $data');
 
-    if (data == null) {
+    // Directly check if data is a Map and not null/empty
+    if (data is! Map || data.isEmpty) {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    List<Widget> categoryWidgets = [];
+    List<Widget> emotionCards = [];
 
     try {
-      data.forEach((category, value) {
-        if (value is Map) {
-          final emotion = value['emotion']?.toString() ?? 'Desconocido';
-          final count = value['count'] ?? 0;
+      // Convertir el mapa a una lista de entradas y ordenar por conteo descendente
+      final sortedEmotions = data.entries.toList();
+      sortedEmotions.sort((a, b) {
+        final countA = (a.value is int) ? a.value : 0;
+        final countB = (b.value is int) ? b.value : 0;
+        return countB.compareTo(countA); // Descending order
+      });
 
-          // Get color based on category
-          final Color bgColor = category == 'Alcohol'
-              ? Colors.red.shade50
-              : category == 'Snacks'
-                  ? Colors.green.shade50
-                  : category == 'Frutas'
-                      ? Colors.purple.shade50
-                      : category == 'Vegetales'
-                          ? Colors.teal.shade50
-                          : Colors.blue.shade50;
+      for (var entry in sortedEmotions) {
+        final emotion = entry.key.toString();
+        final count = (entry.value is int) ? entry.value : 0;
+        final translatedEmotion = _translateEmotion(emotion);
+        final icon = _getEmotionIcon(emotion);
+        final color = _getEmotionColorForCard(emotion);
 
-          categoryWidgets.add(
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
+        emotionCards.add(
+          Card(
+            elevation: 2,
+            color:
+                Theme.of(context).cardColor, // Usa el color de fondo del tema
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Container(
+              width: 180, // Increased width from 150 to 180
+              padding: const EdgeInsets.symmetric(
+                  vertical: 20, horizontal: 16), // Added vertical padding
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Category name at top
+                  // Icono de la emoción
+                  Icon(
+                    icon,
+                    size: 48, // Increased icon size from 40 to 48
+                    color: color,
+                  ),
+                  const SizedBox(height: 16), // Increased spacing
+
+                  // Nombre de la emoción
                   Text(
-                    category,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    translatedEmotion,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                    textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 8),
 
-                  // Emotion in center with icon
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _getEmotionIcon(emotion),
-                          size: 20,
+                  // Conteo
+                  Text(
+                    '$count clientes',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _translateEmotion(emotion),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // User count at bottom right
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          count.toString(),
-                          style: TextStyle(
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'usuarios',
-                          style: TextStyle(
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
-          );
-        }
-      });
+          ),
+        );
+      }
     } catch (e) {
       print('Error rendering emotion cards: $e');
       return Center(child: Text('Error: $e'));
     }
 
-    if (categoryWidgets.isEmpty) {
+    if (emotionCards.isEmpty) {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
+    // Usar Wrap para un diseño responsive
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start, // Alineado a la izquierda
         children: [
           Text(
             'Emociones más frecuentes',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue.shade800,
-            ),
-            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Emociones predominantes detectadas por categoría',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black54,
-            ),
-            textAlign: TextAlign.center,
+            'Emociones predominantes detectadas entre los clientes',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
-          // Responsive grid layout
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Use grid with 2 columns for wider screens, 1 column for narrower screens
-                bool useTwoColumns = constraints.maxWidth > 600;
-
-                return GridView.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: useTwoColumns ? 2 : 1,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio:
-                        3.0, // Make cards much shorter (3:1 ratio)
-                  ),
-                  itemCount: categoryWidgets.length,
-                  itemBuilder: (context, index) => categoryWidgets[index],
-                );
-              },
+          // Usar Wrap para que las tarjetas se ajusten
+          Center(
+            child: Wrap(
+              spacing: 16, // Espacio horizontal
+              runSpacing: 16, // Espacio vertical
+              alignment: WrapAlignment.center, // Centrar las tarjetas
+              children: emotionCards,
             ),
           ),
         ],
       ),
     );
+  }
+
+  // Helper to get specific color for emotion card styling
+  Color _getEmotionColorForCard(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'happy':
+        return Colors.green;
+      case 'sad':
+        return Colors.blue;
+      case 'calm':
+        return Colors.teal;
+      case 'surprise':
+        return Colors.amber;
+      case 'angry':
+        return Colors.red;
+      case 'fear':
+        return Colors.purple;
+      case 'disgust':
+        return Colors.brown;
+      case 'neutral':
+        return Colors.grey;
+      default:
+        return Theme.of(context).colorScheme.primary; // Color por defecto
+    }
   }
 
   // Visualizador para comparación de emociones por día
