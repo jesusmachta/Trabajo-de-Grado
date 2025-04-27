@@ -4042,14 +4042,20 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Visualizador para diferencias emocionales por categoría con íconos de género
   Widget _buildEmotionalDifferencesByCategoryView(dynamic data) {
-    if (data is! Map || data.isEmpty) {
+    print('Building emotional differences by category with data: $data');
+
+    if (data == null || data is! Map || data.isEmpty) {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    print('EMOTIONAL DATA: $data');
+    // Extract the data object which contains categories and gender emotions
+    Map<String, dynamic> emotionalData;
 
-    // Usar directamente los datos ya que el backend ahora devuelve la estructura correcta
-    Map<String, dynamic> emotionalData = Map<String, dynamic>.from(data);
+    if (data.containsKey("data")) {
+      emotionalData = Map<String, dynamic>.from(data["data"]);
+    } else {
+      emotionalData = Map<String, dynamic>.from(data);
+    }
 
     if (emotionalData.isEmpty) {
       return const Center(child: Text('No se encontraron datos emocionales'));
@@ -4057,220 +4063,8 @@ class StatisticsViewState extends State<StatisticsView> {
 
     final colorScheme = Theme.of(context).colorScheme;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Diferencias Emocionales por Categoría',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Análisis de todas las emociones por género en cada categoría',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ...emotionalData.entries.map((entry) {
-            final String categoryName = entry.key;
-            final Map<String, dynamic> categoryData =
-                Map<String, dynamic>.from(entry.value);
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16.0),
-              surfaceTintColor: colorScheme.surfaceVariant.withOpacity(0.1),
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                side: BorderSide(
-                  color: colorScheme.outline.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: ExpansionTile(
-                key: Key(categoryName),
-                initiallyExpanded: _expandedCategoryName == categoryName,
-                onExpansionChanged: (expanded) {
-                  setState(() {
-                    _expandedCategoryName = expanded ? categoryName : null;
-                  });
-                },
-                maintainState: true,
-                expandedCrossAxisAlignment: CrossAxisAlignment.center,
-                expandedAlignment: Alignment.center,
-                childrenPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                tilePadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                backgroundColor: Colors.transparent,
-                collapsedBackgroundColor: Colors.transparent,
-                iconColor: colorScheme.primary,
-                collapsedIconColor: colorScheme.onSurfaceVariant,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                leading: Icon(
-                  _getCategoryIcon(categoryName),
-                  color: _expandedCategoryName == categoryName
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant.withOpacity(0.8),
-                  size: 26,
-                ),
-                title: Text(
-                  categoryName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: _expandedCategoryName == categoryName
-                        ? colorScheme.primary
-                        : colorScheme.onSurface,
-                    fontSize: 16,
-                  ),
-                ),
-                subtitle: Text(
-                  'Análisis emocional para esta categoría',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.all(16.0),
-                    margin: const EdgeInsets.only(bottom: 16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Sección masculina
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.man,
-                                        size: 20,
-                                        color: colorScheme.primary,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Hombres',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: colorScheme.primary,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  if (categoryData.containsKey('male'))
-                                    _buildSimpleEmotionCards(
-                                      categoryData['male'],
-                                      'Male',
-                                    )
-                                  else
-                                    Text(
-                                      'No hay datos para hombres',
-                                      style: TextStyle(
-                                        fontStyle: FontStyle.italic,
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-
-                            // Separador vertical
-                            Container(
-                              height: 150,
-                              width: 1,
-                              color: colorScheme.outlineVariant,
-                            ),
-
-                            // Sección femenina
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.woman,
-                                        size: 20,
-                                        color: Colors.pink.shade400,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Mujeres',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.pink.shade400,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  if (categoryData.containsKey('female'))
-                                    _buildSimpleEmotionCards(
-                                      categoryData['female'],
-                                      'Female',
-                                    )
-                                  else
-                                    Text(
-                                      'No hay datos para mujeres',
-                                      style: TextStyle(
-                                        fontStyle: FontStyle.italic,
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  // Helper para construir tarjetas de emociones simplificado
-  Widget _buildSimpleEmotionCards(
-      Map<String, dynamic> emotionCounts, String gender) {
-    final List<Widget> cards = [];
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Definir colores por género
-    final Color primaryColor =
-        gender == 'Male' ? colorScheme.primary : Colors.pink.shade400;
-
-    // Definir íconos para las emociones
-    final Map<String, Map<String, dynamic>> emotionIcons = {
+    // Definir íconos y colores para las emociones
+    final Map<String, Map<String, dynamic>> emotionInfo = {
       'HAPPY': {
         'icon': Icons.sentiment_very_satisfied,
         'color': Colors.green,
@@ -4286,91 +4080,361 @@ class StatisticsViewState extends State<StatisticsView> {
         'color': Colors.blue,
         'label': 'Calmado'
       },
+      'SURPRISED': {
+        'icon': Icons.sentiment_satisfied_alt,
+        'color': Colors.amber,
+        'label': 'Sorprendido'
+      },
+      'ANGRY': {
+        'icon': Icons.mood_bad,
+        'color': Colors.deepOrange,
+        'label': 'Enojado'
+      },
+      'FEAR': {
+        'icon': Icons.face_retouching_natural,
+        'color': Colors.purple,
+        'label': 'Asustado'
+      },
+      'DISGUST': {
+        'icon': Icons.sick,
+        'color': Colors.brown,
+        'label': 'Disgustado'
+      },
+      'NEUTRAL': {
+        'icon': Icons.sentiment_neutral,
+        'color': Colors.grey,
+        'label': 'Neutral'
+      }
     };
 
-    // Imprimir para debug
-    print('EMOTION COUNTS FOR $gender: $emotionCounts');
-
-    // Construir tarjetas para todas las emociones en los datos
-    emotionCounts.forEach((emotion, count) {
-      final Color iconColor = emotionIcons.containsKey(emotion)
-          ? emotionIcons[emotion]!['color']
-          : Colors.grey;
-
-      final IconData iconData = emotionIcons.containsKey(emotion)
-          ? emotionIcons[emotion]!['icon']
-          : Icons.emoji_emotions;
-
-      final String label = emotionIcons.containsKey(emotion)
-          ? emotionIcons[emotion]!['label']
-          : emotion;
-
-      final Color cardColor = emotion == 'HAPPY'
-          ? Colors.green.shade50.withOpacity(0.7)
-          : (emotion == 'SAD'
-              ? Colors.red.shade50.withOpacity(0.7)
-              : Colors.blue.shade50.withOpacity(0.7));
-
-      cards.add(
-        Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? colorScheme.surfaceVariant.withOpacity(0.3)
-                : cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: iconColor.withOpacity(0.5),
-              width: 1.5,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      physics: const ClampingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  'Diferencias Emocionales por Categoría',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Emociones detectadas por género en cada categoría',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Emoción y su ícono
-              Row(
-                children: [
-                  Icon(
-                    iconData,
-                    size: 24,
-                    color: iconColor,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: iconColor,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-              // Conteo
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  count.toString(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: primaryColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
+          const SizedBox(height: 24),
 
-    return Column(children: cards);
+          // Category cards
+          ...emotionalData.entries.map((entry) {
+            final String categoryName = entry.key;
+            final Map<String, dynamic> genderData =
+                Map<String, dynamic>.from(entry.value);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 24.0),
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category Header
+                    Row(
+                      children: [
+                        Icon(
+                          _getCategoryIcon(categoryName),
+                          size: 28,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          categoryName,
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+
+                    // Gender sections
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Male section
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Male header
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.man,
+                                    size: 22,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Hombres',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.primary,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Male emotion cards
+                              if (genderData.containsKey('male') &&
+                                  genderData['male'] is Map &&
+                                  genderData['male'].isNotEmpty)
+                                ...genderData['male'].entries.map((emotion) {
+                                  final String emotionName = emotion.key;
+                                  final int count = emotion.value;
+
+                                  final emotionData =
+                                      emotionInfo.containsKey(emotionName)
+                                          ? emotionInfo[emotionName]!
+                                          : {
+                                              'icon': Icons.emoji_emotions,
+                                              'color': Colors.grey,
+                                              'label': emotionName
+                                            };
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          emotionData['color'].withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: emotionData['color']
+                                            .withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              emotionData['icon'],
+                                              size: 20,
+                                              color: emotionData['color'],
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              emotionData['label'],
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                color: emotionData['color'],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: emotionData['color']
+                                                .withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            count.toString(),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: emotionData['color'],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                })
+                              else
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16.0),
+                                    child: Text(
+                                      'No hay datos para hombres',
+                                      style: TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        // Vertical divider
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          width: 1,
+                          height: 200, // Adjust height based on content
+                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                        ),
+
+                        // Female section
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Female header
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.woman,
+                                    size: 22,
+                                    color: Colors.pink.shade400,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Mujeres',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.pink.shade400,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Female emotion cards
+                              if (genderData.containsKey('female') &&
+                                  genderData['female'] is Map &&
+                                  genderData['female'].isNotEmpty)
+                                ...genderData['female'].entries.map((emotion) {
+                                  final String emotionName = emotion.key;
+                                  final int count = emotion.value;
+
+                                  final emotionData =
+                                      emotionInfo.containsKey(emotionName)
+                                          ? emotionInfo[emotionName]!
+                                          : {
+                                              'icon': Icons.emoji_emotions,
+                                              'color': Colors.grey,
+                                              'label': emotionName
+                                            };
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          emotionData['color'].withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: emotionData['color']
+                                            .withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              emotionData['icon'],
+                                              size: 20,
+                                              color: emotionData['color'],
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              emotionData['label'],
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                color: emotionData['color'],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: emotionData['color']
+                                                .withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            count.toString(),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: emotionData['color'],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                })
+                              else
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16.0),
+                                    child: Text(
+                                      'No hay datos para mujeres',
+                                      style: TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
   }
 
   // NEW: Visualizador para distribución de edad y género por categoría
