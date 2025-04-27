@@ -37,7 +37,7 @@ from backend.statistics.most_visited_category_historical import get_most_visited
 from backend.statistics.least_visited_category_historical import get_least_visited_category_historical
 from backend.statistics.emotion_comparison import get_emotion_comparison
 from backend.statistics.preferred_category_by_gender import get_preferred_category_by_gender
-from backend.statistics.top_successful_categories import get_top_successful_categories
+from backend.statistics.top_successful_categories import get_top_successful_categories as calculate_top_categories_by_visits
 from backend.statistics.emotional_differences_by_category import get_emotional_differences_by_category
 from backend.statistics.age_gender_distribution_by_category import get_age_gender_distribution_by_category
 from fastapi.staticfiles import StaticFiles
@@ -690,18 +690,18 @@ def preferred_category_by_gender():
 @router.get("/statistics/top-successful-categories/")
 def top_successful_categories():
     """
-    Endpoint para obtener el top de categorías que generan más emociones positivas (HAPPY).
+    Endpoint para obtener el top 3 de categorías más visitadas (por conteo total).
     """
     try:
-        # Obtener datos de la colección Estadisticas
-        stats = collections["Estadisticas"].find_one({"_id": "top_successful_categories"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        
-        data = stats.get("data", [])
+        # CALL THE CALCULATION FUNCTION
+        data = calculate_top_categories_by_visits()
+        # The function now returns the list directly
         return {"message": "Success", "data": data}
     except Exception as e:
-        return {"message": "Error", "error": str(e)}
+        # Log the error for debugging
+        logger.error(f"Error calculating top visited categories: {e}")
+        # Return an error structure consistent with other endpoints
+        return {"message": "Error", "error": f"Failed to calculate top categories: {str(e)}"}
     
 @router.get("/statistics/emotional-differences-by-category/")
 def emotional_differences_by_category():

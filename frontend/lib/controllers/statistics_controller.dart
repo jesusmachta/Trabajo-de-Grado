@@ -19,7 +19,7 @@ class StatisticsController {
   final http.Client _client = http.Client();
 
   // Cache for statistics data to avoid excessive calls
-  final Map<String, Map<String, dynamic>> _cache = {};
+  final Map<String, dynamic> _cache = {};
 
   // Invalidate cache after 5 minutes to ensure fresh data
   final Duration _cacheInvalidationTime = const Duration(minutes: 5);
@@ -247,20 +247,61 @@ class StatisticsController {
     }
   }
 
-  // Método para obtener las categorías mejor evaluadas
+  // Método para obtener las categorías Top Visitadas
   Future<List<dynamic>> getTopSuccessfulCategories() async {
     try {
-      // Get statistics data
-      final response = await getStatistics('top-successful-categories');
+      // Endpoint ahora devuelve Top por Visitas Totales
+      const endpoint = 'top-successful-categories';
+      final url = '$baseUrl/api/statistics/$endpoint/';
+      print('Fetching top categories (by total visits) from: $url');
 
-      if (response.containsKey('data')) {
-        return response['data'];
+      const cacheKey = endpoint;
+      if (_isCacheValid(cacheKey)) {
+        print('Using cached data for $cacheKey');
+        // Cache should store List<dynamic> directly now
+        final cachedData = _cache[cacheKey];
+        if (cachedData is List) {
+          return cachedData;
+        } else {
+          print(
+              'Cache for $cacheKey has unexpected format (expected List). Clearing cache.');
+          clearCache(endpoint);
+        }
       }
 
-      return [];
+      final response = await _client
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception(
+            'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
+      });
+
+      if (response.statusCode == 200) {
+        final dynamic decodedBody = jsonDecode(response.body);
+
+        // El backend devuelve un Map con una clave 'data' que contiene la Lista
+        if (decodedBody is Map &&
+            decodedBody.containsKey('data') &&
+            decodedBody['data'] is List) {
+          final List<dynamic> dataList = decodedBody['data'];
+          // Store the List directly in the cache
+          _cache[cacheKey] = dataList; // Store List, not Map
+          _lastFetchTime[cacheKey] = DateTime.now();
+          return dataList;
+        } else {
+          print(
+              'Error: Unexpected response format for $endpoint. Expected Map with data List.');
+          throw Exception('Formato de respuesta inesperado del servidor.');
+        }
+      } else {
+        print(
+            'Error fetching $endpoint: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Error al cargar top categorías. Código: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error al obtener categorías mejor evaluadas: $e');
-      return []; // Return empty list instead of throwing to avoid crashes
+      print('Error en getTopSuccessfulCategories: $e');
+      rethrow;
     }
   }
 
