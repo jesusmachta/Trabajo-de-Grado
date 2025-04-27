@@ -4046,30 +4046,16 @@ class StatisticsViewState extends State<StatisticsView> {
       return const Center(child: Text('No hay datos disponibles'));
     }
 
-    // Extraer los datos de raw_counts si están disponibles
-    Map<String, dynamic> rawCounts = {};
-    if (data.containsKey('raw_counts') && data['raw_counts'] is Map) {
-      rawCounts = Map<String, dynamic>.from(data['raw_counts']);
-    } else {
-      // Si no hay raw_counts, intentar usar la data directamente
-      rawCounts = Map<String, dynamic>.from(data);
+    print('EMOTIONAL DATA: $data');
+
+    // Usar directamente los datos ya que el backend ahora devuelve la estructura correcta
+    Map<String, dynamic> emotionalData = Map<String, dynamic>.from(data);
+
+    if (emotionalData.isEmpty) {
+      return const Center(child: Text('No se encontraron datos emocionales'));
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Emojis e íconos para las emociones
-    final Map<String, Map<String, dynamic>> emotionIcons = {
-      'HAPPY': {
-        'icon': Icons.sentiment_very_satisfied,
-        'color': Colors.green,
-        'label': 'Feliz'
-      },
-      'SAD': {
-        'icon': Icons.sentiment_very_dissatisfied,
-        'color': Colors.red.shade700,
-        'label': 'Triste'
-      },
-    };
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -4086,14 +4072,15 @@ class StatisticsViewState extends State<StatisticsView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Análisis de emociones HAPPY y SAD por género en cada categoría',
+            'Análisis de todas las emociones por género en cada categoría',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ...rawCounts.entries.map((entry) {
+          ...emotionalData.entries.map((entry) {
             final String categoryName = entry.key;
-            final categoryData = entry.value as Map<String, dynamic>;
+            final Map<String, dynamic> categoryData =
+                Map<String, dynamic>.from(entry.value);
 
             return Card(
               margin: const EdgeInsets.only(bottom: 16.0),
@@ -4192,11 +4179,11 @@ class StatisticsViewState extends State<StatisticsView> {
                                     ],
                                   ),
                                   const SizedBox(height: 16),
-                                  if (categoryData['Male']
-                                          is Map<String, dynamic> &&
-                                      categoryData['Male'].isNotEmpty)
-                                    _buildEmotionCards(
-                                        categoryData['Male'], 'Male')
+                                  if (categoryData.containsKey('male'))
+                                    _buildSimpleEmotionCards(
+                                      categoryData['male'],
+                                      'Male',
+                                    )
                                   else
                                     Text(
                                       'No hay datos para hombres',
@@ -4242,11 +4229,11 @@ class StatisticsViewState extends State<StatisticsView> {
                                     ],
                                   ),
                                   const SizedBox(height: 16),
-                                  if (categoryData['Female']
-                                          is Map<String, dynamic> &&
-                                      categoryData['Female'].isNotEmpty)
-                                    _buildEmotionCards(
-                                        categoryData['Female'], 'Female')
+                                  if (categoryData.containsKey('female'))
+                                    _buildSimpleEmotionCards(
+                                      categoryData['female'],
+                                      'Female',
+                                    )
                                   else
                                     Text(
                                       'No hay datos para mujeres',
@@ -4272,8 +4259,9 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Helper para construir tarjetas de emociones
-  Widget _buildEmotionCards(Map<String, dynamic> emotionData, String gender) {
+  // Helper para construir tarjetas de emociones simplificado
+  Widget _buildSimpleEmotionCards(
+      Map<String, dynamic> emotionCounts, String gender) {
     final List<Widget> cards = [];
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -4293,17 +4281,35 @@ class StatisticsViewState extends State<StatisticsView> {
         'color': Colors.red.shade700,
         'label': 'Triste'
       },
+      'CALM': {
+        'icon': Icons.sentiment_neutral,
+        'color': Colors.blue,
+        'label': 'Calmado'
+      },
     };
 
-    // Construir tarjetas para HAPPY y SAD
-    for (String emotion in ['HAPPY', 'SAD']) {
-      final int count = emotionData[emotion] != null
-          ? (emotionData[emotion] is int ? emotionData[emotion] : 0)
-          : 0;
+    // Imprimir para debug
+    print('EMOTION COUNTS FOR $gender: $emotionCounts');
 
-      final cardColor = emotion == 'HAPPY'
+    // Construir tarjetas para todas las emociones en los datos
+    emotionCounts.forEach((emotion, count) {
+      final Color iconColor = emotionIcons.containsKey(emotion)
+          ? emotionIcons[emotion]!['color']
+          : Colors.grey;
+
+      final IconData iconData = emotionIcons.containsKey(emotion)
+          ? emotionIcons[emotion]!['icon']
+          : Icons.emoji_emotions;
+
+      final String label = emotionIcons.containsKey(emotion)
+          ? emotionIcons[emotion]!['label']
+          : emotion;
+
+      final Color cardColor = emotion == 'HAPPY'
           ? Colors.green.shade50.withOpacity(0.7)
-          : Colors.red.shade50.withOpacity(0.7);
+          : (emotion == 'SAD'
+              ? Colors.red.shade50.withOpacity(0.7)
+              : Colors.blue.shade50.withOpacity(0.7));
 
       cards.add(
         Container(
@@ -4315,41 +4321,54 @@ class StatisticsViewState extends State<StatisticsView> {
                 : cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: emotion == 'HAPPY'
-                  ? Colors.green.withOpacity(0.3)
-                  : Colors.red.shade300.withOpacity(0.3),
-              width: 1,
+              color: iconColor.withOpacity(0.5),
+              width: 1.5,
             ),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                emotionIcons[emotion]!['icon'],
-                size: 30,
-                color: emotionIcons[emotion]!['color'],
+              // Emoción y su ícono
+              Row(
+                children: [
+                  Icon(
+                    iconData,
+                    size: 24,
+                    color: iconColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: iconColor,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                emotionIcons[emotion]!['label'],
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: emotionIcons[emotion]!['color'],
+              // Conteo
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
                 ),
               ),
             ],
           ),
         ),
       );
-    }
+    });
 
     return Column(children: cards);
   }
