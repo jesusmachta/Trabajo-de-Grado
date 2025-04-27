@@ -1608,6 +1608,8 @@ class StatisticsViewState extends State<StatisticsView> {
         return _buildEmotionalDifferencesByCategoryView(data);
       case 'age-gender-distribution-by-category':
         return _buildAgeGenderDistributionByCategory(data);
+      case 'preferred-category-by-gender':
+        return _buildPreferredCategoryView(data);
       default:
         // Genérico
         return const Center(
@@ -1871,9 +1873,14 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Visualizador para categorías preferidas por género
   Widget _buildPreferredCategoryView(dynamic data) {
+    print('Building preferred category view with data: $data');
+
     if (data is! Map || data.isEmpty) {
       return const Center(child: Text('No hay datos disponibles'));
     }
+
+    // Extract the data field which contains gender preferences
+    var genderData = data['data'] ?? data;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -1909,16 +1916,16 @@ class StatisticsViewState extends State<StatisticsView> {
                   children: [
                     Expanded(
                       child: _buildGenderPreferenceCard(
-                        gender: 'male',
-                        data: data['male'],
+                        gender: 'Male',
+                        data: genderData['Male'],
                         isLeft: true,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildGenderPreferenceCard(
-                        gender: 'female',
-                        data: data['female'],
+                        gender: 'Female',
+                        data: genderData['Female'],
                         isLeft: false,
                       ),
                     ),
@@ -1929,14 +1936,14 @@ class StatisticsViewState extends State<StatisticsView> {
                 return Column(
                   children: [
                     _buildGenderPreferenceCard(
-                      gender: 'male',
-                      data: data['male'],
+                      gender: 'Male',
+                      data: genderData['Male'],
                       isLeft: true,
                     ),
                     const SizedBox(height: 24),
                     _buildGenderPreferenceCard(
-                      gender: 'female',
-                      data: data['female'],
+                      gender: 'Female',
+                      data: genderData['Female'],
                       isLeft: false,
                     ),
                   ],
