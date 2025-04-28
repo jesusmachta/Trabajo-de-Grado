@@ -75,21 +75,42 @@ def get_gender_distribution(period: str = None, date: str = None, end_date: str 
             return {"message": "No data found for the specified parameters"}
         
         # Recuperar documentos que cumplan con el filtro
-        personas = persona_collection.find(query, {"gender": 1})
+        personas = persona_collection.find(query, {"gender": 1, "date": 1})
         
         # Diccionario para contar visitantes por sexo
         gender_distribution = {
             "male": 0,
             "female": 0
         }
+        
+        # Diccionario para contar visitantes por sexo y por día
+        daily_distribution = {}
 
         # Contar las visitas por sexo
         for persona in personas:
             gender = persona.get("gender", "").lower()
+            date = persona.get("date", "")
+            
+            # Contar por género general
             if gender in gender_distribution:
                 gender_distribution[gender] += 1
+                
+            # Contar por género y día
+            if date and gender in ["male", "female"]:
+                if date not in daily_distribution:
+                    daily_distribution[date] = {"male": 0, "female": 0}
+                daily_distribution[date][gender] += 1
 
-        return gender_distribution
+        # Incluir información diaria si se solicita
+        if period == "week" or month is not None:
+            result = {
+                "male": gender_distribution["male"],
+                "female": gender_distribution["female"],
+                "daily": daily_distribution
+            }
+            return result
+        else:
+            return gender_distribution
 
     except ValueError as ve:
         raise ValueError(f"Error: {ve}")

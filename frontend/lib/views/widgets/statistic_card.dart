@@ -5,6 +5,11 @@ class StatisticCard extends StatelessWidget {
   final Widget content;
   final IconData? icon;
   final Color? iconColor;
+  final Color? backgroundColor;
+  final double? height;
+  final bool? expanded;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
 
   const StatisticCard({
     super.key,
@@ -12,13 +17,18 @@ class StatisticCard extends StatelessWidget {
     required this.content,
     this.icon,
     this.iconColor,
+    this.backgroundColor,
+    this.height,
+    this.expanded = true,
+    this.margin = const EdgeInsets.only(bottom: 16),
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final card = Card(
       elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: margin,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -29,7 +39,7 @@ class StatisticCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
-              color:
+              color: backgroundColor ??
                   Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               border: Border(
                 bottom: BorderSide(
@@ -58,17 +68,121 @@ class StatisticCard extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16.0),
-              width: double.infinity,
-              child: SafeArea(
-                child: content,
-              ),
-            ),
-          ),
+          expanded == true
+              ? Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    width: double.infinity,
+                    child: content,
+                  ),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(16.0),
+                  width: double.infinity,
+                  height: height,
+                  child: content,
+                ),
         ],
       ),
     );
+
+    // Wrap with InkWell if onTap is provided
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        child: card,
+      );
+    }
+
+    return card;
+  }
+}
+
+// Simple statistic value card for displaying key metrics
+class StatisticValueCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color? color;
+  final Color? backgroundColor;
+  final VoidCallback? onTap;
+
+  const StatisticValueCard({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.icon,
+    this.color,
+    this.backgroundColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cardColor = color ?? Theme.of(context).colorScheme.primary;
+    final bgColor = backgroundColor ?? cardColor.withOpacity(0.1);
+
+    final card = Card(
+      elevation: 2,
+      margin: const EdgeInsets.all(8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: cardColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: cardColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: cardColor,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.color
+                        ?.withOpacity(0.7),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Wrap with InkWell if onTap is provided
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: card,
+      );
+    }
+
+    return card;
   }
 }

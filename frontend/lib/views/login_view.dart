@@ -189,6 +189,9 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 20),
+                        helperText:
+                            'La contraseña debe tener: 6+ caracteres, 1+ mayúscula, 1+ minúscula, 1+ número, 1+ carácter especial',
+                        helperMaxLines: 2,
                       ),
                     ),
                     const SizedBox(height: 16),

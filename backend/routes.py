@@ -3,6 +3,8 @@ from backend.statistics.apis.update_category_api import update_category
 from backend.statistics.apis.update_category_api import router as update_category_router
 from backend.statistics.apis.delete_category_api import router as delete_category_router
 from backend.statistics.apis.create_category_api import router as create_category_router
+from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
+from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr
@@ -35,7 +37,7 @@ from backend.statistics.most_visited_category_historical import get_most_visited
 from backend.statistics.least_visited_category_historical import get_least_visited_category_historical
 from backend.statistics.emotion_comparison import get_emotion_comparison
 from backend.statistics.preferred_category_by_gender import get_preferred_category_by_gender
-from backend.statistics.top_successful_categories import get_top_successful_categories
+from backend.statistics.top_successful_categories import get_top_successful_categories as calculate_top_categories_by_visits
 from backend.statistics.emotional_differences_by_category import get_emotional_differences_by_category
 from backend.statistics.age_gender_distribution_by_category import get_age_gender_distribution_by_category
 from fastapi.staticfiles import StaticFiles
@@ -43,6 +45,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 import bcrypt
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import re
 
 
 router = APIRouter()
@@ -104,11 +107,22 @@ def get_next_sequence_value(sequence_name):
         raise HTTPException(status_code=500, detail=f"Error al obtener el siguiente valor de secuencia: {e}")
 
 def initialize_routes(app):
+    # Inicializar documentos de estadísticas
+    initialize_statistics()
+    
+    # Iniciar el programador de actualizaciones
+    start_scheduler()
+    
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     app.include_router(update_category_router, prefix="/api")
     app.include_router(delete_category_router, prefix="/api")
     app.include_router(create_category_router, prefix="/api")
+    
+    # Configurar evento de apagado para detener el programador
+    @app.on_event("shutdown")
+    def shutdown_event():
+        shutdown_scheduler()
     
     # Verificar si el directorio de Flutter web existe
     flutter_web_exists = os.path.exists(FLUTTER_WEB_DIR) and os.path.isdir(FLUTTER_WEB_DIR)
@@ -198,7 +212,12 @@ def daily_traffic():
     Endpoint para obtener las horas pico de los clientes por día de la semana.
     """
     try:
-        data = get_peak_hours()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "peak_hours"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -211,21 +230,18 @@ def categories():
     except Exception as e: 
         return {"message": "Error", "error": str(e)}
     
-# @router.get("/categories/update/")
-# def update_a_category():
-#     try: 
-#         data = update_category()
-#         return {"message": "Success", "data": data}
-#     except Exception as e:
-#         return {"message": "Error", "error": str(e)}
-    
 @router.get("/statistics/least-hours/")
 def daily_traffic():
     """
-    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    Endpoint para obtener las horas menos concurridas por día de la semana.
     """
     try:
-        data = get_least_busy_hours()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "least_busy_hours"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -233,10 +249,15 @@ def daily_traffic():
 @router.get("/statistics/busy-days/")
 def daily_traffic():
     """
-    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    Endpoint para obtener el día más concurrido de la semana.
     """
     try:
-        data = get_most_busy_day()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "most_busy_day"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -244,10 +265,15 @@ def daily_traffic():
 @router.get("/statistics/least-days/")
 def daily_traffic():
     """
-    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    Endpoint para obtener el día menos concurrido de la semana.
     """
     try:
-        data = get_least_busy_day()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "least_busy_day"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -258,7 +284,45 @@ def least_visited_category(period: str, date: Optional[str] = None):
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        data = get_least_visited_category(period=period, date=date)
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "least_visited_category"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        # Determinar qué período usar
+        if period == "day":
+            # Usar la fecha proporcionada o la actual
+            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
+            data = stats.get("daily", {}).get(date_key)
+        elif period == "week":
+            # Calcular el lunes de la semana
+            if date:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+            else:
+                date_obj = datetime.now()
+            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+            data = stats.get("weekly", {}).get(monday)
+        elif period == "month":
+            # Usar el mes proporcionado o el actual
+            if date:
+                month_key = date[:7]  # YYYY-MM
+            else:
+                month_key = datetime.now().strftime("%Y-%m")
+            data = stats.get("monthly", {}).get(month_key)
+        else:
+            raise Exception("Período no válido. Use 'day', 'week', o 'month'.")
+        
+        # Si no hay datos para el período específico, usar el global
+        if not data:
+            data = stats.get("category_counts", {})
+            if data:
+                # Encontrar la categoría menos visitada
+                active_categories = {k: v for k, v in data.items() if v > 0}
+                least_cat = min(active_categories.items(), key=lambda x: x[1]) if active_categories else ("", 0)
+                data = {"category": least_cat[0], "count": least_cat[1]}
+            else:
+                data = {"category": None, "count": 0}
+        
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -269,22 +333,66 @@ def least_visited_category_historical():
     Endpoint para obtener la categoría de producto menos visitada utilizando todos los datos históricos.
     """
     try:
-        data = get_least_visited_category_historical()
-        return {"message": "Success", "data": data}
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "historical_categories"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("least_visited", {})
+        if not data or data.get("category") == "":
+            return {"message": "Success", "data": {"least_visited_category": None, "count": 0}}
+        
+        return {"message": "Success", "data": {"least_visited_category": data.get("category"), "count": data.get("count")}}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/most-visited/")
 def most_visited_category(period: str, date: Optional[str] = None):
     """
-    Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
+    Endpoint para obtener la categoría de producto más visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        data = get_most_visited_category(period=period, date=date)
-        return {"message": "Success", "data": data}
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "most_visited_category"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        # Determinar qué período usar
+        if period == "day":
+            # Usar la fecha proporcionada o la actual
+            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
+            data = stats.get("daily", {}).get(date_key)
+        elif period == "week":
+            # Calcular el lunes de la semana
+            if date:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+            else:
+                date_obj = datetime.now()
+            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+            data = stats.get("weekly", {}).get(monday)
+        elif period == "month":
+            # Usar el mes proporcionado o el actual
+            if date:
+                month_key = date[:7]  # YYYY-MM
+            else:
+                month_key = datetime.now().strftime("%Y-%m")
+            data = stats.get("monthly", {}).get(month_key)
+        else:
+            raise Exception("Período no válido. Use 'day', 'week', o 'month'.")
+        
+        # Si no hay datos para el período específico, usar el global
+        if not data:
+            data = stats.get("category_counts", {})
+            if data:
+                # Encontrar la categoría más visitada
+                most_cat = max(data.items(), key=lambda x: x[1]) if data else ("", 0)
+                data = {"category": most_cat[0], "count": most_cat[1]}
+            else:
+                data = {"category": None, "count": 0}
+        
+        return {"message": "Success", "data": {"most_visited_category": data.get("category"), "count": data.get("count")}}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
-    
 
 @router.get("/statistics/most-visited-historical/")
 def most_visited_category_historical():
@@ -292,8 +400,16 @@ def most_visited_category_historical():
     Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
     """
     try:
-        data = get_most_visited_category_historical()
-        return {"message": "Success", "data": data}
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "historical_categories"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("most_visited", {})
+        if not data or data.get("category") == "":
+            return {"message": "Success", "data": {"most_visited_category": None, "count": 0}}
+        
+        return {"message": "Success", "data": {"most_visited_category": data.get("category"), "count": data.get("count")}}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
@@ -303,14 +419,19 @@ def visited_categories_historical():
     Endpoint para obtener las categorías de producto más y menos visitadas utilizando todos los datos históricos.
     """
     try:
-        most_visited_data = get_most_visited_category_historical()
-        least_visited_data = get_least_visited_category_historical()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "historical_categories"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        most_visited = stats.get("most_visited", {})
+        least_visited = stats.get("least_visited", {})
         
         combined_data = {
-            "most_visited_category": most_visited_data["most_visited_category"],
-            "most_visited_count": most_visited_data["count"],
-            "least_visited_category": least_visited_data["least_visited_category"],
-            "least_visited_count": least_visited_data["count"]
+            "most_visited_category": most_visited.get("category", ""),
+            "most_visited_count": most_visited.get("count", 0),
+            "least_visited_category": least_visited.get("category", ""),
+            "least_visited_count": least_visited.get("count", 0)
         }
         
         return {"message": "Success", "data": combined_data}
@@ -320,22 +441,31 @@ def visited_categories_historical():
 @router.get("/statistics/emotion-percentage/")
 def emotion_percentage():
     """
-    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    Endpoint para obtener el porcentaje de emociones por categoría.
     """
     try:
-        data = get_emotion_percentage_by_category()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "emotion_percentage_by_category"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
-
 @router.get("/statistics/most-frequent-emotions/")
 def most_frequent_emotions():
     """
-    Endpoint para obtener las horas pico de los clientes por día de la semana.
+    Endpoint para obtener las emociones más frecuentes.
     """
     try:
-        data = get_most_frequent_emotions()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "most_frequent_emotions"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
@@ -343,7 +473,7 @@ def most_frequent_emotions():
 @router.get("/statistics/age-distribution/")
 def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
-    Endpoint para obtener la distribución de visitantes por edad promedio.
+    Endpoint para obtener la distribución de visitantes por edad.
     
     Puede filtrar por:
     - Semana: especificar period="week", date (fecha inicial) y opcionalmente end_date (fecha final)
@@ -356,26 +486,60 @@ def age_distribution(period: str = None, date: Optional[str] = None, end_date: O
     :param year: Año para análisis mensual
     """
     try:
-        # Validar parámetros
+        # Obtener directamente el documento de estadísticas
+        stats = collections["Estadisticas"].find_one({"_id": "age_distribution"})
+        if not stats:
+            return {"message": "Error", "error": "Estadísticas de edad no encontradas"}
+        
+        # Si no se especifican parámetros, devolver distribución general
         if period is None and month is None:
-            return {"message": "Error", "error": "Debe especificar 'period' o 'month'"}
+            return {"message": "Success", "data": stats.get("overall", {})}
+        
+        # Si es análisis semanal
+        if period == "week" and date:
+            # Calcular la fecha de inicio de la semana
+            try:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                # Calcular el lunes de la semana (inicio de semana)
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                
+                # Verificar si hay datos para esta semana
+                if monday in stats.get("weekly", {}):
+                    return {"message": "Success", "data": stats["weekly"][monday]}
+                
+                return {"message": "Success", "data": {}}
+            except ValueError:
+                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
+        
+        # Si es análisis mensual
+        elif month is not None:
+            # Validar el mes
+            if not 1 <= month <= 12:
+                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
             
-        if period == "week" and date is None:
-            return {"message": "Error", "error": "Para period='week', debe especificar 'date'"}
+            # Usar año actual si no se especifica
+            if year is None:
+                year = datetime.now().year
             
-        # Llamar a la función con los parámetros proporcionados
-        data = get_age_distribution(period=period, date=date, end_date=end_date, month=month, year=year)
-        return {"message": "Success", "data": data}
-    except ValueError as ve:
-        return {"message": "Error", "error": str(ve)}
+            # Formato YYYY-MM para buscar en monthly
+            month_key = f"{year}-{month:02d}"
+            
+            # Verificar si hay datos para este mes
+            if month_key in stats.get("monthly", {}):
+                return {"message": "Success", "data": stats["monthly"][month_key]}
+            
+            return {"message": "Success", "data": {}}
+        
+        # Si no coincide ningún caso, devolver datos generales
+        return {"message": "Success", "data": stats.get("overall", {})}
+    
     except Exception as e:
         return {"message": "Error", "error": str(e)}
-    
 
 @router.get("/statistics/gender-distribution/")
 def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None):
     """
-    Endpoint para obtener la distribución de visitantes por sexo.
+    Endpoint para obtener la distribución de visitantes por género.
     
     Puede filtrar por:
     - Semana: especificar period="week", date (fecha inicial) y opcionalmente end_date (fecha final)
@@ -388,18 +552,53 @@ def gender_distribution(period: str = None, date: Optional[str] = None, end_date
     :param year: Año para análisis mensual
     """
     try:
-        # Validar parámetros
+        # Obtener directamente el documento de estadísticas
+        stats = collections["Estadisticas"].find_one({"_id": "gender_distribution"})
+        if not stats:
+            return {"message": "Error", "error": "Estadísticas de género no encontradas"}
+        
+        # Si no se especifican parámetros, devolver distribución general
         if period is None and month is None:
-            return {"message": "Error", "error": "Debe especificar 'period' o 'month'"}
+            return {"message": "Success", "data": stats.get("overall", {})}
+        
+        # Si es análisis semanal
+        if period == "week" and date:
+            # Calcular la fecha de inicio de la semana
+            try:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                # Calcular el lunes de la semana (inicio de semana)
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                
+                # Verificar si hay datos para esta semana
+                if monday in stats.get("weekly", {}):
+                    return {"message": "Success", "data": stats["weekly"][monday]}
+                
+                return {"message": "Success", "data": {}}
+            except ValueError:
+                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
+        
+        # Si es análisis mensual
+        elif month is not None:
+            # Validar el mes
+            if not 1 <= month <= 12:
+                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
             
-        if period == "week" and date is None:
-            return {"message": "Error", "error": "Para period='week', debe especificar 'date'"}
+            # Usar año actual si no se especifica
+            if year is None:
+                year = datetime.now().year
             
-        # Llamar a la función con los parámetros proporcionados
-        data = get_gender_distribution(period=period, date=date, end_date=end_date, month=month, year=year)
-        return {"message": "Success", "data": data}
-    except ValueError as ve:
-        return {"message": "Error", "error": str(ve)}
+            # Formato YYYY-MM para buscar en monthly
+            month_key = f"{year}-{month:02d}"
+            
+            # Verificar si hay datos para este mes
+            if month_key in stats.get("monthly", {}):
+                return {"message": "Success", "data": stats["monthly"][month_key]}
+            
+            return {"message": "Success", "data": {}}
+        
+        # Si no coincide ningún caso, devolver datos generales
+        return {"message": "Success", "data": stats.get("overall", {})}
+    
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
@@ -419,15 +618,54 @@ def emotion_comparison(period: str = "week", date: Optional[str] = None, end_dat
         # Log parameter values
         print(f"Emotion comparison endpoint called with: period={period}, date={date}, end_date={end_date}, month={month}, year={year}")
         
-        # Llamar a la función para obtener los datos
-        data = get_emotion_comparison(period=period, date=date, end_date=end_date, month=month, year=year)
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "emotion_comparison"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
         
-        # Check if the result is an error tuple
-        if isinstance(data, tuple) and len(data) == 2 and isinstance(data[0], dict) and "error" in data[0]:
-            return {"message": "Error", "error": data[0]["error"]}, data[1]
+        # Procesar según los parámetros
+        if period == "week":
+            if date:
+                # Calcular el lunes de la semana
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                
+                data = stats.get("weekly", {}).get(monday, {})
+                if not data:
+                    return {"message": "Success", "data": {}}
+                
+                return {"message": "Success", "data": data}
+            else:
+                # Sin fecha, usar la semana actual
+                today = datetime.now()
+                monday = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+                
+                data = stats.get("weekly", {}).get(monday, {})
+                if not data:
+                    return {"message": "Success", "data": {}}
+                
+                return {"message": "Success", "data": data}
         
-        # Return success with data
-        return {"message": "Success", "data": data}
+        elif period == "month":
+            current_year = datetime.now().year
+            current_month = datetime.now().month
+            
+            # Usar el mes proporcionado o el actual
+            target_month = month or current_month
+            target_year = year or current_year
+            
+            # Formato YYYY-MM
+            month_key = f"{target_year}-{target_month:02d}"
+            
+            data = stats.get("monthly", {}).get(month_key, {})
+            if not data:
+                return {"message": "Success", "data": {}}
+            
+            return {"message": "Success", "data": data}
+        
+        else:
+            raise ValueError("El período debe ser 'week' o 'month'")
+        
     except Exception as e:
         print(f"Exception in emotion_comparison endpoint: {e}")
         import traceback
@@ -440,51 +678,63 @@ def preferred_category_by_gender():
     Endpoint para obtener las categorías de productos preferidas por género (hombres y mujeres).
     """
     try:
-        # Llamar a la función para obtener los datos
-        data = get_preferred_category_by_gender()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "preferred_category_by_gender"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
-
 @router.get("/statistics/top-successful-categories/")
 def top_successful_categories():
     """
-    Endpoint para obtener el top de categorías que generan más emociones positivas (HAPPY).
+    Endpoint para obtener el top 3 de categorías más visitadas (por conteo total).
     """
     try:
-        # Llamar a la función para obtener los datos
-        data = get_top_successful_categories()
+        # CALL THE CALCULATION FUNCTION
+        data = calculate_top_categories_by_visits()
+        # The function now returns the list directly
         return {"message": "Success", "data": data}
     except Exception as e:
-        return {"message": "Error", "error": str(e)}
+        # Log the error for debugging
+        logger.error(f"Error calculating top visited categories: {e}")
+        # Return an error structure consistent with other endpoints
+        return {"message": "Error", "error": f"Failed to calculate top categories: {str(e)}"}
     
-
 @router.get("/statistics/emotional-differences-by-category/")
 def emotional_differences_by_category():
     """
     Endpoint para obtener las emociones predominantes por género en cada categoría de productos.
     """
     try:
-        # Llamar a la función para obtener los datos
-        data = get_emotional_differences_by_category()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "emotional_differences_by_category"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
-
 @router.get("/statistics/age-gender-distribution-by-category/")
 def age_gender_distribution_by_category():
     """
     Endpoint para obtener las combinaciones de género y rango de edad más frecuentes por categoría de producto.
     """
     try:
-        # Llamar a la función para obtener los datos
-        data = get_age_gender_distribution_by_category()
+        # Obtener datos de la colección Estadisticas
+        stats = collections["Estadisticas"].find_one({"_id": "age_gender_distribution_by_category"})
+        if not stats:
+            raise Exception("Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
-    
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
@@ -665,6 +915,9 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
             }
             logger.info(f"Inserting document into MongoDB: {document}")
             collections['Persona_AR'].insert_one(document)
+            
+            # Actualizar las estadísticas de forma incremental
+            update_statistics_on_insert(document)
 
         logger.info("Data saved to database successfully")
         return {"message": "Data saved to database successfully."}
@@ -729,12 +982,52 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     
     return user
 
+def validate_password(password: str) -> tuple[bool, str]:
+    """
+    Validates a password against the following criteria:
+    - Minimum 6 characters
+    - Minimum 1 uppercase letter
+    - Minimum 1 lowercase letter
+    - Minimum 1 special character
+    - Minimum 1 number
+    
+    Returns:
+    - (True, "") if password is valid
+    - (False, error_message) if not valid
+    """
+    # Check minimum length
+    if len(password) < 6:
+        return False, "La contraseña debe tener al menos 6 caracteres"
+    
+    # Check if contains at least one uppercase letter
+    if not re.search(r'[A-Z]', password):
+        return False, "La contraseña debe contener al menos una letra mayúscula"
+    
+    # Check if contains at least one lowercase letter
+    if not re.search(r'[a-z]', password):
+        return False, "La contraseña debe contener al menos una letra minúscula"
+    
+    # Check if contains at least one special character
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]', password):
+        return False, "La contraseña debe contener al menos un carácter especial"
+    
+    # Check if contains at least one number
+    if not re.search(r'[0-9]', password):
+        return False, "La contraseña debe contener al menos un número"
+    
+    return True, ""
+
 @router.post("/signup", response_model=Token)
 async def signup(user_data: UserCreate):
     """Endpoint for user registration."""
     # Check if user already exists
     if collections['Users'].find_one({"email": user_data.email}) is not None:
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Validate password
+    is_valid, error_message = validate_password(user_data.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_message)
     
     # Create new user
     user_id = get_next_sequence_value("user_id")
@@ -883,6 +1176,10 @@ async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Dep
         
         # Update password if provided
         if payload.password is not None:
+            # Validate password
+            is_valid, error_message = validate_password(payload.password)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=error_message)
             update_data["password"] = hash_password(payload.password)
         
         # Update user
@@ -955,6 +1252,10 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
     
     # Update password if provided
     if user_data.password is not None:
+        # Validate password
+        is_valid, error_message = validate_password(user_data.password)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_message)
         update_data["password"] = hash_password(user_data.password)
     
     # Update user

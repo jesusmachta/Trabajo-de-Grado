@@ -235,7 +235,7 @@ class _HomeViewState extends State<HomeView> {
                       return Icons.pie_chart;
                     case 'gender-age-combined':
                       return Icons.people;
-                    case 'emotion-comparison':
+                    case 'emotion-comparison': // Kept for compatibility
                       return Icons.compare_arrows;
                     case 'visited-categories-historical':
                       return Icons.history;

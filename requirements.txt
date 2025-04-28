@@ -18,3 +18,4 @@ bcrypt
 pyjwt
 pydantic[email]
 python-multipart
+apscheduler

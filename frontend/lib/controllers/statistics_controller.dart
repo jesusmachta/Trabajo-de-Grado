@@ -19,7 +19,7 @@ class StatisticsController {
   final http.Client _client = http.Client();
 
   // Cache for statistics data to avoid excessive calls
-  final Map<String, Map<String, dynamic>> _cache = {};
+  final Map<String, dynamic> _cache = {};
 
   // Invalidate cache after 5 minutes to ensure fresh data
   final Duration _cacheInvalidationTime = const Duration(minutes: 5);
@@ -183,11 +183,12 @@ class StatisticsController {
       final mostBusyDaysResponse = await getStatistics('busy-days');
       final leastBusyDaysResponse = await getStatistics('least-days');
 
-      // Extraer directamente el día de la semana de la respuesta
+      // Extraer los datos teniendo en cuenta la estructura actual:
+      // data: {"day": "Wednesday", "count": 11}
       String mostBusyDay =
-          mostBusyDaysResponse['data']['most_busy_day'] ?? 'No disponible';
+          mostBusyDaysResponse['data']?['day'] ?? 'No disponible';
       String leastBusyDay =
-          leastBusyDaysResponse['data']['least_busy_day'] ?? 'No disponible';
+          leastBusyDaysResponse['data']?['day'] ?? 'No disponible';
 
       return {
         'message': 'Success',
@@ -246,20 +247,61 @@ class StatisticsController {
     }
   }
 
-  // Método para obtener las categorías mejor evaluadas
+  // Método para obtener las categorías Top Visitadas
   Future<List<dynamic>> getTopSuccessfulCategories() async {
     try {
-      // Get statistics data
-      final response = await getStatistics('top-successful-categories');
+      // Endpoint ahora devuelve Top por Visitas Totales
+      const endpoint = 'top-successful-categories';
+      final url = '$baseUrl/api/statistics/$endpoint/';
+      print('Fetching top categories (by total visits) from: $url');
 
-      if (response.containsKey('data')) {
-        return response['data'];
+      const cacheKey = endpoint;
+      if (_isCacheValid(cacheKey)) {
+        print('Using cached data for $cacheKey');
+        // Cache should store List<dynamic> directly now
+        final cachedData = _cache[cacheKey];
+        if (cachedData is List) {
+          return cachedData;
+        } else {
+          print(
+              'Cache for $cacheKey has unexpected format (expected List). Clearing cache.');
+          clearCache(endpoint);
+        }
       }
 
-      return [];
+      final response = await _client
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception(
+            'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
+      });
+
+      if (response.statusCode == 200) {
+        final dynamic decodedBody = jsonDecode(response.body);
+
+        // El backend devuelve un Map con una clave 'data' que contiene la Lista
+        if (decodedBody is Map &&
+            decodedBody.containsKey('data') &&
+            decodedBody['data'] is List) {
+          final List<dynamic> dataList = decodedBody['data'];
+          // Store the List directly in the cache
+          _cache[cacheKey] = dataList; // Store List, not Map
+          _lastFetchTime[cacheKey] = DateTime.now();
+          return dataList;
+        } else {
+          print(
+              'Error: Unexpected response format for $endpoint. Expected Map with data List.');
+          throw Exception('Formato de respuesta inesperado del servidor.');
+        }
+      } else {
+        print(
+            'Error fetching $endpoint: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Error al cargar top categorías. Código: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error al obtener categorías mejor evaluadas: $e');
-      return []; // Return empty list instead of throwing to avoid crashes
+      print('Error en getTopSuccessfulCategories: $e');
+      rethrow;
     }
   }
 
@@ -278,18 +320,136 @@ class StatisticsController {
       print('Gender Response: $genderResponse');
       print('Age Response: $ageResponse');
 
-      // Ensure both responses have data
+      // Fix: Extract complete response for debugging
+      print('Full Gender Response Structure: ${jsonEncode(genderResponse)}');
+      print('Full Age Response Structure: ${jsonEncode(ageResponse)}');
+
+      // Ensure both responses exist
       if (genderResponse == null || ageResponse == null) {
         throw Exception('One or both API responses are null');
       }
 
-      // Extract data from both responses
-      final genderData = genderResponse.containsKey('data')
-          ? genderResponse['data']
-          : {'male': 0, 'female': 0};
+      // Extract gender data - default values
+      Map<String, dynamic> genderData = {'male': 0, 'female': 0};
 
-      final ageData =
-          ageResponse.containsKey('data') ? ageResponse['data'] : {};
+      // Check if data exists directly in the response
+      if (genderResponse.containsKey('data')) {
+        var responseData = genderResponse['data'];
+
+        // Direct format with male/female
+        if (responseData is Map) {
+          // Check for capitalized keys (Male/Female)
+          if (responseData.containsKey('Male')) {
+            genderData['male'] = responseData['Male'] ?? 0;
+          }
+          if (responseData.containsKey('Female')) {
+            genderData['female'] = responseData['Female'] ?? 0;
+          }
+
+          // Check for lowercase keys (male/female)
+          if (responseData.containsKey('male')) {
+            genderData['male'] = responseData['male'] ?? 0;
+          }
+          if (responseData.containsKey('female')) {
+            genderData['female'] = responseData['female'] ?? 0;
+          }
+
+          // Check for monthly data
+          if (responseData.containsKey('monthly')) {
+            var monthlyData = responseData['monthly'];
+
+            if (params != null &&
+                params.containsKey('month') &&
+                params.containsKey('year')) {
+              final month = params['month'] ?? '';
+              final monthPadded =
+                  month.isNotEmpty ? month.padLeft(2, '0') : '00';
+              final monthKey = "${params['year']}-$monthPadded";
+
+              print('Looking for month key: $monthKey in monthly data');
+
+              if (monthlyData is Map && monthlyData.containsKey(monthKey)) {
+                var monthData = monthlyData[monthKey];
+                print('Found month data: $monthData');
+
+                if (monthData is Map) {
+                  // Check for capitalized keys in monthly data
+                  if (monthData.containsKey('Male')) {
+                    genderData['male'] = monthData['Male'] ?? 0;
+                  }
+                  if (monthData.containsKey('Female')) {
+                    genderData['female'] = monthData['Female'] ?? 0;
+                  }
+                }
+              }
+            }
+          }
+
+          // Check overall data
+          if (responseData.containsKey('overall')) {
+            var overallData = responseData['overall'];
+
+            if (overallData is Map) {
+              if (overallData.containsKey('Male')) {
+                genderData['male'] = overallData['Male'] ?? 0;
+              }
+              if (overallData.containsKey('Female')) {
+                genderData['female'] = overallData['Female'] ?? 0;
+              }
+            }
+          }
+        }
+      }
+
+      print('Extracted gender data: $genderData');
+
+      // Extract age data with a similar approach
+      Map<String, dynamic> ageData = {'ages': {}};
+
+      if (ageResponse.containsKey('data')) {
+        var responseData = ageResponse['data'];
+
+        if (responseData is Map) {
+          // Check if ages is directly in the data
+          if (responseData.containsKey('ages')) {
+            ageData['ages'] = responseData['ages'];
+          }
+
+          // Check for monthly data
+          if (responseData.containsKey('monthly')) {
+            var monthlyData = responseData['monthly'];
+
+            if (params != null &&
+                params.containsKey('month') &&
+                params.containsKey('year')) {
+              final month = params['month'] ?? '';
+              final monthPadded =
+                  month.isNotEmpty ? month.padLeft(2, '0') : '00';
+              final monthKey = "${params['year']}-$monthPadded";
+
+              print('Looking for month key: $monthKey in age monthly data');
+
+              if (monthlyData is Map && monthlyData.containsKey(monthKey)) {
+                ageData['ages'] = monthlyData[monthKey];
+                print('Found age month data: ${ageData['ages']}');
+              }
+            }
+          }
+
+          // Check overall data
+          if (responseData.containsKey('overall')) {
+            ageData['ages'] = responseData['overall'];
+          }
+
+          // Last resort: if we found nothing in standard places, use direct data
+          if (ageData['ages'] == null ||
+              (ageData['ages'] is Map && (ageData['ages'] as Map).isEmpty)) {
+            ageData['ages'] = responseData;
+          }
+        }
+      }
+
+      print('Extracted age data: $ageData');
 
       // Return combined data
       return {
@@ -339,18 +499,8 @@ class StatisticsController {
         'label': 'Distribución por género y edad',
         'emoji': '👥'
       },
-      {
-        'value': 'emotion-comparison',
-        'label': 'Comparación de emociones',
-        'emoji': '🔄'
-      },
 
       // Estadísticas históricas
-      {
-        'value': 'visited-categories-historical',
-        'label': 'Histórico de categorías más y menos visitadas',
-        'emoji': '📈'
-      },
       {
         'value': 'preferred-category-by-gender',
         'label': 'Categorías preferidas por género',
@@ -372,5 +522,37 @@ class StatisticsController {
         'emoji': '📊'
       },
     ];
+  }
+
+  // --- NUEVO: Obtener semanas y meses disponibles para gender/age ---
+  Future<List<String>> getAvailableWeeks() async {
+    final genderResp = await getStatistics('gender-distribution');
+    final ageResp = await getStatistics('age-distribution');
+    final Set<String> weeks = {};
+    if (genderResp['data'] != null && genderResp['data']['weekly'] != null) {
+      weeks.addAll((genderResp['data']['weekly'] as Map<String, dynamic>).keys);
+    }
+    if (ageResp['data'] != null && ageResp['data']['weekly'] != null) {
+      weeks.addAll((ageResp['data']['weekly'] as Map<String, dynamic>).keys);
+    }
+    final sorted = weeks.toList()
+      ..sort((a, b) => b.compareTo(a)); // Más reciente primero
+    return sorted;
+  }
+
+  Future<List<String>> getAvailableMonths() async {
+    final genderResp = await getStatistics('gender-distribution');
+    final ageResp = await getStatistics('age-distribution');
+    final Set<String> months = {};
+    if (genderResp['data'] != null && genderResp['data']['monthly'] != null) {
+      months
+          .addAll((genderResp['data']['monthly'] as Map<String, dynamic>).keys);
+    }
+    if (ageResp['data'] != null && ageResp['data']['monthly'] != null) {
+      months.addAll((ageResp['data']['monthly'] as Map<String, dynamic>).keys);
+    }
+    final sorted = months.toList()
+      ..sort((a, b) => b.compareTo(a)); // Más reciente primero
+    return sorted;
   }
 }
