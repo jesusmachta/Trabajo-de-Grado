@@ -181,10 +181,36 @@ class _UsersViewState extends State<UsersView> {
                     if (!_isEditMode && (value == null || value.isEmpty)) {
                       return 'Por favor ingresa una contraseña';
                     }
+
                     // Optional when editing, but if entered, must meet criteria
-                    if (value != null && value.isNotEmpty && value.length < 6) {
-                      return 'La contraseña debe tener al menos 6 caracteres';
+                    if (value != null && value.isNotEmpty) {
+                      // Minimum 6 characters
+                      if (value.length < 6) {
+                        return 'La contraseña debe tener al menos 6 caracteres';
+                      }
+
+                      // At least one uppercase letter
+                      if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                        return 'La contraseña debe contener al menos una letra mayúscula';
+                      }
+
+                      // At least one lowercase letter
+                      if (!RegExp(r'[a-z]').hasMatch(value)) {
+                        return 'La contraseña debe contener al menos una letra minúscula';
+                      }
+
+                      // At least one special character
+                      if (!RegExp(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]')
+                          .hasMatch(value)) {
+                        return 'La contraseña debe contener al menos un carácter especial';
+                      }
+
+                      // At least one number
+                      if (!RegExp(r'[0-9]').hasMatch(value)) {
+                        return 'La contraseña debe contener al menos un número';
+                      }
                     }
+
                     return null;
                   },
                 ),

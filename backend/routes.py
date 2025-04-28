@@ -45,6 +45,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 import bcrypt
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import re
 
 
 router = APIRouter()
@@ -981,12 +982,52 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     
     return user
 
+def validate_password(password: str) -> tuple[bool, str]:
+    """
+    Validates a password against the following criteria:
+    - Minimum 6 characters
+    - Minimum 1 uppercase letter
+    - Minimum 1 lowercase letter
+    - Minimum 1 special character
+    - Minimum 1 number
+    
+    Returns:
+    - (True, "") if password is valid
+    - (False, error_message) if not valid
+    """
+    # Check minimum length
+    if len(password) < 6:
+        return False, "La contraseña debe tener al menos 6 caracteres"
+    
+    # Check if contains at least one uppercase letter
+    if not re.search(r'[A-Z]', password):
+        return False, "La contraseña debe contener al menos una letra mayúscula"
+    
+    # Check if contains at least one lowercase letter
+    if not re.search(r'[a-z]', password):
+        return False, "La contraseña debe contener al menos una letra minúscula"
+    
+    # Check if contains at least one special character
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]', password):
+        return False, "La contraseña debe contener al menos un carácter especial"
+    
+    # Check if contains at least one number
+    if not re.search(r'[0-9]', password):
+        return False, "La contraseña debe contener al menos un número"
+    
+    return True, ""
+
 @router.post("/signup", response_model=Token)
 async def signup(user_data: UserCreate):
     """Endpoint for user registration."""
     # Check if user already exists
     if collections['Users'].find_one({"email": user_data.email}) is not None:
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Validate password
+    is_valid, error_message = validate_password(user_data.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_message)
     
     # Create new user
     user_id = get_next_sequence_value("user_id")
@@ -1135,6 +1176,10 @@ async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Dep
         
         # Update password if provided
         if payload.password is not None:
+            # Validate password
+            is_valid, error_message = validate_password(payload.password)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=error_message)
             update_data["password"] = hash_password(payload.password)
         
         # Update user
@@ -1207,6 +1252,10 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
     
     # Update password if provided
     if user_data.password is not None:
+        # Validate password
+        is_valid, error_message = validate_password(user_data.password)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_message)
         update_data["password"] = hash_password(user_data.password)
     
     # Update user
