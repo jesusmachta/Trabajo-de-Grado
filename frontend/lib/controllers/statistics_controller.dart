@@ -499,11 +499,6 @@ class StatisticsController {
         'label': 'Distribución por género y edad',
         'emoji': '👥'
       },
-      {
-        'value': 'emotion-comparison',
-        'label': 'Comparación de emociones',
-        'emoji': '🔄'
-      },
 
       // Estadísticas históricas
       {
