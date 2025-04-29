@@ -1804,7 +1804,7 @@ class StatisticsViewState extends State<StatisticsView> {
       case 'frutas':
         return Icons.shopping_basket; // A basket icon to represent fruits
       case 'vegetales':
-        return Icons.emoji_food_beverage;
+        return Icons.eco; // Better icon for vegetables
       case 'carnes':
         return Icons.restaurant_menu;
       case 'lácteos':

@@ -729,9 +729,9 @@ def emotional_differences_by_category():
         if not stats:
             raise Exception("Estadísticas no encontradas")
         
-        # Modificado para obtener raw_counts en lugar de data
-        raw_counts = stats.get("raw_counts", {})
-        return {"message": "Success", "data": raw_counts}
+        # Obtener datos del campo "data" 
+        data = stats.get("data", {})
+        return {"message": "Success", "data": data}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
