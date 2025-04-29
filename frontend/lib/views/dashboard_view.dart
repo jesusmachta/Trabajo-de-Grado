@@ -9,6 +9,18 @@ import 'home_view.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
+import 'package:syncfusion_flutter_charts/charts.dart';
+
+// Clase para datos de porcentaje de emociones (igual que en statistics_view)
+class EmotionPercentageData {
+  final String emotion;
+  final double percentage;
+
+  EmotionPercentageData({
+    required this.emotion,
+    required this.percentage,
+  });
+}
 
 class DashboardView extends StatefulWidget {
   final Function toggleTheme;
@@ -24,10 +36,6 @@ class _DashboardViewState extends State<DashboardView> {
   bool _isLoading = true;
   Map<String, dynamic>? _dashboardData;
   String? _error;
-
-  // Period selection
-  String _selectedPeriod = 'week';
-  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -51,19 +59,8 @@ class _DashboardViewState extends State<DashboardView> {
     });
 
     try {
-      // Format date for API request
-      final String formattedDate =
-          DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-      // Output debug info to console
-      print(
-          'Loading dashboard data with period: $_selectedPeriod, date: $formattedDate');
-
-      // Get all dashboard statistics with selected period and date
-      final data = await _controller.getAllDashboardStatistics(
-        period: _selectedPeriod,
-        date: formattedDate,
-      );
+      // Get all dashboard statistics without period filtering
+      final data = await _controller.getAllDashboardStatistics();
 
       setState(() {
         _dashboardData = data;
@@ -78,31 +75,6 @@ class _DashboardViewState extends State<DashboardView> {
         _error = e.toString();
         _isLoading = false;
       });
-    }
-  }
-
-  void _updatePeriod(String period) {
-    if (_selectedPeriod != period) {
-      setState(() {
-        _selectedPeriod = period;
-      });
-      _loadDashboardData();
-    }
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-      _loadDashboardData();
     }
   }
 
@@ -182,7 +154,7 @@ class _DashboardViewState extends State<DashboardView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Period filter section
+          // Dashboard title
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
@@ -190,100 +162,17 @@ class _DashboardViewState extends State<DashboardView> {
                   Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Filtrar por período:',
+                  'Panel de Estadísticas Históricas',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    // Week filter button
-                    ElevatedButton(
-                      onPressed: () => _updatePeriod('week'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedPeriod == 'week'
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.surfaceVariant,
-                        foregroundColor: _selectedPeriod == 'week'
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      child: const Text('Semana'),
-                    ),
-                    const SizedBox(width: 16),
-                    // Month filter button
-                    ElevatedButton(
-                      onPressed: () => _updatePeriod('month'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedPeriod == 'month'
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.surfaceVariant,
-                        foregroundColor: _selectedPeriod == 'month'
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      child: const Text('Mes'),
-                    ),
-                    const Spacer(),
-                    // Selected period display
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outline
-                              .withOpacity(0.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _selectedPeriod == 'week'
-                                ? 'Semana seleccionada'
-                                : 'Mes seleccionado',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => _selectDate(context),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 16,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  DateFormat('dd/MM/yyyy')
-                                      .format(_selectedDate),
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Refresh button
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      tooltip: 'Actualizar',
-                      onPressed: _loadDashboardData,
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Actualizar',
+                  onPressed: _loadDashboardData,
                 ),
               ],
             ),
@@ -332,13 +221,13 @@ class _DashboardViewState extends State<DashboardView> {
 
           const SizedBox(height: 16),
 
-          // Fourth row with gender distribution and top categories
+          // Fourth row with preferred categories by gender and top categories
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Gender distribution
+              // Preferred categories by gender
               Expanded(
-                child: _buildGenderDistribution(),
+                child: _buildPreferredCategoriesByGender(),
               ),
               const SizedBox(width: 16),
               // Top categories
@@ -548,43 +437,6 @@ class _DashboardViewState extends State<DashboardView> {
                   ],
                 ),
               ),
-            ),
-          ),
-          // Day labels below chart
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Text('Monday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Tuesday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Wednesday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Thursday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Friday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Saturday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Sunday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-              ],
             ),
           ),
           // Visitor counts
@@ -823,43 +675,6 @@ class _DashboardViewState extends State<DashboardView> {
               ),
             ),
           ),
-          // Day labels below chart
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Text('Monday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Tuesday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Wednesday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Thursday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Friday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Saturday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-                Text('Sunday',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.outline)),
-              ],
-            ),
-          ),
           // Visitor counts
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -900,6 +715,146 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
+  Widget _buildEmotionsDetected() {
+    if (_dashboardData == null ||
+        !_dashboardData!.containsKey('emotionPercentageByCategory')) {
+      return const StatisticCard(
+        title: 'Emociones detectadas',
+        icon: Icons.emoji_emotions,
+        content: Center(child: Text('No hay datos disponibles')),
+        expanded: false,
+        height: 300,
+      );
+    }
+
+    final data = _dashboardData!['emotionPercentageByCategory'];
+    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
+      return const StatisticCard(
+        title: 'Emociones detectadas',
+        icon: Icons.emoji_emotions,
+        content: Center(child: Text('Formato de datos incorrecto')),
+        expanded: false,
+        height: 300,
+      );
+    }
+
+    final Map<String, dynamic> categoryData =
+        data['data'] as Map<String, dynamic>;
+    if (categoryData.isEmpty) {
+      return const StatisticCard(
+        title: 'Emociones detectadas',
+        icon: Icons.emoji_emotions,
+        content: Center(child: Text('No se encontraron datos de emociones')),
+        expanded: false,
+        height: 300,
+      );
+    }
+
+    // Construir los datos para el gráfico: porcentaje de HAPPY por categoría
+    final List<EmotionPercentageData> chartData = [];
+    categoryData.forEach((category, emotions) {
+      double happy = 0;
+      if (emotions is Map<String, dynamic> && emotions.containsKey('HAPPY')) {
+        final value = emotions['HAPPY'];
+        if (value is num) happy = value.toDouble();
+      }
+      chartData
+          .add(EmotionPercentageData(emotion: category, percentage: happy));
+    });
+    if (chartData.isEmpty) {
+      return const StatisticCard(
+        title: 'Emociones detectadas',
+        icon: Icons.emoji_emotions,
+        content: Center(child: Text('No se encontraron datos de emociones')),
+        expanded: false,
+        height: 300,
+      );
+    }
+
+    // Colores bonitos de Material para las categorías
+    final List<Color> materialColors = [
+      Colors.blue,
+      Colors.amber,
+      Colors.green,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.pink,
+      Colors.indigo,
+      Colors.cyan,
+      Colors.deepOrange,
+      Colors.lime,
+      Colors.deepPurple,
+      Colors.lightBlue,
+      Colors.brown,
+    ];
+
+    Color getCategoryColor(int index) =>
+        materialColors[index % materialColors.length];
+
+    return StatisticCard(
+      title: 'Porcentaje de clientes FELICES por categoría',
+      icon: Icons.emoji_emotions,
+      content: Column(
+        children: [
+          SizedBox(
+            height: 220,
+            child: SfCircularChart(
+              margin: EdgeInsets.zero,
+              legend: Legend(isVisible: false),
+              series: <CircularSeries<EmotionPercentageData, String>>[
+                DoughnutSeries<EmotionPercentageData, String>(
+                  dataSource: chartData,
+                  xValueMapper: (EmotionPercentageData data, _) => data.emotion,
+                  yValueMapper: (EmotionPercentageData data, _) =>
+                      data.percentage,
+                  pointColorMapper: (EmotionPercentageData data, idx) =>
+                      getCategoryColor(idx!),
+                  dataLabelSettings: const DataLabelSettings(
+                      isVisible: true,
+                      labelPosition: ChartDataLabelPosition.outside),
+                  dataLabelMapper: (EmotionPercentageData data, _) =>
+                      '${data.emotion}: ${data.percentage.toStringAsFixed(1)}%',
+                  enableTooltip: true,
+                  innerRadius: '60%',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
+            children: List.generate(chartData.length, (i) {
+              final entry = chartData[i];
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: getCategoryColor(i),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${entry.emotion}: ${entry.percentage.toStringAsFixed(1)}%',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+      expanded: false,
+      height: 340,
+    );
+  }
+
   Widget _buildBusyDaysAndCalendar() {
     if (_dashboardData == null || !_dashboardData!.containsKey('busyDays')) {
       return const StatisticCard(
@@ -907,40 +862,21 @@ class _DashboardViewState extends State<DashboardView> {
         icon: Icons.calendar_month,
         content: Center(child: Text('No hay datos disponibles')),
         expanded: false,
-        height: 300,
+        height: 400,
       );
     }
-
     final data = _dashboardData!['busyDays'];
-
     if (data is! Map || !data.containsKey('data') || data['data'] == null) {
       return const StatisticCard(
         title: 'Días de la semana con más y menos afluencia',
         icon: Icons.calendar_month,
         content: Center(child: Text('Formato de datos incorrecto')),
         expanded: false,
-        height: 300,
+        height: 400,
       );
     }
-
     final busyDaysData = data['data'] as Map<String, dynamic>;
-
-    // Extract most and least busy days
-    final String mostBusyDay = busyDaysData['most_busy_day'] ?? 'Friday';
-    final int mostBusyCount = busyDaysData['most_busy_count'] ?? 25;
-    final String leastBusyDay = busyDaysData['least_busy_day'] ?? 'Thursday';
-    final int leastBusyCount = busyDaysData['least_busy_count'] ?? 7;
-
-    // Get current week dates
-    final List<DateTime> weekDates = [];
-    final DateTime now = DateTime.now();
-    final DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-
-    for (int i = 0; i < 7; i++) {
-      weekDates.add(startOfWeek.add(Duration(days: i)));
-    }
-
-    // Map days to their Spanish translations and short forms
+    // Traducción de días
     final Map<String, String> dayTranslations = {
       'Monday': 'Lunes',
       'Tuesday': 'Martes',
@@ -950,288 +886,281 @@ class _DashboardViewState extends State<DashboardView> {
       'Saturday': 'Sábado',
       'Sunday': 'Domingo',
     };
-
-    final Map<String, String> dayShort = {
-      'Monday': 'L',
-      'Tuesday': 'M',
-      'Wednesday': 'M',
-      'Thursday': 'J',
-      'Friday': 'V',
-      'Saturday': 'S',
-      'Sunday': 'D',
-    };
-
-    final String translatedMostBusyDay =
-        dayTranslations[mostBusyDay] ?? mostBusyDay;
-    final String translatedLeastBusyDay =
-        dayTranslations[leastBusyDay] ?? leastBusyDay;
-
+    final String mostBusyDayName =
+        dayTranslations[busyDaysData['most_busy_day']] ??
+            busyDaysData['most_busy_day'] ??
+            'No disponible';
+    final String leastBusyDayName =
+        dayTranslations[busyDaysData['least_busy_day']] ??
+            busyDaysData['least_busy_day'] ??
+            'No disponible';
+    // Semana actual (7 días hasta hoy)
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 6));
+    final List<Map<String, dynamic>> pastWeekDaysInfo = [];
+    for (int i = 0; i < 7; i++) {
+      final date = weekAgo.add(Duration(days: i));
+      String weekdayName;
+      switch (date.weekday) {
+        case 1:
+          weekdayName = 'Lunes';
+          break;
+        case 2:
+          weekdayName = 'Martes';
+          break;
+        case 3:
+          weekdayName = 'Miércoles';
+          break;
+        case 4:
+          weekdayName = 'Jueves';
+          break;
+        case 5:
+          weekdayName = 'Viernes';
+          break;
+        case 6:
+          weekdayName = 'Sábado';
+          break;
+        case 7:
+          weekdayName = 'Domingo';
+          break;
+        default:
+          weekdayName = '';
+      }
+      String initialLetter;
+      switch (date.weekday) {
+        case 1:
+          initialLetter = 'L';
+          break;
+        case 2:
+          initialLetter = 'M';
+          break;
+        case 3:
+          initialLetter = 'M';
+          break;
+        case 4:
+          initialLetter = 'J';
+          break;
+        case 5:
+          initialLetter = 'V';
+          break;
+        case 6:
+          initialLetter = 'S';
+          break;
+        case 7:
+          initialLetter = 'D';
+          break;
+        default:
+          initialLetter = '';
+      }
+      pastWeekDaysInfo.add({
+        'letter': initialLetter,
+        'full': weekdayName,
+        'date': date.day,
+        'isMostBusy': weekdayName == mostBusyDayName,
+        'isLeastBusy': weekdayName == leastBusyDayName,
+      });
+    }
     return StatisticCard(
       title: 'Días de la semana con más y menos afluencia',
       icon: Icons.calendar_month,
-      content: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            // Days with highest/lowest traffic
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color:
-                        Theme.of(context).colorScheme.outline.withOpacity(0.2)),
-              ),
-              padding: const EdgeInsets.all(16.0),
-              width: double.infinity,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Most busy day
-                  Column(
-                    children: [
-                      Text(
-                        'Día Más Concurrido',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.7),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.people,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              translatedMostBusyDay,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Least busy day
-                  Column(
-                    children: [
-                      Text(
-                        'Día Menos Concurrido',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.7),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.person_off,
-                              color: Colors.orange,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              translatedLeastBusyDay,
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Calendar title
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Text(
-                'Calendario Semanal',
-                style: TextStyle(
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Días de la Semana con Más y Menos Afluencia',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            // Calendar grid with days of the week
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color:
-                        Theme.of(context).colorScheme.outline.withOpacity(0.2)),
-              ),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(7, (index) {
-                  final date = weekDates[index];
-                  final dayName = DateFormat('EEEE').format(date);
-                  final dayLetter = dayShort[dayName] ?? '';
-                  final isToday = date.day == DateTime.now().day &&
-                      date.month == DateTime.now().month &&
-                      date.year == DateTime.now().year;
-                  final isMostBusy = dayName == mostBusyDay;
-                  final isLeastBusy = dayName == leastBusyDay;
-
-                  Color dayColor = Theme.of(context).colorScheme.surfaceVariant;
-
-                  if (isToday) {
-                    dayColor = Theme.of(context).colorScheme.primary;
-                  } else if (isMostBusy) {
-                    dayColor =
-                        Theme.of(context).colorScheme.primary.withOpacity(0.7);
-                  } else if (isLeastBusy) {
-                    dayColor = Colors.orange;
-                  }
-
-                  return Column(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: dayColor.withOpacity(isToday ? 1.0 : 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            dayLetter,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isToday
-                                  ? Theme.of(context).colorScheme.onPrimary
-                                  : dayColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        date.day.toString(),
-                        style: TextStyle(
-                          fontWeight:
-                              isToday ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  );
-                }),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Visitor count info
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.people,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$mostBusyCount visitantes',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.person_off,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$leastBusyCount visitantes',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  spreadRadius: 1,
+                  blurRadius: 5,
                 ),
               ],
             ),
-          ],
-        ),
+            child: Column(
+              children: [
+                Text(
+                  'Calendario Semanal',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                LayoutBuilder(builder: (context, constraints) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: pastWeekDaysInfo.map((dayInfo) {
+                      final bool isMostBusy = dayInfo['isMostBusy'];
+                      final bool isLeastBusy = dayInfo['isLeastBusy'];
+                      Color? bgColor;
+                      if (isMostBusy) {
+                        bgColor = const Color(0xFFE8F5E9);
+                      } else if (isLeastBusy) {
+                        bgColor = const Color(0xFFFFF3E0);
+                      }
+                      return Column(
+                        children: [
+                          Text(
+                            dayInfo['letter'],
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: isMostBusy
+                                  ? Colors.green[700]
+                                  : isLeastBusy
+                                      ? Colors.orange[700]
+                                      : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            dayInfo['full'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                              fontWeight: isMostBusy || isLeastBusy
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: bgColor,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              dayInfo['date'].toString(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: isMostBusy || isLeastBusy
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.people,
+                            color: Colors.green[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Día Más Concurrido',
+                            style: TextStyle(
+                              color: Colors.green[700],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Center(
+                        child: Text(
+                          mostBusyDayName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            color: Colors.orange[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Día Menos Concurrido',
+                            style: TextStyle(
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Center(
+                        child: Text(
+                          leastBusyDayName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                color: Colors.orange[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       expanded: false,
       height: 400,
@@ -1444,357 +1373,113 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  Widget _buildEmotionsDetected() {
-    // If we don't have emotion data, use fallback
-    Map<String, dynamic>? emotionData;
-
-    if (_dashboardData != null &&
-        _dashboardData!.containsKey('emotionPercentage') &&
-        _dashboardData!['emotionPercentage'] is Map &&
-        _dashboardData!['emotionPercentage'].containsKey('data')) {
-      emotionData =
-          _dashboardData!['emotionPercentage']['data'] as Map<String, dynamic>;
+  Widget _buildPreferredCategoriesByGender() {
+    if (_dashboardData == null ||
+        !_dashboardData!.containsKey('preferredCategoriesByGender')) {
+      return const StatisticCard(
+        title: 'Categorías preferidas por género',
+        icon: Icons.category_outlined,
+        content: Center(child: Text('No hay datos disponibles')),
+        expanded: false,
+        height: 300,
+      );
+    }
+    final data = _dashboardData!['preferredCategoriesByGender'];
+    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
+      return const StatisticCard(
+        title: 'Categorías preferidas por género',
+        icon: Icons.category_outlined,
+        content: Center(child: Text('Formato de datos incorrecto')),
+        expanded: false,
+        height: 300,
+      );
+    }
+    final genderPreferencesData = data['data'] as Map<String, dynamic>;
+    // Extraer correctamente los datos de 'Male' y 'Female'
+    final malePreference = genderPreferencesData['Male'] ?? {};
+    final femalePreference = genderPreferencesData['Female'] ?? {};
+    // Helper function to get category icon
+    IconData getCategoryIcon(String category) {
+      switch (category.toLowerCase()) {
+        case 'snacks':
+          return Icons.cookie;
+        case 'frutas':
+          return Icons.apple;
+        case 'alcohol':
+          return Icons.wine_bar;
+        case 'bebidas':
+          return Icons.local_drink;
+        case 'carnes':
+          return Icons.restaurant;
+        case 'lácteos':
+        case 'lacteos':
+          return Icons.egg;
+        case 'panadería':
+        case 'panaderia':
+          return Icons.bakery_dining;
+        case 'limpieza':
+          return Icons.cleaning_services;
+        case 'cereales':
+          return Icons.breakfast_dining;
+        case 'congelados':
+          return Icons.ac_unit;
+        default:
+          return Icons.shopping_bag;
+      }
     }
 
-    // Fallback data if API didn't return anything
-    final Map<String, double> emotions = {
-      'Calmado': emotionData?['CALM'] as double? ?? 68.5,
-      'Feliz': emotionData?['HAPPY'] as double? ?? 25.3,
-      'Triste': emotionData?['SAD'] as double? ?? 6.2,
-    };
-
-    // Calculate total for percentages
-    final total = emotions.values.fold(0.0, (sum, value) => sum + value);
-
-    // Create a color map for emotions
-    final Map<String, Color> emotionColors = {
-      'Calmado': Colors.teal,
-      'Feliz': Colors.amber,
-      'Triste': Colors.blue,
-    };
-
-    return StatisticCard(
-      title: 'Emociones detectadas',
-      icon: Icons.emoji_emotions,
-      content: Padding(
-        padding: const EdgeInsets.all(16.0),
+    Widget buildGenderCard(
+        String gender, Map data, Color color, IconData icon) {
+      final String category = data['category'] ?? 'No disponible';
+      final int count = data['count'] ?? 0;
+      return Container(
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Pie chart representation
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Circular progress indicators stacked for pie chart effect
-                    SizedBox(
-                      width: 200,
-                      height: 200,
-                      child: CircularProgressIndicator(
-                        value: emotions['Calmado']! / total,
-                        strokeWidth: 20,
-                        backgroundColor: Colors.transparent,
-                        color: emotionColors['Calmado'],
-                      ),
-                    ),
-                    SizedBox(
-                      width: 160,
-                      height: 160,
-                      child: CircularProgressIndicator(
-                        value: emotions['Feliz']! / total,
-                        strokeWidth: 20,
-                        backgroundColor: Colors.transparent,
-                        color: emotionColors['Feliz'],
-                      ),
-                    ),
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: CircularProgressIndicator(
-                        value: emotions['Triste']! / total,
-                        strokeWidth: 20,
-                        backgroundColor: Colors.transparent,
-                        color: emotionColors['Triste'],
-                      ),
-                    ),
-                  ],
-                ),
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(gender,
+                style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 16),
+            Icon(getCategoryIcon(category), color: color, size: 48),
+            const SizedBox(height: 8),
+            Text(category,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-
-            // Legend
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: emotions.entries.map((entry) {
-                  final percentage =
-                      (entry.value / total * 100).toStringAsFixed(1);
-
-                  return Row(
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: emotionColors[entry.key],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${entry.key}: $percentage%',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
+              child: Text('$count visitas',
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
-      ),
-      expanded: false,
-      height: 300,
-    );
-  }
-
-  Widget _buildGenderDistribution() {
-    // If we don't have gender data, use fallback
-    Map<String, dynamic>? genderData;
-
-    if (_dashboardData != null &&
-        _dashboardData!.containsKey('genderDistribution') &&
-        _dashboardData!['genderDistribution'] is Map &&
-        _dashboardData!['genderDistribution'].containsKey('data')) {
-      genderData =
-          _dashboardData!['genderDistribution']['data'] as Map<String, dynamic>;
+      );
     }
 
-    // Fallback data if API didn't return anything
-    final int maleCount = genderData?['male'] as int? ?? 5;
-    final int femaleCount = genderData?['female'] as int? ?? 3;
-    final int totalCount = maleCount + femaleCount;
-
-    // Calculate percentages
-    final double malePercentage = maleCount / totalCount * 100;
-    final double femalePercentage = femaleCount / totalCount * 100;
-
     return StatisticCard(
-      title: 'Distribución por género',
-      icon: Icons.people,
-      content: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Gender distribution chart
-            Expanded(
-              child: Row(
-                children: [
-                  // Male section
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Icon
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.man,
-                              color: Colors.blue,
-                              size: 32,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Label
-                          const Text(
-                            'Masculino',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Value
-                          Text(
-                            '$maleCount',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          // Percentage
-                          Text(
-                            '${malePercentage.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // VS label
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'VS',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  // Female section
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.pink.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Icon
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.pink.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.woman,
-                              color: Colors.pink,
-                              size: 32,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Label
-                          const Text(
-                            'Femenino',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Value
-                          Text(
-                            '$femaleCount',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                              color: Colors.pink,
-                            ),
-                          ),
-                          // Percentage
-                          Text(
-                            '${femalePercentage.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              color: Colors.pink.shade800,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Distribution bar
-            Container(
-              margin: const EdgeInsets.only(top: 16),
-              height: 16,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey.withOpacity(0.2),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: MediaQuery.of(context).size.width *
-                        0.5 *
-                        (malePercentage / 100),
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        bottomLeft: Radius.circular(8),
-                      ),
-                      color: Colors.blue,
-                    ),
-                  ),
-                  Container(
-                    width: MediaQuery.of(context).size.width *
-                        0.5 *
-                        (femalePercentage / 100),
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.only(
-                        topRight: Radius.circular(8),
-                        bottomRight: Radius.circular(8),
-                      ),
-                      color: Colors.pink,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Age distribution section title
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-              child: Text(
-                'Distribución por edad',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color:
-                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                ),
-              ),
-            ),
-
-            // Age distribution
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceVariant
-                    .withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                '19-30: 8 personas',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
+      title: 'Categorías preferidas por género',
+      icon: Icons.category_outlined,
+      content: Row(
+        children: [
+          Expanded(
+              child: buildGenderCard(
+                  'Masculino', malePreference, Colors.blue, Icons.man)),
+          const SizedBox(width: 16),
+          Expanded(
+              child: buildGenderCard(
+                  'Femenino', femalePreference, Colors.pink, Icons.woman)),
+        ],
       ),
       expanded: false,
       height: 300,
@@ -1802,32 +1487,42 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildTopCategories() {
-    List<Map<String, dynamic>> topCategories = [];
-
-    try {
-      if (_dashboardData != null &&
-          _dashboardData!.containsKey('topCategories') &&
-          _dashboardData!['topCategories'] is List) {
-        final List<dynamic> data =
-            _dashboardData!['topCategories'] as List<dynamic>;
-
-        for (final item in data) {
-          if (item is Map<String, dynamic>) {
-            topCategories.add(item);
-          }
-        }
-      }
-    } catch (e) {
-      print('Error parsing top categories: $e');
+    if (_dashboardData == null ||
+        !_dashboardData!.containsKey('topCategories')) {
+      return const StatisticCard(
+        title: 'Top Categorías Mejor Evaluadas',
+        icon: Icons.star,
+        content: Center(child: Text('No hay datos disponibles')),
+        expanded: false,
+        height: 300,
+      );
     }
 
-    // If we don't have enough data, use fallback data
+    final data = _dashboardData!['topCategories'];
+
+    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
+      return const StatisticCard(
+        title: 'Top Categorías Mejor Evaluadas',
+        icon: Icons.star,
+        content: Center(child: Text('Formato de datos incorrecto')),
+        expanded: false,
+        height: 300,
+      );
+    }
+
+    // Extract the data list
+    final List<dynamic> topCategories = data['data'] as List<dynamic>;
+
+    // Ensure we have at least 3 categories
     if (topCategories.length < 3) {
-      topCategories = [
-        {'rank': 1, 'category': 'Snacks', 'total_count': 210},
-        {'rank': 2, 'category': 'Alcohol', 'total_count': 109},
-        {'rank': 3, 'category': 'Frutas', 'total_count': 18},
-      ];
+      return const StatisticCard(
+        title: 'Top Categorías Mejor Evaluadas',
+        icon: Icons.star,
+        content:
+            Center(child: Text('No hay suficientes categorías para mostrar')),
+        expanded: false,
+        height: 300,
+      );
     }
 
     // Helper function to get category icon
@@ -2044,18 +1739,21 @@ class _DashboardViewState extends State<DashboardView> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text(
-                  '${topCategories[1]['total_count']} visitas',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${topCategories[0]['total_count']} visitas',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${topCategories[2]['total_count']} visitas',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+                if (topCategories[1]['total_count'] != null)
+                  Text(
+                    '${topCategories[1]['total_count']} visitas',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                if (topCategories[0]['total_count'] != null)
+                  Text(
+                    '${topCategories[0]['total_count']} visitas',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                if (topCategories[2]['total_count'] != null)
+                  Text(
+                    '${topCategories[2]['total_count']} visitas',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
               ],
             ),
           ),

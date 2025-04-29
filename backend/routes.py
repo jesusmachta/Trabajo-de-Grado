@@ -683,9 +683,23 @@ def preferred_category_by_gender():
         if not stats:
             raise Exception("Estadísticas no encontradas")
         
+        # Verificar si hay datos en raw_counts
+        raw_counts = stats.get("raw_counts", {})
+        if not raw_counts.get("Male") and not raw_counts.get("Female"):
+            # No hay datos - intentar recalcular desde los datos originales
+            logger.info("No hay datos en preferred_category_by_gender, recalculando...")
+            from backend.statistics.incremental_stats import recalculate_all_statistics
+            recalculate_all_statistics()
+            
+            # Volver a buscar después de recalcular
+            stats = collections["Estadisticas"].find_one({"_id": "preferred_category_by_gender"})
+            if not stats:
+                raise Exception("No se pudieron recalcular las estadísticas")
+        
         data = stats.get("data", {})
         return {"message": "Success", "data": data}
     except Exception as e:
+        logger.error(f"Error en preferred_category_by_gender: {e}")
         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/top-successful-categories/")
@@ -715,8 +729,9 @@ def emotional_differences_by_category():
         if not stats:
             raise Exception("Estadísticas no encontradas")
         
-        data = stats.get("data", {})
-        return {"message": "Success", "data": data}
+        # Modificado para obtener raw_counts en lugar de data
+        raw_counts = stats.get("raw_counts", {})
+        return {"message": "Success", "data": raw_counts}
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
@@ -892,38 +907,75 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
         # Zona horaria de Venezuela
         venezuela_tz = timezone('America/Caracas')
 
+        # Contador para documentos procesados correctamente
+        documents_processed = 0
+        stats_update_errors = 0
+
         # Insertar en MongoDB
         for face in filtered_faces:
-            emotions = face['Emotions']
-            primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
-            
-            # Obtener la hora actual en la zona horaria de Venezuela
-            now_venezuela = datetime.now(venezuela_tz)
-            
-            document = {
-                "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
-                "date": now_venezuela.strftime("%Y-%m-%d"),  # Fecha como cadena en formato YYYY-MM-DD
-                "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato HH:MM:SS
-                "id_camara": id_camara,
-                "categoria_producto": categoria_producto,  # Agregar categoria_producto
-                "gender": face['Gender']['Value'],
-                "age_range": {
-                    "low": face['AgeRange']['Low'],
-                    "high": face['AgeRange']['High']
-                },
-                "emotions": primary_emotion
-            }
-            logger.info(f"Inserting document into MongoDB: {document}")
-            collections['Persona_AR'].insert_one(document)
-            
-            # Actualizar las estadísticas de forma incremental
-            update_statistics_on_insert(document)
+            try:
+                emotions = face['Emotions']
+                primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
+                
+                # Obtener la hora actual en la zona horaria de Venezuela
+                now_venezuela = datetime.now(venezuela_tz)
+                
+                document = {
+                    "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
+                    "date": now_venezuela.strftime("%Y-%m-%d"),  # Fecha como cadena en formato YYYY-MM-DD
+                    "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato HH:MM:SS
+                    "id_camara": id_camara,
+                    "categoria_producto": categoria_producto,  # Agregar categoria_producto
+                    "gender": face['Gender']['Value'],
+                    "age_range": {
+                        "low": face['AgeRange']['Low'],
+                        "high": face['AgeRange']['High']
+                    },
+                    "emotions": primary_emotion
+                }
+                logger.info(f"Inserting document into MongoDB: {document}")
+                
+                # Insertar en Persona_AR
+                insert_result = collections['Persona_AR'].insert_one(document)
+                
+                # Verificar que la inserción fue exitosa
+                if insert_result.acknowledged:
+                    logger.info(f"Document inserted successfully with ID: {document['id']}")
+                    
+                    # Actualizar las estadísticas de forma incremental
+                    try:
+                        logger.info(f"Updating statistics for document ID: {document['id']}")
+                        from backend.statistics.incremental_stats import update_statistics_on_insert
+                        update_statistics_on_insert(document)
+                        logger.info(f"Statistics updated successfully for document ID: {document['id']}")
+                        documents_processed += 1
+                    except Exception as stats_error:
+                        logger.error(f"Error updating statistics for document ID {document['id']}: {stats_error}")
+                        stats_update_errors += 1
+                        # Continuar con el siguiente documento, no interrumpir el proceso
+                else:
+                    logger.warning(f"Document insertion not acknowledged for face: {face['Gender']['Value']}")
+            except Exception as face_error:
+                logger.error(f"Error processing face {face.get('Gender',{}).get('Value', 'unknown')}: {face_error}")
+                continue
 
-        logger.info("Data saved to database successfully")
-        return {"message": "Data saved to database successfully."}
+        # Construir respuesta basada en los resultados
+        if documents_processed > 0:
+            status_msg = f"Procesados {documents_processed} documentos exitosamente"
+            if stats_update_errors > 0:
+                status_msg += f", pero hubo {stats_update_errors} errores al actualizar estadísticas"
+            
+            logger.info(status_msg)
+            return {"message": status_msg}
+        else:
+            error_msg = "No se pudo procesar ningún documento correctamente"
+            logger.error(error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
 
     except Exception as e:
         logger.error(f"Unexpected error in save_to_db_endpoint: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 # Helper functions for auth
@@ -1594,3 +1646,118 @@ async def delete_camera(
         raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting camera: {str(e)}")
+
+@router.post("/statistics/regenerate/")
+async def regenerate_statistics():
+    """
+    Endpoint para regenerar todas las estadísticas desde cero usando los datos históricos.
+    Este es un proceso costoso que puede tomar tiempo, dependiendo de la cantidad de datos.
+    """
+    try:
+        # Importar función de recálculo
+        from backend.statistics.incremental_stats import recalculate_all_statistics
+        
+        # Regenerar estadísticas en segundo plano
+        background_tasks = BackgroundTasks()
+        background_tasks.add_task(recalculate_all_statistics)
+        
+        return {
+            "message": "Success", 
+            "detail": "Iniciado proceso de regeneración de estadísticas en segundo plano"
+        }
+    except Exception as e:
+        logger.error(f"Error iniciando regeneración de estadísticas: {e}")
+        return {"message": "Error", "error": str(e)}
+
+@router.post("/statistics/regenerate-preferred-gender/")
+async def regenerate_preferred_gender_stats():
+    """
+    Endpoint para regenerar solo las estadísticas de categorías preferidas por género.
+    """
+    try:
+        logger.info("Iniciando regeneración de estadísticas de categorías preferidas por género...")
+        
+        # 1. Eliminar el documento actual
+        collections["Estadisticas"].delete_one({"_id": "preferred_category_by_gender"})
+        
+        # 2. Crear nuevo documento limpio
+        preferred_doc = {
+            "_id": "preferred_category_by_gender",
+            "description": "Categorías preferidas por género",
+            "data": {
+                "Male": {"category": "", "count": 0},
+                "Female": {"category": "", "count": 0}
+            },
+            "raw_counts": {
+                "Male": {},
+                "Female": {}
+            },
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        collections["Estadisticas"].insert_one(preferred_doc)
+        
+        # 3. Procesar todos los documentos de Persona_AR para esta estadística específica
+        total_docs = collections["Persona_AR"].count_documents({})
+        processed = 0
+        male_categories = {}
+        female_categories = {}
+        
+        cursor = collections["Persona_AR"].find({})
+        for document in cursor:
+            try:
+                gender = document.get("gender")
+                category = document.get("categoria_producto")
+                
+                if gender and category:
+                    if gender == "Male":
+                        male_categories[category] = male_categories.get(category, 0) + 1
+                    elif gender == "Female":
+                        female_categories[category] = female_categories.get(category, 0) + 1
+                
+                processed += 1
+            except Exception as e:
+                logger.error(f"Error procesando documento: {e}")
+                continue
+        
+        # 4. Calcular categorías preferidas
+        male_preferred = {"category": "", "count": 0}
+        if male_categories:
+            max_male = max(male_categories.items(), key=lambda x: x[1])
+            male_preferred = {"category": max_male[0], "count": max_male[1]}
+        
+        female_preferred = {"category": "", "count": 0}
+        if female_categories:
+            max_female = max(female_categories.items(), key=lambda x: x[1])
+            female_preferred = {"category": max_female[0], "count": max_female[1]}
+        
+        # 5. Actualizar documento con resultados
+        collections["Estadisticas"].update_one(
+            {"_id": "preferred_category_by_gender"},
+            {"$set": {
+                "data": {
+                    "Male": male_preferred,
+                    "Female": female_preferred
+                },
+                "raw_counts": {
+                    "Male": male_categories,
+                    "Female": female_categories
+                },
+                "last_updated": datetime.utcnow().isoformat()
+            }}
+        )
+        
+        logger.info(f"Regeneración completada. Procesados {processed} documentos.")
+        
+        return {
+            "message": "Success", 
+            "detail": "Estadísticas de categorías preferidas por género regeneradas correctamente",
+            "data": {
+                "Male": male_preferred,
+                "Female": female_preferred
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error en regeneración de estadísticas preferred_category_by_gender: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"message": "Error", "error": str(e)}

@@ -27,11 +27,12 @@ class DashboardController {
         return data['message'];
       } else {
         print('API connection failed with status: ${response.statusCode}');
-        return 'Conexión exitosa a la API'; // Fallback for demo purposes
+        throw Exception(
+            'API connection failed with status: ${response.statusCode}');
       }
     } catch (e) {
       print('Error connecting to API: $e');
-      return 'Conexión exitosa a la API'; // Fallback for demo purposes
+      throw Exception('Error connecting to API: $e');
     }
   }
 
@@ -46,56 +47,50 @@ class DashboardController {
   }
 
   // Get all statistics for the dashboard
-  Future<Map<String, dynamic>> getAllDashboardStatistics({
-    String period = 'week',
-    String? date,
-  }) async {
+  Future<Map<String, dynamic>> getAllDashboardStatistics() async {
     try {
       // Create a map to hold all statistics data
       Map<String, dynamic> dashboardData = {};
 
-      // Format date if provided or use current date
-      final String formattedDate =
-          date ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-      // Add period and date parameters
-      Map<String, String> params = {
-        'period': period,
-        'date': formattedDate,
-      };
-
-      // Fetch peak hours statistics
-      final peakHoursResponse = await getStatistics('peak-hours', params);
+      // Fetch peak hours statistics with specific document ID
+      final peakHoursResponse =
+          await getStatisticById('peak-hours', 'peak_hours');
       dashboardData['peakHours'] = peakHoursResponse;
 
-      // Fetch least busy hours statistics
-      final leastHoursResponse = await getStatistics('least-hours', params);
+      // Fetch least busy hours statistics with specific document ID
+      final leastHoursResponse =
+          await getStatisticById('least-hours', 'least_busy_hours');
       dashboardData['leastHours'] = leastHoursResponse;
 
-      // Fetch busy days combined statistics
-      final busyDaysResponse =
-          await getBusyDaysStatistics(period: period, date: formattedDate);
+      // Fetch busy days combined statistics with specific document IDs
+      final busyDaysResponse = await getBusyDaysStatistics(
+          mostBusyDayId: 'most_busy_day', leastBusyDayId: 'least_busy_day');
       dashboardData['busyDays'] = busyDaysResponse;
 
-      // Fetch visited categories statistics with period and date
-      final visitedCategoriesResponse = await getVisitedCategoriesStatistics(
-          period: period, date: formattedDate);
+      // Fetch visited categories statistics with specific document ID
+      final visitedCategoriesResponse = await getStatisticById(
+          'visited-categories-historical', 'historical_categories');
       dashboardData['visitedCategories'] = visitedCategoriesResponse;
 
-      // Fetch emotion percentage statistics
-      final emotionResponse = await getStatistics('emotion-percentage');
+      // Fetch emotion percentage statistics with specific document ID
+      final emotionResponse = await getStatisticById(
+          'emotion-percentage', 'most_frequent_emotions');
       dashboardData['emotionPercentage'] = emotionResponse;
 
-      // Fetch gender distribution statistics
-      final genderResponse = await getStatistics('gender-distribution', params);
-      dashboardData['genderDistribution'] = genderResponse;
+      // Fetch emotion percentage by category (para la gráfica de emociones por categoría)
+      final emotionByCategoryResponse = await getStatisticById(
+          'emotion-percentage', 'emotion_percentage_by_category');
+      dashboardData['emotionPercentageByCategory'] = emotionByCategoryResponse;
 
-      // Fetch age distribution statistics
-      final ageResponse = await getStatistics('age-distribution', params);
-      dashboardData['ageDistribution'] = ageResponse;
+      // Fetch preferred categories by gender with specific document ID
+      final preferredCategoriesByGenderResponse = await getStatisticById(
+          'preferred-category-by-gender', 'preferred_category_by_gender');
+      dashboardData['preferredCategoriesByGender'] =
+          preferredCategoriesByGenderResponse;
 
-      // Fetch top categories
-      final topCategoriesResponse = await getTopSuccessfulCategories();
+      // Fetch top categories with specific document ID
+      final topCategoriesResponse = await getStatisticById(
+          'top-successful-categories', 'top_successful_categories');
       dashboardData['topCategories'] = topCategoriesResponse;
 
       return dashboardData;
@@ -105,22 +100,12 @@ class DashboardController {
     }
   }
 
-  // Obtener datos de estadísticas - Generic method for API calls
-  Future<Map<String, dynamic>> getStatistics(String endpoint,
-      [Map<String, String>? params]) async {
+  // Obtener datos de estadísticas por ID específico
+  Future<Map<String, dynamic>> getStatisticById(
+      String endpoint, String documentId) async {
     try {
-      // Construir la URL base
-      String url = '$baseUrl/api/statistics/$endpoint/';
-
-      // Add parameters to URL
-      if (params != null && params.isNotEmpty) {
-        url += '?';
-        String queryParams = params.entries
-            .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-            .join('&');
-        url += queryParams;
-      }
-
+      // Construir la URL con el ID del documento
+      String url = '$baseUrl/api/statistics/$endpoint/?id=$documentId';
       print('Fetching statistics from: $url');
 
       // Make the request with timeout
@@ -142,23 +127,21 @@ class DashboardController {
             'Error al cargar estadísticas. Código: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error en getStatistics: $e');
+      print('Error en getStatisticById: $e');
       rethrow; // Re-throw to handle in the UI
     }
   }
 
-  // Make sure getBusyDaysStatistics also takes parameters
-  Future<Map<String, dynamic>> getBusyDaysStatistics(
-      {String? period, String? date}) async {
+  // Make sure getBusyDaysStatistics fetches using document IDs
+  Future<Map<String, dynamic>> getBusyDaysStatistics({
+    required String mostBusyDayId,
+    required String leastBusyDayId,
+  }) async {
     try {
-      // Create parameters map
-      Map<String, String> params = {
-        'period': period ?? 'week',
-        'date': date ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      };
-
-      final mostBusyDaysResponse = await getStatistics('busy-days', params);
-      final leastBusyDaysResponse = await getStatistics('least-days', params);
+      final mostBusyDaysResponse =
+          await getStatisticById('busy-days', mostBusyDayId);
+      final leastBusyDaysResponse =
+          await getStatisticById('least-days', leastBusyDayId);
 
       // Extraer los datos teniendo en cuenta la estructura actual:
       // data: {"day": "Wednesday", "count": 11}
@@ -185,117 +168,11 @@ class DashboardController {
     }
   }
 
-  // Fetch both most-visited and least-visited categories in one call
-  Future<Map<String, dynamic>> getVisitedCategoriesStatistics(
-      {String? period, String? date}) async {
-    try {
-      // Try using the historical_categories endpoint first
-      try {
-        final historicalResponse =
-            await getStatistics('visited-categories-historical');
-
-        if (historicalResponse.containsKey('data') &&
-            historicalResponse['data'] != null &&
-            historicalResponse['data'].containsKey('most_visited') &&
-            historicalResponse['data'].containsKey('least_visited')) {
-          final mostVisited = historicalResponse['data']['most_visited'];
-          final leastVisited = historicalResponse['data']['least_visited'];
-
-          return {
-            'message': 'Success',
-            'data': {
-              'most_visited_category': mostVisited['category'] ?? 'Snacks',
-              'most_visited_count': mostVisited['count'] ?? 210,
-              'least_visited_category': leastVisited['category'] ?? 'Frutas',
-              'least_visited_count': leastVisited['count'] ?? 18
-            }
-          };
-        }
-      } catch (e) {
-        print(
-            'Error fetching historical categories, falling back to individual endpoints: $e');
-        // If historical endpoint fails, fall back to individual endpoints
-      }
-
-      // Create parameters map
-      Map<String, String> params = {
-        'period': period ?? 'week',
-        'date': date ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      };
-
-      // Pass parameters to both endpoints
-      final mostVisitedResponse = await getStatistics('most-visited', params);
-      final leastVisitedResponse = await getStatistics('least-visited', params);
-
-      // Extract category and count data with fallbacks to our known values
-      String mostVisitedCategory =
-          mostVisitedResponse['data']?['most_visited_category'] ?? 'Snacks';
-      int mostVisitedCount = mostVisitedResponse['data']?['count'] ?? 210;
-
-      String leastVisitedCategory =
-          leastVisitedResponse['data']?['least_visited_category'] ?? 'Frutas';
-      int leastVisitedCount = leastVisitedResponse['data']?['count'] ?? 18;
-
-      return {
-        'message': 'Success',
-        'data': {
-          'most_visited_category': mostVisitedCategory,
-          'most_visited_count': mostVisitedCount,
-          'least_visited_category': leastVisitedCategory,
-          'least_visited_count': leastVisitedCount
-        }
-      };
-    } catch (e) {
-      print('Error al obtener estadísticas de categorías visitadas: $e');
-
-      // Return hardcoded fallback data since we know what should be shown
-      return {
-        'message': 'Success',
-        'data': {
-          'most_visited_category': 'Snacks',
-          'most_visited_count': 210,
-          'least_visited_category': 'Frutas',
-          'least_visited_count': 18
-        }
-      };
-    }
-  }
-
   // Método para obtener las categorías Top Visitadas
-  Future<List<dynamic>> getTopSuccessfulCategories() async {
+  Future<dynamic> getTopSuccessfulCategories() async {
     try {
-      // Endpoint ahora devuelve Top por Visitas Totales
-      const endpoint = 'top-successful-categories';
-      final url = '$baseUrl/api/statistics/$endpoint/';
-      print('Fetching top categories (by total visits) from: $url');
-
-      final response = await _client
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10), onTimeout: () {
-        throw Exception(
-            'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
-      });
-
-      if (response.statusCode == 200) {
-        final dynamic decodedBody = jsonDecode(response.body);
-
-        // El backend devuelve un Map con una clave 'data' que contiene la Lista
-        if (decodedBody is Map &&
-            decodedBody.containsKey('data') &&
-            decodedBody['data'] is List) {
-          final List<dynamic> dataList = decodedBody['data'];
-          return dataList;
-        } else {
-          print(
-              'Error: Unexpected response format for $endpoint. Expected Map with data List.');
-          throw Exception('Formato de respuesta inesperado del servidor.');
-        }
-      } else {
-        print(
-            'Error fetching $endpoint: ${response.statusCode} - ${response.body}');
-        throw Exception(
-            'Error al cargar top categorías. Código: ${response.statusCode}');
-      }
+      return await getStatisticById(
+          'top-successful-categories', 'top_successful_categories');
     } catch (e) {
       print('Error en getTopSuccessfulCategories: $e');
       rethrow;

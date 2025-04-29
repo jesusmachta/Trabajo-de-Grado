@@ -5255,77 +5255,91 @@ class StatisticsViewState extends State<StatisticsView> {
                   Row(
                     children: [
                       Expanded(
-                        child: Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                Icon(Icons.man, size: 42, color: Colors.blue),
-                                const SizedBox(height: 8),
-                                Text('Masculino',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${genderData['male'] is int ? genderData['male'] : int.tryParse(genderData['male'].toString()) ?? 0}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
-                                      ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3EEFF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Masculino',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${genderData['male'] is int ? (genderData['male'] / (genderData['male'] + genderData['female']) * 100).toStringAsFixed(1) + "%" : "0%"}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(color: Colors.blue),
-                                ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${genderData['male']}',
+                                    style: TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_calculatePercentage(genderData['male'], genderData)}%',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                Icon(Icons.woman, size: 42, color: Colors.pink),
-                                const SizedBox(height: 8),
-                                Text('Femenino',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${genderData['female'] is int ? genderData['female'] : int.tryParse(genderData['female'].toString()) ?? 0}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.pink,
-                                      ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE6EC),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Femenino',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${genderData['female'] is int ? (genderData['female'] / (genderData['male'] + genderData['female']) * 100).toStringAsFixed(1) + "%" : "0%"}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(color: Colors.pink),
-                                ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${genderData['female']}',
+                                    style: TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.pink.shade400,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_calculatePercentage(genderData['female'], genderData)}%',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.pink.shade400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -5364,64 +5378,22 @@ class StatisticsViewState extends State<StatisticsView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Gráfico de edades o mensaje cuando no hay datos
-                  if (ageData.isNotEmpty)
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      alignment: WrapAlignment.center,
-                      children: (ageData as Map<String, dynamic>)
-                          .entries
-                          .map((entry) {
-                        final String ageRange = entry.key;
-                        final int count = entry.value is int
-                            ? entry.value
-                            : int.tryParse(entry.value.toString()) ?? 0;
-                        return Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                Text(ageRange,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                                const SizedBox(height: 8),
-                                Text('$count personas',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.copyWith(
-                                            fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    )
-                  else
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.bar_chart,
-                              size: 48,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No hay datos de edad disponibles para el período seleccionado',
-                              style: Theme.of(context).textTheme.bodyLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  GridView.count(
+                    crossAxisCount:
+                        MediaQuery.of(context).size.width > 600 ? 3 : 1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildAgeRangeCardDark(
+                          '18-24', _getAgeCount(ageData, '18-24')),
+                      _buildAgeRangeCardDark(
+                          '25-34', _getAgeCount(ageData, '25-34')),
+                      _buildAgeRangeCardDark(
+                          '35-44', _getAgeCount(ageData, '35-44')),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -5472,29 +5444,126 @@ class StatisticsViewState extends State<StatisticsView> {
   // Construir tarjeta para género
   Widget _buildGenderCard(
       String gender, int count, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
+    // Determine percentage based on gender
+    final int maleCount = gender == 'Masculino' ? count : 0;
+    final int femaleCount = gender == 'Femenino' ? count : 0;
+    final int totalCount = gender == 'Masculino'
+        ? count +
+            (int.tryParse(
+                    _statisticsData?['data']?['female']?.toString() ?? '0') ??
+                0)
+        : count +
+            (int.tryParse(
+                    _statisticsData?['data']?['male']?.toString() ?? '0') ??
+                0);
+
+    final double percentage = totalCount > 0 ? (count / totalCount * 100) : 0;
+    final String percentageStr = percentage.toStringAsFixed(1);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: gender == 'Masculino'
+            ? const Color(0xFFE3EEFF)
+            : const Color(0xFFFEE6EC),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            gender,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: gender == 'Masculino'
+                      ? Colors.blue.shade700
+                      : Colors.pink.shade400,
+                ),
+              ),
+              Text(
+                '$percentageStr%',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: gender == 'Masculino'
+                      ? Colors.blue.shade700
+                      : Colors.pink.shade400,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Visualizador para distribución por género
+  Widget _buildGenderDistributionView(dynamic data) {
+    if (data == null) {
+      return _buildNoDataView('No hay datos de género disponibles');
+    }
+
+    // Extraer datos de género
+    final int maleCount = data['male'] is int
+        ? data['male']
+        : int.tryParse(data['male'].toString()) ?? 0;
+
+    final int femaleCount = data['female'] is int
+        ? data['female']
+        : int.tryParse(data['female'].toString()) ?? 0;
+
+    final totalCount = maleCount + femaleCount;
+
+    return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              size: 42,
-              color: color,
-            ),
-            const SizedBox(height: 8),
+            // Título
             Text(
-              gender,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$count',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              'Distribución por género',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: color,
                   ),
+            ),
+            const SizedBox(height: 16),
+
+            // Mostrar datos en tarjetas
+            Row(
+              children: [
+                // Masculino
+                Expanded(
+                  child: _buildGenderCard(
+                    'Masculino',
+                    maleCount,
+                    Icons.man,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Femenino
+                Expanded(
+                  child: _buildGenderCard(
+                    'Femenino',
+                    femaleCount,
+                    Icons.woman,
+                    Colors.pink,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -5502,187 +5571,133 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Construir gráfico de distribución de edad
-  Widget _buildAgeDistributionChart(Map<String, dynamic> ageData) {
-    print('Building age chart with data: $ageData');
-
-    // Transformar los datos para la visualización
-    final List<Map<String, dynamic>> chartData = [];
-
-    // Verificar si los datos ya están en forma de edades promedio
-    bool isAverageAges = true;
-    for (var key in ageData.keys) {
-      if (key.contains('-') || key == '51+') {
-        isAverageAges = false;
-        break;
-      }
+  // Visualizador para distribución por edad
+  Widget _buildAgeDistributionView(dynamic data) {
+    if (data == null || (data is Map && data.isEmpty)) {
+      return _buildNoDataView('No hay datos de edad disponibles');
     }
 
-    if (isAverageAges) {
-      print('Datos de edad promedio detectados');
+    // Transformar los datos para la visualización
+    final Map<String, int> processedAgeData = {};
 
-      // Agrupar edades en rangos para visualización
+    // Si los datos son de edades individuales, agruparlos en rangos
+    if (data.keys.any(
+        (key) => !key.toString().contains('-') && key.toString() != '51+')) {
       final Map<String, int> groupedAges = {
-        '0-18': 0,
-        '19-25': 0,
-        '26-35': 0,
-        '36-50': 0,
-        '51+': 0,
+        '18-24': 0,
+        '25-34': 0,
+        '35-44': 0,
       };
 
-      // Ordenar las edades numéricamente
-      final List<MapEntry<String, dynamic>> sortedEntries =
-          ageData.entries.toList();
-      sortedEntries.sort((a, b) {
-        final int ageA = int.tryParse(a.key) ?? 0;
-        final int ageB = int.tryParse(b.key) ?? 0;
-        return ageA.compareTo(ageB);
-      });
-
       // Agrupar edades en rangos
-      for (var entry in sortedEntries) {
-        final int age = int.tryParse(entry.key) ?? 0;
+      for (var entry in data.entries) {
+        final int age = int.tryParse(entry.key.toString()) ?? 0;
         final int count = entry.value is int
             ? entry.value
             : int.tryParse(entry.value.toString()) ?? 0;
 
-        if (age <= 18) {
-          groupedAges['0-18'] = (groupedAges['0-18'] ?? 0) + count;
-        } else if (age <= 25) {
-          groupedAges['19-25'] = (groupedAges['19-25'] ?? 0) + count;
-        } else if (age <= 35) {
-          groupedAges['26-35'] = (groupedAges['26-35'] ?? 0) + count;
-        } else if (age <= 50) {
-          groupedAges['36-50'] = (groupedAges['36-50'] ?? 0) + count;
-        } else {
-          groupedAges['51+'] = (groupedAges['51+'] ?? 0) + count;
+        if (age >= 18 && age <= 24) {
+          groupedAges['18-24'] = (groupedAges['18-24'] ?? 0) + count;
+        } else if (age >= 25 && age <= 34) {
+          groupedAges['25-34'] = (groupedAges['25-34'] ?? 0) + count;
+        } else if (age >= 35 && age <= 44) {
+          groupedAges['35-44'] = (groupedAges['35-44'] ?? 0) + count;
         }
       }
 
-      // Convertir a formato de gráfico
-      groupedAges.forEach((range, count) {
-        if (count > 0) {
-          // Solo agregar rangos con datos
-          chartData.add({'edad': range, 'count': count});
-        }
-      });
+      processedAgeData.addAll(groupedAges);
     } else {
-      print('Datos de rangos de edad detectados');
-      // API antigua con rangos fijos
-      if (ageData.containsKey('0-18'))
-        chartData.add({'edad': '0-18', 'count': ageData['0-18'] ?? 0});
-      if (ageData.containsKey('19-25'))
-        chartData.add({'edad': '19-25', 'count': ageData['19-25'] ?? 0});
-      if (ageData.containsKey('26-35'))
-        chartData.add({'edad': '26-35', 'count': ageData['26-35'] ?? 0});
-      if (ageData.containsKey('36-50'))
-        chartData.add({'edad': '36-50', 'count': ageData['36-50'] ?? 0});
-      if (ageData.containsKey('51+'))
-        chartData.add({'edad': '51+', 'count': ageData['51+'] ?? 0});
+      // Si los datos ya están agrupados en rangos, usarlos directamente
+      for (var entry in data.entries) {
+        if (['18-24', '25-34', '35-44'].contains(entry.key.toString())) {
+          processedAgeData[entry.key.toString()] = entry.value is int
+              ? entry.value
+              : int.tryParse(entry.value.toString()) ?? 0;
+        }
+      }
     }
 
-    // Si no hay datos después de procesar, mostrar mensaje
-    if (chartData.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 40),
-          child: Column(
-            children: [
-              Icon(
-                Icons.show_chart_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No hay datos de edad para este período',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    print('Datos procesados para gráfico: $chartData');
-
-    // Colores para las barras del gráfico
-    final List<Color> barColors = [
-      const Color(0xFF6200EA), // Deep Purple
-      const Color(0xFF00BFA5), // Teal
-      const Color(0xFFFFAB00), // Amber
-      const Color(0xFFE64A19), // Deep Orange
-      const Color(0xFF5D4037), // Brown
-    ];
-
-    return SizedBox(
-      height: 300,
-      child: SfCartesianChart(
-        primaryXAxis: CategoryAxis(
-          title: AxisTitle(text: 'Rango de edad'),
-        ),
-        primaryYAxis: NumericAxis(
-          title: AxisTitle(text: 'Cantidad'),
-          labelFormat: '{value}',
-          majorGridLines: const MajorGridLines(width: 0.5, dashArray: [5, 5]),
-        ),
-        series: <CartesianSeries>[
-          ColumnSeries<Map<String, dynamic>, String>(
-            dataSource: chartData,
-            xValueMapper: (Map<String, dynamic> data, _) => data['edad'],
-            yValueMapper: (Map<String, dynamic> data, _) => data['count'],
-            name: 'Edad',
-            pointColorMapper: (Map<String, dynamic> data, index) =>
-                barColors[index % barColors.length],
-            borderRadius: BorderRadius.circular(8),
-            dataLabelSettings: DataLabelSettings(
-              isVisible: true,
-              labelAlignment: ChartDataLabelAlignment.top,
-              textStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Título
+            Text(
+              'Distribución por edad',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-          ),
-        ],
-        tooltipBehavior: TooltipBehavior(enable: true),
-        palette: barColors,
+            const SizedBox(height: 16),
+
+            // Tarjetas de rango de edad
+            GridView.count(
+              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 1,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildAgeRangeCardDark('18-24', processedAgeData['18-24'] ?? 0),
+                _buildAgeRangeCardDark('25-34', processedAgeData['25-34'] ?? 0),
+                _buildAgeRangeCardDark('35-44', processedAgeData['35-44'] ?? 0),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // Obtener nombre del mes
-  String _formatMonthName(int? month) {
-    if (month == null) return '';
-
-    switch (month) {
-      case 1:
-        return 'enero';
-      case 2:
-        return 'febrero';
-      case 3:
-        return 'marzo';
-      case 4:
-        return 'abril';
-      case 5:
-        return 'mayo';
-      case 6:
-        return 'junio';
-      case 7:
-        return 'julio';
-      case 8:
-        return 'agosto';
-      case 9:
-        return 'septiembre';
-      case 10:
-        return 'octubre';
-      case 11:
-        return 'noviembre';
-      case 12:
-        return 'diciembre';
-      default:
-        return '';
-    }
+  // Construir tarjeta para rango de edad (para el nuevo diseño oscuro)
+  Widget _buildAgeRangeCardDark(String ageRange, int count) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF666666),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rango de edad: $ageRange',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$count',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              'personas',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Visualizador combinado para categorías más y menos visitadas
@@ -5871,164 +5886,6 @@ class StatisticsViewState extends State<StatisticsView> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  // Visualizador para distribución por género
-  Widget _buildGenderDistributionView(dynamic data) {
-    if (data == null) {
-      return _buildNoDataView('No hay datos de género disponibles');
-    }
-
-    // Extraer datos de género
-    final int maleCount = data['male'] is int
-        ? data['male']
-        : int.tryParse(data['male'].toString()) ?? 0;
-
-    final int femaleCount = data['female'] is int
-        ? data['female']
-        : int.tryParse(data['female'].toString()) ?? 0;
-
-    final totalCount = maleCount + femaleCount;
-    final malePercentage = totalCount > 0
-        ? (maleCount / totalCount * 100).toStringAsFixed(1)
-        : '0';
-    final femalePercentage = totalCount > 0
-        ? (femaleCount / totalCount * 100).toStringAsFixed(1)
-        : '0';
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Título
-            Center(
-              child: Text(
-                'Distribución por género',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Mostrar datos en tarjetas
-            Row(
-              children: [
-                // Masculino
-                Expanded(
-                  child: _buildGenderCard(
-                    'Masculino',
-                    maleCount,
-                    Icons.man,
-                    Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Femenino
-                Expanded(
-                  child: _buildGenderCard(
-                    'Femenino',
-                    femaleCount,
-                    Icons.woman,
-                    Colors.pink,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Gráfico de pastel
-            if (totalCount > 0)
-              SizedBox(
-                height: 300,
-                child: SfCircularChart(
-                  title: ChartTitle(
-                      text: 'Porcentaje por género',
-                      textStyle: Theme.of(context).textTheme.titleMedium),
-                  legend: Legend(
-                    isVisible: true,
-                    position: LegendPosition.bottom,
-                    overflowMode: LegendItemOverflowMode.wrap,
-                  ),
-                  series: <CircularSeries>[
-                    PieSeries<Map<String, dynamic>, String>(
-                      dataSource: [
-                        {'gender': 'Masculino', 'count': maleCount},
-                        {'gender': 'Femenino', 'count': femaleCount},
-                      ],
-                      xValueMapper: (Map<String, dynamic> data, _) =>
-                          data['gender'],
-                      yValueMapper: (Map<String, dynamic> data, _) =>
-                          data['count'],
-                      dataLabelMapper: (Map<String, dynamic> data, _) =>
-                          '${data['gender']}\n${((data['count'] / totalCount) * 100).toStringAsFixed(1)}%',
-                      pointColorMapper: (Map<String, dynamic> data, _) =>
-                          data['gender'] == 'Masculino'
-                              ? Colors.blue
-                              : Colors.pink,
-                      dataLabelSettings: const DataLabelSettings(
-                        isVisible: true,
-                        labelPosition: ChartDataLabelPosition.outside,
-                      ),
-                      enableTooltip: true,
-                    ),
-                  ],
-                  tooltipBehavior: TooltipBehavior(enable: true),
-                ),
-              )
-            else
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Text(
-                    'No hay suficientes datos para mostrar el gráfico',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Visualizador para distribución por edad
-  Widget _buildAgeDistributionView(dynamic data) {
-    if (data == null || (data is Map && data.isEmpty)) {
-      return _buildNoDataView('No hay datos de edad disponibles');
-    }
-
-    print('Building age distribution view with data: $data');
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Título
-            Center(
-              child: Text(
-                'Distribución por edad',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Gráfico de edades
-            _buildAgeDistributionChart(data),
-          ],
-        ),
-      ),
-    );
-  }
-
   // NUEVO: Selectores dinámicos para semana y mes
   Widget _buildNewWeekSelector() {
     return DropdownButtonFormField<String>(
@@ -6084,5 +5941,113 @@ class StatisticsViewState extends State<StatisticsView> {
         prefixIcon: Icon(Icons.calendar_month),
       ),
     );
+  }
+
+  // Obtener nombre del mes
+  String _formatMonthName(int? month) {
+    if (month == null) return '';
+
+    switch (month) {
+      case 1:
+        return 'enero';
+      case 2:
+        return 'febrero';
+      case 3:
+        return 'marzo';
+      case 4:
+        return 'abril';
+      case 5:
+        return 'mayo';
+      case 6:
+        return 'junio';
+      case 7:
+        return 'julio';
+      case 8:
+        return 'agosto';
+      case 9:
+        return 'septiembre';
+      case 10:
+        return 'octubre';
+      case 11:
+        return 'noviembre';
+      case 12:
+        return 'diciembre';
+      default:
+        return '';
+    }
+  }
+
+  // Método para calcular el porcentaje
+  double _calculatePercentage(dynamic value, Map<String, dynamic> genderData) {
+    final int valueInt =
+        value is int ? value : int.tryParse(value.toString()) ?? 0;
+    final int maleCount = genderData['male'] is int
+        ? genderData['male']
+        : int.tryParse(genderData['male'].toString()) ?? 0;
+    final int femaleCount = genderData['female'] is int
+        ? genderData['female']
+        : int.tryParse(genderData['female'].toString()) ?? 0;
+    final int totalCount = maleCount + femaleCount;
+
+    if (totalCount == 0) return 0.0;
+    return double.parse((valueInt / totalCount * 100).toStringAsFixed(1));
+  }
+
+  // Método para obtener cuenta de edad según el rango
+  int _getAgeCount(Map<String, dynamic> ageData, String range) {
+    // Verificar si el rango existe directamente
+    if (ageData.containsKey(range)) {
+      dynamic value = ageData[range];
+      if (value is int) {
+        return value;
+      } else {
+        return int.tryParse(value.toString()) ?? 0;
+      }
+    }
+
+    // Si no existe, intentar agrupar datos individuales
+    int count = 0;
+    if (range == '18-24') {
+      for (var entry in ageData.entries) {
+        final String keyStr = entry.key.toString();
+        final int age = int.tryParse(keyStr) ?? 0;
+        if (age >= 18 && age <= 24) {
+          final dynamic value = entry.value;
+          if (value is int) {
+            count += value;
+          } else {
+            count += int.tryParse(value.toString()) ?? 0;
+          }
+        }
+      }
+    } else if (range == '25-34') {
+      for (var entry in ageData.entries) {
+        final String keyStr = entry.key.toString();
+        final int age = int.tryParse(keyStr) ?? 0;
+        if (age >= 25 && age <= 34) {
+          final dynamic value = entry.value;
+          if (value is int) {
+            count += value;
+          } else {
+            count += int.tryParse(value.toString()) ?? 0;
+          }
+        }
+      }
+    } else if (range == '35-44') {
+      for (var entry in ageData.entries) {
+        final String keyStr = entry.key.toString();
+        final int age = int.tryParse(keyStr) ?? 0;
+        if (age >= 35 && age <= 44) {
+          final dynamic value = entry.value;
+          if (value is int) {
+            count += value;
+          } else {
+            count += int.tryParse(value.toString()) ?? 0;
+          }
+        }
+      }
+    }
+
+    return count;
   }
 }

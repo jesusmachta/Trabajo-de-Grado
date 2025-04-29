@@ -305,6 +305,25 @@ class StatisticsController {
     }
   }
 
+  // Método para obtener diferencias emocionales por categoría
+  Future<Map<String, dynamic>> getEmotionalDifferencesByCategory() async {
+    try {
+      // Llamar al endpoint que ahora devuelve directamente raw_counts
+      final response = await getStatistics('emotional-differences-by-category');
+
+      // Verificar que la respuesta tenga el formato esperado
+      if (response.containsKey('data')) {
+        return response;
+      } else {
+        print('Error: La respuesta no contiene el campo "data"');
+        throw Exception('Formato de respuesta inesperado del servidor.');
+      }
+    } catch (e) {
+      print('Error al obtener diferencias emocionales por categoría: $e');
+      rethrow;
+    }
+  }
+
   // Fetch both gender and age distribution in one call
   Future<Map<String, dynamic>> getGenderAgeDistributionStatistics(
       {Map<String, String>? params}) async {

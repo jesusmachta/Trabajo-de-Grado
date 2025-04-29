@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import logging
 from typing import Dict, Any, List, Optional
 import pymongo
+from collections import defaultdict
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +12,11 @@ logger = logging.getLogger(__name__)
 def initialize_statistics():
     """
     Inicializa los documentos de estadísticas en la colección Estadisticas si no existen.
+    También verifica si es necesario recalcular las estadísticas desde los datos históricos
+    si se detecta que faltan documentos.
     """
+    need_recalculation = False
+    
     # Lista de estadísticas a inicializar
     stats_docs = [
         {
@@ -145,6 +150,235 @@ def initialize_statistics():
         if collections["Estadisticas"].count_documents({"_id": doc["_id"]}) == 0:
             collections["Estadisticas"].insert_one(doc)
             logger.info(f"Inicializado documento de estadísticas: {doc['_id']}")
+            need_recalculation = True  # Marcar para recalcular si se creó algún documento
+    
+    # Contar documentos en Persona_AR
+    persona_count = collections["Persona_AR"].count_documents({})
+    
+    # Si se necesita recalcular (porque faltaban documentos) y hay datos en Persona_AR
+    if need_recalculation and persona_count > 0:
+        logger.info("Se detectaron documentos de estadísticas faltantes, recalculando desde datos históricos...")
+        recalculate_all_statistics()
+
+def recalculate_all_statistics():
+    """
+    Recalcula todas las estadísticas desde cero usando los datos históricos de Persona_AR.
+    Esta función procesa todos los documentos de la colección Persona_AR y actualiza
+    todos los documentos de estadísticas.
+    """
+    try:
+        logger.info("Iniciando recálculo completo de estadísticas desde datos históricos...")
+        
+        # Reiniciar los documentos de estadísticas a su estado inicial
+        reset_statistics_documents()
+        
+        # Contar documentos para mostrar progreso
+        total_docs = collections["Persona_AR"].count_documents({})
+        if total_docs == 0:
+            logger.info("No hay documentos en Persona_AR para recalcular estadísticas.")
+            return
+            
+        processed = 0
+        
+        # Procesar todos los documentos de Persona_AR
+        cursor = collections["Persona_AR"].find({}).sort("date", pymongo.ASCENDING)
+        
+        # Lista para almacenar documentos con errores
+        error_docs = []
+        
+        for document in cursor:
+            try:
+                update_statistics_on_insert(document)
+                processed += 1
+                
+                # Mostrar progreso cada 100 documentos
+                if processed % 100 == 0 or processed == total_docs:
+                    logger.info(f"Procesados {processed}/{total_docs} documentos ({processed/total_docs*100:.1f}%)")
+            except Exception as doc_error:
+                # Registrar error y continuar con el siguiente documento
+                doc_id = document.get('id', 'desconocido')
+                error_docs.append(doc_id)
+                logger.error(f"Error procesando documento {doc_id}: {doc_error}")
+                continue
+        
+        # Verificar si se han procesado documentos
+        if processed == 0:
+            logger.warning("No se procesaron documentos durante el recálculo.")
+        else:
+            logger.info(f"Recálculo de estadísticas completado. Procesados {processed} documentos.")
+            
+        # Informar sobre errores
+        if error_docs:
+            logger.warning(f"Hubo errores al procesar {len(error_docs)} documentos durante el recálculo.")
+    except Exception as e:
+        logger.error(f"Error en recalculate_all_statistics: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+def reset_statistics_documents():
+    """
+    Reinicia todos los documentos de estadísticas a su estado inicial,
+    manteniendo la estructura pero limpiando completamente los datos.
+    """
+    try:
+        logger.info("Limpiando completamente todos los documentos de estadísticas...")
+        
+        # ENFOQUE RADICAL: Eliminar y recrear todos los documentos
+        
+        # 1. Lista de IDs de documentos de estadísticas
+        stat_ids = [
+            "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
+            "most_visited_category", "least_visited_category", "historical_categories",
+            "emotion_percentage_by_category", "most_frequent_emotions", "age_distribution",
+            "gender_distribution", "emotion_comparison", "preferred_category_by_gender",
+            "top_successful_categories", "emotional_differences_by_category",
+            "age_gender_distribution_by_category"
+        ]
+        
+        # 2. Eliminar todos los documentos de estadísticas existentes
+        for doc_id in stat_ids:
+            collections["Estadisticas"].delete_one({"_id": doc_id})
+            logger.info(f"Eliminado documento de estadísticas: {doc_id}")
+        
+        # 3. Recrear los documentos desde cero
+        # Lista de estadísticas a inicializar (mismo esquema que en initialize_statistics)
+        stats_docs = [
+            {
+                "_id": "peak_hours", 
+                "description": "Horas pico por día de la semana",
+                "data": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "daily_counts": {"Monday": {}, "Tuesday": {}, "Wednesday": {}, "Thursday": {}, "Friday": {}, "Saturday": {}, "Sunday": {}},
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "least_busy_hours", 
+                "description": "Horas menos concurridas por día de la semana",
+                "data": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "daily_counts": {"Monday": {}, "Tuesday": {}, "Wednesday": {}, "Thursday": {}, "Friday": {}, "Saturday": {}, "Sunday": {}},
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "most_busy_day", 
+                "description": "Día más concurrido de la semana",
+                "data": {"day": "", "count": 0},
+                "weekly_counts": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "least_busy_day", 
+                "description": "Día menos concurrido de la semana",
+                "data": {"day": "", "count": 0},
+                "weekly_counts": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "most_visited_category", 
+                "description": "Categoría más visitada",
+                "daily": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}}
+                "weekly": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}} (fecha es lunes de esa semana)
+                "monthly": {},  # {"YYYY-MM": {"category": "nombre", "count": N}}
+                "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "least_visited_category", 
+                "description": "Categoría menos visitada",
+                "daily": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}}
+                "weekly": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}} (fecha es lunes de esa semana)
+                "monthly": {},  # {"YYYY-MM": {"category": "nombre", "count": N}}
+                "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "historical_categories", 
+                "description": "Categorías más y menos visitadas históricamente",
+                "most_visited": {"category": "", "count": 0},
+                "least_visited": {"category": "", "count": 0},
+                "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "emotion_percentage_by_category", 
+                "description": "Porcentaje de emociones por categoría",
+                "data": {},  # {"categoria1": {"HAPPY": N%, "SAD": M%, ...}, ...}
+                "raw_counts": {},  # {"categoria1": {"HAPPY": N, "SAD": M, ...}, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "most_frequent_emotions",
+                "description": "Emociones más frecuentes",
+                "data": {},  # {"HAPPY": N, "SAD": M, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "age_distribution",
+                "description": "Distribución por edades",
+                "weekly": {},  # {"YYYY-MM-DD": {"0-18": N, "19-30": M, ...}}
+                "monthly": {},  # {"YYYY-MM": {"0-18": N, "19-30": M, ...}}
+                "overall": {"0-18": 0, "19-30": 0, "31-45": 0, "46-60": 0, "60+": 0},
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "gender_distribution",
+                "description": "Distribución por género",
+                "weekly": {},  # {"YYYY-MM-DD": {"Male": N, "Female": M}}
+                "monthly": {},  # {"YYYY-MM": {"Male": N, "Female": M}}
+                "overall": {"Male": 0, "Female": 0},
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "emotion_comparison",
+                "description": "Comparación de emociones positivas y negativas",
+                "weekly": {},  # {"YYYY-MM-DD": {"day": "Monday", "HAPPY": N, "SAD": M}}
+                "monthly": {},  # {"YYYY-MM": {"HAPPY": N, "SAD": M}}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "preferred_category_by_gender",
+                "description": "Categorías preferidas por género",
+                "data": {
+                    "Male": {"category": "", "count": 0},
+                    "Female": {"category": "", "count": 0}
+                },
+                "raw_counts": {
+                    "Male": {},  # {"categoria1": N, "categoria2": M, ...}
+                    "Female": {}  # {"categoria1": N, "categoria2": M, ...}
+                },
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "top_successful_categories",
+                "description": "Categorías que generan más emociones positivas",
+                "data": [],  # [{"category": "nombre", "happy_percentage": N%}, ...]
+                "raw_counts": {},  # {"categoria1": {"HAPPY": N, "total": M}, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "emotional_differences_by_category",
+                "description": "Emociones predominantes por género en cada categoría",
+                "data": {},  # {"categoria1": {"Male": "HAPPY", "Female": "SAD"}, ...}
+                "raw_counts": {},  # {"categoria1": {"Male": {"HAPPY": N, ...}, "Female": {"SAD": M, ...}}, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "_id": "age_gender_distribution_by_category",
+                "description": "Combinaciones de género y edad más frecuentes por categoría",
+                "data": {},  # {"categoria1": [{"gender": "Male", "age_range": "19-30", "count": N}, ...], ...}
+                "raw_counts": {},  # {"categoria1": {"Male": {"0-18": N, ...}, "Female": {...}}, ...}
+                "last_updated": datetime.utcnow().isoformat()
+            }
+        ]
+        
+        # Crear nuevos documentos desde cero
+        for doc in stats_docs:
+            collections["Estadisticas"].insert_one(doc)
+            logger.info(f"Recreado documento de estadísticas: {doc['_id']}")
+        
+        logger.info("Documentos de estadísticas reiniciados completamente")
+    except Exception as e:
+        logger.error(f"Error en reset_statistics_documents: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 def get_age_group(age_low: int, age_high: int) -> str:
     """Determina el grupo de edad basado en el rango de edad."""

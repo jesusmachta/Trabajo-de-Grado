@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from backend.database import collections
-from backend.statistics.incremental_stats import initialize_statistics
+from backend.statistics.incremental_stats import initialize_statistics, recalculate_all_statistics
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -20,11 +20,14 @@ scheduler = BackgroundScheduler()
 def update_daily_stats():
     """
     Actualiza estadísticas diarias al final del día.
-    Esta función es útil para recalcular estadísticas agregadas o realizar
-    limpieza/mantenimiento en la colección Estadisticas.
+    Esta función ejecuta un recálculo completo de las estadísticas
+    para asegurar consistencia en los datos.
     """
     try:
         logger.info("Ejecutando actualización programada de estadísticas diarias...")
+        
+        # Recalcular todas las estadísticas desde los datos históricos
+        recalculate_all_statistics()
         
         # Actualizar la fecha de última actualización en todas las estadísticas
         current_time = datetime.utcnow().isoformat()
@@ -33,9 +36,6 @@ def update_daily_stats():
             {"$set": {"last_updated": current_time}}
         )
         
-        # Aquí puedes añadir cualquier lógica adicional para actualización programada
-        # Por ejemplo, calcular agregaciones o limpiar datos antiguos
-        
         logger.info("Actualización programada de estadísticas diarias completada.")
     except Exception as e:
         logger.error(f"Error en update_daily_stats: {e}")
@@ -43,12 +43,13 @@ def update_daily_stats():
 def update_weekly_stats():
     """
     Actualiza estadísticas semanales cada domingo a medianoche.
-    Útil para calcular tendencias semanales o limpiar datos antiguos.
+    Ejecuta un recálculo completo para asegurar consistencia en los datos.
     """
     try:
         logger.info("Ejecutando actualización programada de estadísticas semanales...")
         
-        # Implementar lógica de actualización semanal aquí
+        # Recalcular todas las estadísticas desde los datos históricos
+        recalculate_all_statistics()
         
         logger.info("Actualización programada de estadísticas semanales completada.")
     except Exception as e:
@@ -57,11 +58,13 @@ def update_weekly_stats():
 def update_monthly_stats():
     """
     Actualiza estadísticas mensuales el primer día de cada mes.
+    Ejecuta un recálculo completo para asegurar consistencia en los datos.
     """
     try:
         logger.info("Ejecutando actualización programada de estadísticas mensuales...")
         
-        # Implementar lógica de actualización mensual aquí
+        # Recalcular todas las estadísticas desde los datos históricos
+        recalculate_all_statistics()
         
         logger.info("Actualización programada de estadísticas mensuales completada.")
     except Exception as e:
@@ -77,7 +80,8 @@ def refresh_all_stats():
         # Verificar que todos los documentos de estadísticas existen
         initialize_statistics()
         
-        # Aquí podrías añadir lógica para detectar y corregir inconsistencias en los datos
+        # Recalcular todas las estadísticas desde los datos históricos
+        recalculate_all_statistics()
         
         logger.info("Comprobación de integridad de estadísticas completada.")
     except Exception as e:
