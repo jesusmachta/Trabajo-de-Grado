@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart'; // To get the base URL potentially
+import '../widgets/toast_notification.dart'; // Import the new ToastService
 
 // Define the base URL for the API
 const String _apiBaseUrl =
@@ -286,11 +287,7 @@ class _CamerasViewState extends State<CamerasView> {
       if (response.statusCode == 201) {
         await _fetchCameras(); // This will also call _filterCameras() now
         Navigator.of(currentContext).pop();
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(
-              content: Text('Cámara añadida con éxito.'),
-              backgroundColor: Colors.green),
-        );
+        ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
       } else {
         String errorMessage = 'Failed to add camera';
         try {
@@ -310,11 +307,7 @@ class _CamerasViewState extends State<CamerasView> {
         if (Navigator.of(currentContext).canPop()) {
           Navigator.of(currentContext).pop();
         }
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al añadir cámara: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(currentContext, 'Error al añadir cámara: $e');
       }
     }
   }
@@ -343,6 +336,8 @@ class _CamerasViewState extends State<CamerasView> {
 
       if (response.statusCode == 200) {
         // Success, state already updated
+        ToastService.showSuccess(currentContext,
+            'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
       } else {
         if (index != -1) {
           setState(() {
@@ -361,11 +356,8 @@ class _CamerasViewState extends State<CamerasView> {
         });
       }
       if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al actualizar estado: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(
+            currentContext, 'Error al actualizar estado: $e');
       }
     }
   }
@@ -383,11 +375,7 @@ class _CamerasViewState extends State<CamerasView> {
 
       if (response.statusCode == 204) {
         await _fetchCameras(); // This will also call _filterCameras() now
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(
-              content: Text('Cámara eliminada con éxito.'),
-              backgroundColor: Colors.green),
-        );
+        ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
       } else if (response.statusCode == 404) {
         throw Exception('Camera not found (already deleted?).');
       } else {
@@ -396,11 +384,7 @@ class _CamerasViewState extends State<CamerasView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al eliminar cámara: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(currentContext, 'Error al eliminar cámara: $e');
       }
     }
   }
@@ -425,11 +409,8 @@ class _CamerasViewState extends State<CamerasView> {
       if (response.statusCode == 200) {
         await _fetchCameras(); // This will also call _filterCameras() now
         Navigator.of(currentContext).pop();
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(
-              content: Text('Cámara actualizada con éxito.'),
-              backgroundColor: Colors.green),
-        );
+        ToastService.showSuccess(
+            currentContext, 'Cámara actualizada con éxito.');
       } else {
         String errorMessage = 'Failed to update camera';
         try {
@@ -449,11 +430,8 @@ class _CamerasViewState extends State<CamerasView> {
         if (Navigator.of(currentContext).canPop()) {
           Navigator.of(currentContext).pop();
         }
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al actualizar cámara: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(
+            currentContext, 'Error al actualizar cámara: $e');
       }
     }
   }
@@ -524,14 +502,9 @@ class _CamerasViewState extends State<CamerasView> {
 
                       setDialogState(() {});
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Categorías cargadas: ${_activeCategories.length}'),
-                          backgroundColor: _activeCategories.isEmpty
-                              ? Colors.red
-                              : Colors.green,
-                        ),
+                      ToastService.showInfo(
+                        context,
+                        'Categorías cargadas: ${_activeCategories.length}',
                       );
                     },
                   ),
@@ -773,14 +746,9 @@ class _CamerasViewState extends State<CamerasView> {
 
                       setDialogState(() {});
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Categorías cargadas: ${_activeCategories.length}'),
-                          backgroundColor: _activeCategories.isEmpty
-                              ? Colors.red
-                              : Colors.green,
-                        ),
+                      ToastService.showInfo(
+                        context,
+                        'Categorías cargadas: ${_activeCategories.length}',
                       );
                     },
                   ),

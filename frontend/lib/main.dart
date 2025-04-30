@@ -75,6 +75,17 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'StoreSense',
       debugShowCheckedModeBanner: false,
+      // Add a builder to allow overlays for toast notifications
+      builder: (context, child) {
+        // Ensure we have an overlay for toast notifications
+        return Overlay(
+          initialEntries: [
+            OverlayEntry(
+              builder: (context) => child!,
+            ),
+          ],
+        );
+      },
       // Tema claro con azul E1F5FF
       theme: ThemeData(
         useMaterial3: true,

@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import '../utils/image_picker_helper.dart';
+import '../widgets/toast_notification.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -215,17 +216,31 @@ class _ProfileViewState extends State<ProfileView>
 
         setState(() {
           _successMessage = 'Foto de perfil actualizada correctamente';
+          // Clear selected image after successful upload
+          _selectedImageFile = null;
+          _selectedImagePreview = null;
         });
+
+        // Show toast notification
+        ToastService.showSuccess(
+            context, 'Foto de perfil actualizada correctamente');
       } else {
         setState(() {
           _errorMessage =
               responseData['detail'] ?? 'Error al actualizar la foto de perfil';
         });
+
+        // Show toast notification
+        ToastService.showError(context,
+            responseData['detail'] ?? 'Error al actualizar la foto de perfil');
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Error: $e';
       });
+
+      // Show toast notification
+      ToastService.showError(context, 'Error: $e');
     } finally {
       setState(() {
         _isUploading = false;
@@ -298,21 +313,34 @@ class _ProfileViewState extends State<ProfileView>
           setState(() {
             _successMessage = 'Perfil actualizado correctamente';
           });
+
+          // Show toast notification
+          ToastService.showSuccess(context, 'Perfil actualizado correctamente');
         } else {
           setState(() {
             _errorMessage =
                 responseData['detail'] ?? 'Error al actualizar el perfil';
           });
+
+          // Show toast notification
+          ToastService.showError(context,
+              responseData['detail'] ?? 'Error al actualizar el perfil');
         }
       } else {
         setState(() {
           _successMessage = 'No hay cambios para guardar';
         });
+
+        // Show toast notification
+        ToastService.showInfo(context, 'No hay cambios para guardar');
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Error: $e';
       });
+
+      // Show toast notification
+      ToastService.showError(context, 'Error: $e');
     } finally {
       setState(() {
         _isSaving = false;
@@ -345,6 +373,9 @@ class _ProfileViewState extends State<ProfileView>
           _passwordErrorMessage = 'Las contraseñas no coinciden';
           _isChangingPassword = false;
         });
+
+        // Show toast notification
+        ToastService.showError(context, 'Las contraseñas no coinciden');
         return;
       }
 
@@ -371,16 +402,27 @@ class _ProfileViewState extends State<ProfileView>
           _newPasswordController.clear();
           _confirmPasswordController.clear();
         });
+
+        // Show toast notification
+        ToastService.showSuccess(
+            context, 'Contraseña actualizada correctamente');
       } else {
         setState(() {
           _passwordErrorMessage =
               responseData['detail'] ?? 'Error al actualizar la contraseña';
         });
+
+        // Show toast notification
+        ToastService.showError(context,
+            responseData['detail'] ?? 'Error al actualizar la contraseña');
       }
     } catch (e) {
       setState(() {
         _passwordErrorMessage = 'Error: $e';
       });
+
+      // Show toast notification
+      ToastService.showError(context, 'Error: $e');
     } finally {
       setState(() {
         _isChangingPassword = false;

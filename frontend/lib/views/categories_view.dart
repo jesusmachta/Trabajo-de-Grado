@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../controllers/categories_controller.dart';
+import '../widgets/toast_notification.dart'; // Import the new ToastService
 
 // Add enum for category status filter similar to user filter
 enum CategoryStatusFilter { todos, activo, inactivo }
@@ -47,9 +48,7 @@ class _CategoriesViewState extends State<CategoriesView> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading categories: $e')),
-      );
+      ToastService.showError(context, 'Error loading categories: $e');
     }
   }
 
@@ -137,19 +136,12 @@ class _CategoriesViewState extends State<CategoriesView> {
         // Recargar la lista de categorías
         await _loadCategories(); // This will also call _applyFilters() now
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Categoría eliminada: ${category["Categoria_Producto"]}',
-            ),
-          ),
+        ToastService.showSuccess(
+          context,
+          'Categoría eliminada: ${category["Categoria_Producto"]}',
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al eliminar categoría: $e'),
-          ),
-        );
+        ToastService.showError(context, 'Error al eliminar categoría: $e');
       }
     }
   }
@@ -239,17 +231,12 @@ class _CategoriesViewState extends State<CategoriesView> {
                       // Cerramos modal
                       if (mounted) Navigator.of(context).pop();
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('Categoría actualizada exitosamente')),
-                      );
+                      ToastService.showSuccess(
+                          context, 'Categoría actualizada exitosamente');
                     } catch (e) {
                       if (mounted) Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text('Error al actualizar categoría: $e')),
-                      );
+                      ToastService.showError(
+                          context, 'Error al actualizar categoría: $e');
                     }
                   },
                   child: const Text('Guardar'),
@@ -368,14 +355,11 @@ class _CategoriesViewState extends State<CategoriesView> {
                       // Cerrar el modal
                       if (mounted) Navigator.of(context).pop();
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Categoría creada exitosamente')),
-                      );
+                      ToastService.showSuccess(
+                          context, 'Categoría creada exitosamente');
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al crear categoría: $e')),
-                      );
+                      ToastService.showError(
+                          context, 'Error al crear categoría: $e');
                     }
                   },
                   child: const Text('Crear'),
@@ -415,12 +399,8 @@ class _CategoriesViewState extends State<CategoriesView> {
 
       // Show success message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}'),
-          ),
-        );
+        ToastService.showSuccess(context,
+            'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}');
       }
     } catch (e) {
       // If there was an error, revert the optimistic update
@@ -435,12 +415,7 @@ class _CategoriesViewState extends State<CategoriesView> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al actualizar estado: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastService.showError(context, 'Error al actualizar estado: $e');
       }
     }
   }
