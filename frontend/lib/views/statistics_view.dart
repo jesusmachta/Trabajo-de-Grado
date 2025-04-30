@@ -4623,7 +4623,7 @@ class StatisticsViewState extends State<StatisticsView> {
                           children: filteredData.map((ageData) {
                             String ageRange = ageData['age_range'] ?? 'N/A';
                             int count = ageData['count'] ?? 0;
-                            return _buildAgeRangeCard(
+                            return _buildAgeRangeCardWithGender(
                               ageRange,
                               count,
                               isFemale: selectedGender == 'Female',
@@ -4642,31 +4642,35 @@ class StatisticsViewState extends State<StatisticsView> {
   }
 
   // Helper Widget para la tarjeta de rango de edad
-  Widget _buildAgeRangeCard(String ageRange, int count,
+  Widget _buildAgeRangeCardWithGender(String ageRange, int count,
       {bool isFemale = false}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
 
-    // Define colors based on gender
+    // Adjust color based on gender
     final Color primaryColor =
-        isFemale ? Colors.pink.shade400 : colorScheme.primary;
-    final Color containerColor = isFemale
-        ? Colors.pink.shade50.withOpacity(0.7)
-        : colorScheme.surfaceVariant.withOpacity(0.6);
+        isFemale ? Colors.pink.shade400 : Colors.blue.shade700;
+
+    // Dynamic color for the card's chip
     final Color chipColor = isFemale
-        ? Colors.pink.shade100
+        ? Colors.pink.shade50
         : colorScheme.primaryContainer.withOpacity(0.8);
 
-    // Apply Material Design elevation and shape
     return Card(
-      elevation: 1,
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isFemale
+              ? Colors.pink.shade100
+              : colorScheme.primary.withOpacity(0.2),
+          width: 1,
+        ),
       ),
-      color: containerColor,
-      child: Container(
-        width: 160, // Ancho fijo para cada tarjeta
-        padding: const EdgeInsets.all(12.0),
+      color: isFemale ? Colors.pink.shade50 : colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize:
               MainAxisSize.min, // Para que la columna se ajuste al contenido
@@ -5352,51 +5356,58 @@ class StatisticsViewState extends State<StatisticsView> {
             const SizedBox(height: 24),
 
             // -- SECCIÓN DE EDAD --
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Título de sección
-                  Center(
-                    child: Text(
-                      'Distribución por edad',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+            if (hasAgeData)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    crossAxisCount:
-                        MediaQuery.of(context).size.width > 600 ? 3 : 1,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _buildAgeRangeCardDark(
-                          '18-24', _getAgeCount(ageData, '18-24')),
-                      _buildAgeRangeCardDark(
-                          '25-34', _getAgeCount(ageData, '25-34')),
-                      _buildAgeRangeCardDark(
-                          '35-44', _getAgeCount(ageData, '35-44')),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Título de sección
+                    Center(
+                      child: Text(
+                        'Distribución por edad',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      crossAxisCount:
+                          MediaQuery.of(context).size.width > 600 ? 5 : 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _buildAgeRangeCardWithGender(
+                            '0-18', _getAgeCount(ageData, '0-18')),
+                        _buildAgeRangeCardWithGender(
+                            '19-30', _getAgeCount(ageData, '19-30')),
+                        _buildAgeRangeCardWithGender(
+                            '31-45', _getAgeCount(ageData, '31-45')),
+                        _buildAgeRangeCardWithGender(
+                            '46-60', _getAgeCount(ageData, '46-60')),
+                        _buildAgeRangeCardWithGender(
+                            '60+', _getAgeCount(ageData, '60+')),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -5577,45 +5588,95 @@ class StatisticsViewState extends State<StatisticsView> {
       return _buildNoDataView('No hay datos de edad disponibles');
     }
 
-    // Transformar los datos para la visualización
+    // Extract age data from document structure
     final Map<String, int> processedAgeData = {};
 
-    // Si los datos son de edades individuales, agruparlos en rangos
-    if (data.keys.any(
-        (key) => !key.toString().contains('-') && key.toString() != '51+')) {
-      final Map<String, int> groupedAges = {
-        '18-24': 0,
-        '25-34': 0,
-        '35-44': 0,
-      };
+    try {
+      // First try to process direct data format
+      if (data is Map) {
+        // Try to extract from document structure like in the example
+        // Check if data has keys like "0-18", "19-30", etc.
+        final ageRanges = ["0-18", "19-30", "31-45", "46-60", "60+"];
 
-      // Agrupar edades en rangos
-      for (var entry in data.entries) {
-        final int age = int.tryParse(entry.key.toString()) ?? 0;
-        final int count = entry.value is int
-            ? entry.value
-            : int.tryParse(entry.value.toString()) ?? 0;
+        bool hasDirectRanges = false;
+        for (var range in ageRanges) {
+          if (data.containsKey(range)) {
+            hasDirectRanges = true;
+            int value = data[range] is int
+                ? data[range]
+                : int.tryParse(data[range].toString()) ?? 0;
+            processedAgeData[range] = value;
+          }
+        }
 
-        if (age >= 18 && age <= 24) {
-          groupedAges['18-24'] = (groupedAges['18-24'] ?? 0) + count;
-        } else if (age >= 25 && age <= 34) {
-          groupedAges['25-34'] = (groupedAges['25-34'] ?? 0) + count;
-        } else if (age >= 35 && age <= 44) {
-          groupedAges['35-44'] = (groupedAges['35-44'] ?? 0) + count;
+        // If no direct ranges found, check in 'overall' if it exists
+        if (!hasDirectRanges && data.containsKey('overall')) {
+          final overall = data['overall'];
+          if (overall is Map) {
+            for (var range in ageRanges) {
+              if (overall.containsKey(range)) {
+                int value = overall[range] is int
+                    ? overall[range]
+                    : int.tryParse(overall[range].toString()) ?? 0;
+                processedAgeData[range] = value;
+              }
+            }
+          }
+        }
+
+        // If still no data, check in monthly/weekly
+        if (processedAgeData.isEmpty) {
+          if (data.containsKey('monthly') && data['monthly'] is Map) {
+            final monthlyData = data['monthly'];
+            if (_selectedMonth != null && _selectedYear != null) {
+              final monthKey =
+                  "${_selectedYear}-${_selectedMonth.toString().padLeft(2, '0')}";
+              if (monthlyData.containsKey(monthKey) &&
+                  monthlyData[monthKey] is Map) {
+                for (var range in ageRanges) {
+                  if (monthlyData[monthKey].containsKey(range)) {
+                    int value = monthlyData[monthKey][range] is int
+                        ? monthlyData[monthKey][range]
+                        : int.tryParse(
+                                monthlyData[monthKey][range].toString()) ??
+                            0;
+                    processedAgeData[range] = value;
+                  }
+                }
+              }
+            }
+          } else if (data.containsKey('weekly') && data['weekly'] is Map) {
+            final weeklyData = data['weekly'];
+            if (_selectedCategoryWeek != null) {
+              final formatter = DateFormat('yyyy-MM-dd');
+              final weekKey = formatter.format(_selectedCategoryWeek!);
+              if (weeklyData.containsKey(weekKey) &&
+                  weeklyData[weekKey] is Map) {
+                for (var range in ageRanges) {
+                  if (weeklyData[weekKey].containsKey(range)) {
+                    int value = weeklyData[weekKey][range] is int
+                        ? weeklyData[weekKey][range]
+                        : int.tryParse(weeklyData[weekKey][range].toString()) ??
+                            0;
+                    processedAgeData[range] = value;
+                  }
+                }
+              }
+            }
+          }
         }
       }
-
-      processedAgeData.addAll(groupedAges);
-    } else {
-      // Si los datos ya están agrupados en rangos, usarlos directamente
-      for (var entry in data.entries) {
-        if (['18-24', '25-34', '35-44'].contains(entry.key.toString())) {
-          processedAgeData[entry.key.toString()] = entry.value is int
-              ? entry.value
-              : int.tryParse(entry.value.toString()) ?? 0;
-        }
-      }
+    } catch (e) {
+      print('Error processing age data: $e');
     }
+
+    // If we still have no data, show a message
+    if (processedAgeData.isEmpty) {
+      return _buildNoDataView('No hay datos de edad en el formato esperado');
+    }
+
+    // Create a consistent order of age ranges
+    final orderedRanges = ["0-18", "19-30", "31-45", "46-60", "60+"];
 
     return SingleChildScrollView(
       child: Padding(
@@ -5632,18 +5693,22 @@ class StatisticsViewState extends State<StatisticsView> {
             ),
             const SizedBox(height: 16),
 
-            // Tarjetas de rango de edad
-            GridView.count(
-              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 1,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+            // Tarjetas de rango de edad - layout más compacto
+            GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: MediaQuery.of(context).size.width > 600 ? 5 : 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.2, // More compact ratio
+              ),
+              itemCount: orderedRanges.length,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildAgeRangeCardDark('18-24', processedAgeData['18-24'] ?? 0),
-                _buildAgeRangeCardDark('25-34', processedAgeData['25-34'] ?? 0),
-                _buildAgeRangeCardDark('35-44', processedAgeData['35-44'] ?? 0),
-              ],
+              itemBuilder: (context, index) {
+                final range = orderedRanges[index];
+                final count = processedAgeData[range] ?? 0;
+                return _buildAgeRangeCardWithGender(range, count);
+              },
             ),
           ],
         ),
@@ -5651,51 +5716,57 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Construir tarjeta para rango de edad (para el nuevo diseño oscuro)
-  Widget _buildAgeRangeCardDark(String ageRange, int count) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF666666),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Rango de edad: $ageRange',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+  // Construir tarjeta para rango de edad (Material Design actualizado)
+  Widget _buildAgeRangeCard(String ageRange, int count) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Use Material Design 3 Card
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.all(2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Age range label
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                ageRange,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimaryContainer,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Center(
-            child: Text(
-              'personas',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: Colors.white,
+            ),
+            const SizedBox(height: 10),
+            // Count
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.primary,
               ),
             ),
-          ),
-        ],
+            // Label
+            Text(
+              'personas',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -5995,59 +6066,11 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Método para obtener cuenta de edad según el rango
   int _getAgeCount(Map<String, dynamic> ageData, String range) {
-    // Verificar si el rango existe directamente
     if (ageData.containsKey(range)) {
-      dynamic value = ageData[range];
-      if (value is int) {
-        return value;
-      } else {
-        return int.tryParse(value.toString()) ?? 0;
-      }
+      var count = ageData[range];
+      if (count is int) return count;
+      return int.tryParse(count.toString()) ?? 0;
     }
-
-    // Si no existe, intentar agrupar datos individuales
-    int count = 0;
-    if (range == '18-24') {
-      for (var entry in ageData.entries) {
-        final String keyStr = entry.key.toString();
-        final int age = int.tryParse(keyStr) ?? 0;
-        if (age >= 18 && age <= 24) {
-          final dynamic value = entry.value;
-          if (value is int) {
-            count += value;
-          } else {
-            count += int.tryParse(value.toString()) ?? 0;
-          }
-        }
-      }
-    } else if (range == '25-34') {
-      for (var entry in ageData.entries) {
-        final String keyStr = entry.key.toString();
-        final int age = int.tryParse(keyStr) ?? 0;
-        if (age >= 25 && age <= 34) {
-          final dynamic value = entry.value;
-          if (value is int) {
-            count += value;
-          } else {
-            count += int.tryParse(value.toString()) ?? 0;
-          }
-        }
-      }
-    } else if (range == '35-44') {
-      for (var entry in ageData.entries) {
-        final String keyStr = entry.key.toString();
-        final int age = int.tryParse(keyStr) ?? 0;
-        if (age >= 35 && age <= 44) {
-          final dynamic value = entry.value;
-          if (value is int) {
-            count += value;
-          } else {
-            count += int.tryParse(value.toString()) ?? 0;
-          }
-        }
-      }
-    }
-
-    return count;
+    return 0;
   }
 }
