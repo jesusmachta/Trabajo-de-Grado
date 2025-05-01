@@ -128,4 +128,29 @@ class CategoriesController {
       rethrow; // Re-throw para manejar en la UI
     }
   }
+
+  // Obtener cámaras asociadas a un Tipo_Producto (categoría)
+  Future<List<Map<String, dynamic>>> getCamerasByTipoProducto(
+      int tipoProducto) async {
+    final url = Uri.parse('$baseUrl/api/cameras');
+    try {
+      final response = await _client.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> cameras =
+            json.decode(utf8.decode(response.bodyBytes));
+        // Filtrar cámaras por Tipo_Producto
+        return cameras
+            .where((cam) =>
+                cam['Tipo_Producto_Id'] == tipoProducto ||
+                cam['Tipo_Producto'] == tipoProducto)
+            .map<Map<String, dynamic>>((cam) => Map<String, dynamic>.from(cam))
+            .toList();
+      } else {
+        throw Exception('Error al obtener cámaras: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error en getCamerasByTipoProducto: $e');
+      rethrow;
+    }
+  }
 }
