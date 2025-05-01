@@ -1208,8 +1208,11 @@ class _CamerasViewState extends State<CamerasView> {
                 children: [
                   Text(
                     'Gestión de Cámaras',
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF223A5E),
+                      fontSize: 22,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(

@@ -131,9 +131,8 @@ def initialize_statistics():
         },
         {
             "_id": "emotional_differences_by_category",
-            "description": "Emociones predominantes por género en cada categoría",
-            "data": {},  # {"categoria1": {"Male": "HAPPY", "Female": "SAD"}, ...}
-            "raw_counts": {},  # {"categoria1": {"Male": {"HAPPY": N, ...}, "Female": {"SAD": M, ...}}, ...}
+            "description": "Emociones por género en cada categoría de productos",
+            "data": {},  # {"categoria1": {"male": {"HAPPY": N, ...}, "female": {"SAD": M, ...}}, ...}
             "last_updated": datetime.utcnow().isoformat()
         },
         {
@@ -355,9 +354,8 @@ def reset_statistics_documents():
             },
             {
                 "_id": "emotional_differences_by_category",
-                "description": "Emociones predominantes por género en cada categoría",
-                "data": {},  # {"categoria1": {"Male": "HAPPY", "Female": "SAD"}, ...}
-                "raw_counts": {},  # {"categoria1": {"Male": {"HAPPY": N, ...}, "Female": {"SAD": M, ...}}, ...}
+                "description": "Emociones por género en cada categoría de productos",
+                "data": {},  # {"categoria1": {"male": {"HAPPY": N, ...}, "female": {"SAD": M, ...}}, ...}
                 "last_updated": datetime.utcnow().isoformat()
             },
             {

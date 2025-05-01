@@ -124,9 +124,15 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+        title: Text(
+          _titles[_currentIndex],
+          style: const TextStyle(
+            color: Color(0xFF223A5E),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF223A5E),
         elevation: 0,
         centerTitle: false,
         actions: [
@@ -134,10 +140,10 @@ class _HomeViewState extends State<HomeView> {
             children: [
               Text(
                 '¡Hola, $userName!',
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  color: Color(0xFF223A5E),
                 ),
               ),
               const SizedBox(width: 12),

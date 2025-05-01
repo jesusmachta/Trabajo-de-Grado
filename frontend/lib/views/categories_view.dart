@@ -846,9 +846,10 @@ class _CategoriesViewState extends State<CategoriesView> {
                   children: [
                     Text(
                       'Categorías',
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
+                        color: Color(0xFF223A5E),
+                        fontSize: 24,
                       ),
                     ),
                     const SizedBox(height: 8),
