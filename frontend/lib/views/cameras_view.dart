@@ -1158,6 +1158,33 @@ class _CamerasViewState extends State<CamerasView> {
 
   @override
   Widget build(BuildContext context) {
+    final authController = Provider.of<AuthController>(context);
+    final isAdmin = authController.currentUser?.role == 'admin';
+    if (!isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Acceso denegado')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text('No tienes permisos para acceder a esta sección.',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.dashboard),
+                label: const Text('Volver al Dashboard'),
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final theme = Theme.of(context);
     Widget bodyContent;
 

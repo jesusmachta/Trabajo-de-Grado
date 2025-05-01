@@ -7,7 +7,7 @@ from backend.statistics.incremental_stats import initialize_statistics, update_s
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field # Added Field
 from backend.aws import analyze_image, upload_image_to_s3
 from datetime import datetime, timedelta
 from backend.database import collections
@@ -15,13 +15,14 @@ import pymongo
 import os
 import io
 import logging
-import json
+import json # Added json import
+import requests # Added requests import
 import numpy as np
 from PIL import Image
 import base64
 import cv2
 from typing import List, Optional, Dict, Any # Added Dict, Any
-from bson import ObjectId # Added ObjectId import
+from bson import ObjectId, json_util # Added ObjectId import and json_util
 from pytz import timezone
 from backend.statistics.peak_hours import get_peak_hours
 from backend.statistics.least_busy_hours import get_least_busy_hours
@@ -92,6 +93,15 @@ class Token(BaseModel):
     role: str
     profile_picture: Optional[str] = None
 
+# Chat models (Added)
+class ChatMessage(BaseModel):
+    text: str
+    isUser: bool
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[List[ChatMessage]] = Field(default_factory=list) # Use Field for default factory
+
 def get_next_sequence_value(sequence_name):
     try:
         sequence_document = collections['counters'].find_one_and_update(
@@ -118,6 +128,7 @@ def initialize_routes(app):
     app.include_router(update_category_router, prefix="/api")
     app.include_router(delete_category_router, prefix="/api")
     app.include_router(create_category_router, prefix="/api")
+    app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Added chat_router
     
     # Configurar evento de apagado para detener el programador
     @app.on_event("shutdown")
@@ -1761,3 +1772,144 @@ async def regenerate_preferred_gender_stats():
         import traceback
         logger.error(traceback.format_exc())
         return {"message": "Error", "error": str(e)}
+
+# --- Chat API Endpoint ---
+chat_router = APIRouter() # Define the router
+
+# Replace Cohere constants with Gemini constants
+# COHERE_API_KEY = "bw3NSooils3gjvHP0i2RfdsBobJ9raA94lHRrNXk"
+# COHERE_API_URL = "https://api.cohere.com/v2/chat" # Use v2 Chat endpoint
+# COHERE_MODEL = "command-r-plus"
+
+GEMINI_API_KEY = "AIzaSyAVNc67HMNDH4rjZCi55DteVXOWwp8OZP4"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+def serialize_docs(docs):
+    """Helper to serialize MongoDB documents, handling ObjectId."""
+    # Use json_util to handle BSON types like ObjectId
+    return json.loads(json_util.dumps(docs))
+
+@chat_router.post("/chat/ai", tags=["Chat"]) # Added tag
+async def chat_ai(
+    payload: ChatRequest,
+    current_user: dict = Depends(get_current_user) # Optional: Get user context if needed
+):
+    """Handles chat requests, interacts with DB and Gemini."""
+    try:
+        # 1. Fetch relevant data (Example: Fetch recent activities or user-specific data)
+        #    Refine this query based on what information the AI should access.
+        #    Let's fetch the last 5 interactions related to this user (if available) or general data.
+        user_email = current_user.get("email") # Example: Use user info
+        # A more robust implementation would filter data based on payload.message or user context
+        # Ensure correct sorting syntax for PyMongo
+        docs = list(collections["Persona_AR"].find().sort("date", pymongo.DESCENDING).limit(5))
+        serialized_docs = serialize_docs(docs)
+        context = f"Recent store activity data:\n{json.dumps(serialized_docs, indent=2)}\n"
+        context += f"User info: email={user_email}, name={current_user.get('full_name')}\n"
+
+        # 2. Construct the prompt for Gemini, including history
+        # System prompt instructing the AI
+        system_prompt = """
+        Eres StoreSense AI, un asistente inteligente integrado en la aplicación StoreSense.
+        Tu propósito es ayudar al usuario a entender los datos de la tienda, responder preguntas sobre la actividad reciente,
+        estadísticas, y funcionalidades de la aplicación, basándote en la información proporcionada y el historial de conversación.
+        Sé amable, conciso y útil. Utiliza los datos recientes proporcionados para responder preguntas específicas.
+        Si no tienes suficiente información de los documentos o el historial para responder, indícalo claramente.
+        No inventes información. Puedes preguntar al usuario para clarificar si es necesario.
+        Contexto de datos:
+        {data_context}
+        """.format(data_context=context)
+
+        # Use Gemini message format ("contents" list)
+        gemini_history = []
+        # Add system prompt if history is empty or as the first message
+        if not payload.history:
+             gemini_history.append({"role": "user", "parts": [{"text": system_prompt}]})
+             gemini_history.append({"role": "model", "parts": [{"text": "¡Hola! Soy StoreSense AI. ¿En qué puedo ayudarte hoy con los datos de la tienda?"}]}) # Initial greeting
+
+        # Convert history format from List[ChatMessage] to Gemini format (user/model roles)
+        for msg in payload.history:
+            # Map roles: isUser=true -> "user", isUser=false -> "model"
+            role = "user" if msg.isUser else "model"
+            gemini_history.append({"role": role, "parts": [{"text": msg.text}]})
+
+        # Add the new user message
+        gemini_history.append({"role": "user", "parts": [{"text": payload.message}]})
+
+
+        # 3. Call the Gemini API
+        api_payload = {
+            "contents": gemini_history,
+             "generationConfig": { # Optional: Configure generation parameters
+                "temperature": 0.7,
+                "maxOutputTokens": 500,
+            }
+            # Add safetySettings if needed
+        }
+        
+        # Use API Key in query parameters for Gemini
+        params = {"key": GEMINI_API_KEY}
+        headers = {"Content-Type": "application/json"} # Reset headers
+
+        # logger.info(f"Sending payload to Gemini: {json.dumps(api_payload, indent=2)}")
+
+        response = requests.post(GEMINI_API_URL, params=params, headers=headers, json=api_payload)
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+
+        data = response.json()
+        # logger.info(f"Received response from Gemini: {json.dumps(data, indent=2)}")
+
+        # Extract the reply - adapt back to Gemini format
+        ai_reply = "Lo siento, no pude procesar la respuesta del asistente." # Default error message
+        candidates = data.get("candidates")
+        if candidates and isinstance(candidates, list) and len(candidates) > 0:
+            content = candidates[0].get("content")
+            if content and isinstance(content, dict):
+                parts = content.get("parts")
+                if parts and isinstance(parts, list) and len(parts) > 0:
+                    text = parts[0].get("text")
+                    if text and isinstance(text, str):
+                        ai_reply = text
+
+        # Check if the response might be blocked due to safety settings
+        if not data.get("candidates") and data.get("promptFeedback"):
+             block_reason = data["promptFeedback"].get("blockReason")
+             if block_reason:
+                 ai_reply = f"Mi respuesta fue bloqueada debido a: {block_reason}. Por favor, reformula tu pregunta."
+                 logger.warning(f"Gemini response blocked: {block_reason}")
+             else:
+                 logger.error(f"Gemini response missing candidates, promptFeedback: {data.get('promptFeedback')}")
+        # Handle other potential errors if needed
+        elif not data.get("candidates") and data.get("error"):
+            error_details = data["error"].get("message", "Unknown error")
+            ai_reply = f"Error de la API Gemini: {error_details}"
+            logger.error(f"Gemini API error: {data['error']}")
+
+
+        return {"reply": ai_reply.strip()}
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error calling Gemini API: {e}")
+        # Reuse the more detailed error handling from Cohere attempt
+        status_code = 502
+        detail = f"Error communicating with AI service: {e}"
+        if e.response is not None:
+             status_code = e.response.status_code
+             try:
+                 error_data = e.response.json()
+                 detail = error_data.get('message', str(e))
+                 # Specific check for Gemini API key issues
+                 if status_code == 400 and "API key not valid" in detail:
+                      detail = "API key de Gemini no válida. Verifica la clave en el backend."
+                      logger.error("Invalid Gemini API Key detected.")
+             except json.JSONDecodeError:
+                 detail = e.response.text # Use raw text if not JSON
+             logger.error(f"Gemini API Request failed: Status {status_code}, Detail: {detail}")
+        raise HTTPException(status_code=status_code, detail=detail)
+
+    except HTTPException as e:
+        # Re-raise HTTP exceptions from this function or dependencies
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error in chat_ai: {e}", exc_info=True) # Log full traceback
+        raise HTTPException(status_code=500, detail=f"Internal server error in chat AI: {str(e)}")
