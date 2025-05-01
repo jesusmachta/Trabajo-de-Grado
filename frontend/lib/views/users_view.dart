@@ -681,6 +681,8 @@ class _UsersViewState extends State<UsersView> {
 
   Widget _buildUserTable(
       List<User> users, ThemeData theme, AuthController authController) {
+    final Color azulOscuro = const Color(0xFF223A5E);
+    final Color grisClaro = const Color(0xFFE0E0E0);
     return Card(
         elevation: 2,
         clipBehavior: Clip.antiAlias,
@@ -759,17 +761,19 @@ class _UsersViewState extends State<UsersView> {
                                         _toggleUserStatus(
                                             user.id, user.isActive);
                                       },
-                                activeColor: Colors.green,
-                                inactiveThumbColor: Colors.grey,
-                                inactiveTrackColor: Colors.grey.shade300,
+                                activeColor: Colors.white,
+                                activeTrackColor: azulOscuro,
+                                inactiveThumbColor: Colors.white,
+                                inactiveTrackColor: grisClaro,
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
+                                splashRadius: 18,
                               ),
                               const SizedBox(width: 8),
                               Text(user.isActive ? 'Activo' : 'Inactivo',
                                   style: TextStyle(
                                       color: user.isActive
-                                          ? Colors.green
+                                          ? azulOscuro
                                           : Colors.red.shade700,
                                       fontWeight: FontWeight.w500)),
                             ],

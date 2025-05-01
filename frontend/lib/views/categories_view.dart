@@ -24,6 +24,9 @@ class _CategoriesViewState extends State<CategoriesView> {
   String searchQuery = '';
   CategoryStatusFilter _selectedStatus =
       CategoryStatusFilter.todos; // Default filter status
+  int _currentPage = 0;
+  int _rowsPerPage = 10;
+  final List<int> _rowsPerPageOptions = [10, 20, 50];
 
   @override
   void initState() {
@@ -78,6 +81,7 @@ class _CategoriesViewState extends State<CategoriesView> {
       }
 
       filteredCategories = result;
+      _currentPage = 0; // Resetear página al filtrar
     });
   }
 
@@ -961,6 +965,13 @@ class _CategoriesViewState extends State<CategoriesView> {
 
   // Helper widget to build the main content (DataTable)
   Widget _buildCategoriesTable() {
+    final int startIndex = _currentPage * _rowsPerPage;
+    final int endIndex = (_currentPage + 1) * _rowsPerPage;
+    final List<Map<String, dynamic>> pageCategories =
+        filteredCategories.skip(startIndex).take(_rowsPerPage).toList();
+    final int totalPages = (filteredCategories.length / _rowsPerPage).ceil();
+    final Color azulOscuro = const Color(0xFF223A5E);
+    final Color grisClaro = const Color(0xFFE0E0E0);
     return Column(
       children: [
         Card(
@@ -996,15 +1007,13 @@ class _CategoriesViewState extends State<CategoriesView> {
                         label: Text('Acciones',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                  rows: filteredCategories.map((category) {
+                  rows: pageCategories.map((category) {
                     final mongoId = category['_id'] as String;
                     final nombre =
                         category["Categoria_Producto"] ?? 'Desconocida';
                     final isActive = category["isActive"] as bool? ?? false;
-
                     return DataRow(
                       cells: [
-                        // Foto cell
                         DataCell(
                           CircleAvatar(
                             radius: 20,
@@ -1017,38 +1026,35 @@ class _CategoriesViewState extends State<CategoriesView> {
                             ),
                           ),
                         ),
-                        // Category name cell
                         DataCell(Text(nombre)),
-                        // Status Cell with Switch instead of Chip
-                        DataCell(
-                          Row(
-                            children: [
-                              Switch(
-                                value: isActive,
-                                onChanged: (newValue) {
-                                  _toggleCategoryStatus(category);
-                                },
-                                activeColor: Colors.green,
-                                inactiveThumbColor: Colors.grey,
-                                inactiveTrackColor: Colors.grey.shade300,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(isActive ? 'Activo' : 'Inactivo',
-                                  style: TextStyle(
-                                      color: isActive
-                                          ? Colors.green
-                                          : Colors.red.shade700)),
-                            ],
-                          ),
-                        ),
-                        // Actions Cell
+                        DataCell(Row(
+                          children: [
+                            Switch(
+                              value: isActive,
+                              onChanged: (newValue) {
+                                _toggleCategoryStatus(category);
+                              },
+                              activeColor: Colors.white,
+                              activeTrackColor: azulOscuro,
+                              inactiveThumbColor: Colors.white,
+                              inactiveTrackColor: grisClaro,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              splashRadius: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(isActive ? 'Activo' : 'Inactivo',
+                                style: TextStyle(
+                                    color: isActive
+                                        ? azulOscuro
+                                        : Colors.red.shade700,
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        )),
                         DataCell(
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Edit Button - Removed border, keep blue icon
                               Tooltip(
                                 message: 'Editar Categoría',
                                 child: IconButton(
@@ -1062,7 +1068,6 @@ class _CategoriesViewState extends State<CategoriesView> {
                                       _showEditCategoryModal(category),
                                 ),
                               ),
-                              // Delete Button - Removed border, keep red icon
                               Tooltip(
                                 message: 'Eliminar Categoría',
                                 child: IconButton(
@@ -1085,6 +1090,61 @@ class _CategoriesViewState extends State<CategoriesView> {
               ),
             );
           }),
+        ),
+        // --- CONTROLES DE PAGINACIÓN ESTILO MATERIAL ---
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Filas por página:', style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _rowsPerPage,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                items: _rowsPerPageOptions.map((value) {
+                  return DropdownMenuItem<int>(
+                    value: value,
+                    child: Text(value.toString()),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _rowsPerPage = value;
+                      _currentPage = 0;
+                    });
+                  }
+                },
+                underline: Container(),
+              ),
+              const SizedBox(width: 32),
+              Text(
+                  'Página ${filteredCategories.isEmpty ? 0 : _currentPage + 1} de $totalPages',
+                  style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                color: Colors.black.withOpacity(_currentPage > 0 ? 0.87 : 0.2),
+                onPressed: _currentPage > 0
+                    ? () => setState(() => _currentPage--)
+                    : null,
+                splashRadius: 18,
+                iconSize: 24,
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                color: Colors.black.withOpacity(
+                    endIndex < filteredCategories.length ? 0.87 : 0.2),
+                onPressed: endIndex < filteredCategories.length
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                splashRadius: 18,
+                iconSize: 24,
+              ),
+            ],
+          ),
         ),
       ],
     );
