@@ -1210,7 +1210,7 @@ class _DashboardViewState extends State<DashboardView> {
         case 'snacks':
           return Icons.cookie;
         case 'frutas':
-          return Icons.apple;
+          return Icons.shopping_basket;
         case 'alcohol':
           return Icons.wine_bar;
         case 'bebidas':
@@ -1407,7 +1407,7 @@ class _DashboardViewState extends State<DashboardView> {
         case 'snacks':
           return Icons.cookie;
         case 'frutas':
-          return Icons.apple;
+          return Icons.shopping_basket;
         case 'alcohol':
           return Icons.wine_bar;
         case 'bebidas':
@@ -1534,7 +1534,7 @@ class _DashboardViewState extends State<DashboardView> {
         case 'snacks':
           return Icons.cookie;
         case 'frutas':
-          return Icons.apple;
+          return Icons.shopping_basket;
         case 'alcohol':
           return Icons.wine_bar;
         case 'bebidas':
