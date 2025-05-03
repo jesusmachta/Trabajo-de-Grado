@@ -131,9 +131,8 @@ def initialize_statistics():
         },
         {
             "_id": "emotional_differences_by_category",
-            "description": "Emociones predominantes por género en cada categoría",
-            "data": {},  # {"categoria1": {"Male": "HAPPY", "Female": "SAD"}, ...}
-            "raw_counts": {},  # {"categoria1": {"Male": {"HAPPY": N, ...}, "Female": {"SAD": M, ...}}, ...}
+            "description": "Emociones por género en cada categoría de productos",
+            "data": {},  # {"categoria1": {"male": {"HAPPY": N, ...}, "female": {"SAD": M, ...}}, ...}
             "last_updated": datetime.utcnow().isoformat()
         },
         {
@@ -355,9 +354,8 @@ def reset_statistics_documents():
             },
             {
                 "_id": "emotional_differences_by_category",
-                "description": "Emociones predominantes por género en cada categoría",
-                "data": {},  # {"categoria1": {"Male": "HAPPY", "Female": "SAD"}, ...}
-                "raw_counts": {},  # {"categoria1": {"Male": {"HAPPY": N, ...}, "Female": {"SAD": M, ...}}, ...}
+                "description": "Emociones por género en cada categoría de productos",
+                "data": {},  # {"categoria1": {"male": {"HAPPY": N, ...}, "female": {"SAD": M, ...}}, ...}
                 "last_updated": datetime.utcnow().isoformat()
             },
             {
@@ -464,7 +462,7 @@ def update_statistics_on_insert(document: Dict[str, Any]):
         # Actualizar categorías exitosas (emociones positivas)
         update_top_successful_categories(category, emotion)
         
-        # Actualizar diferencias emocionales por categoría y género
+        # Actualizar emociones por género en cada categoría
         update_emotional_differences_by_category(category, gender, emotion)
         
         # Actualizar distribución de edad y género por categoría
@@ -927,41 +925,50 @@ def update_top_successful_categories(category: str, emotion: str):
         logger.error(f"Error en update_top_successful_categories: {e}")
 
 def update_emotional_differences_by_category(category: str, gender: str, emotion: str):
-    """Actualiza las emociones predominantes por género en cada categoría."""
+    """Actualiza las emociones por género en cada categoría."""
     try:
         stats = collections["Estadisticas"].find_one({"_id": "emotional_differences_by_category"})
         if not stats:
             logger.warning("Documento 'emotional_differences_by_category' no encontrado")
-            return
+            # Crear estructura inicial si no existe
+            collections["Estadisticas"].insert_one({
+                "_id": "emotional_differences_by_category",
+                "description": "Emociones por género en cada categoría de productos",
+                "data": {},
+                "last_updated": datetime.utcnow().isoformat()
+            })
+            stats = collections["Estadisticas"].find_one({"_id": "emotional_differences_by_category"})
+        
+        # Normalizar el género a minúsculas
+        gender_key = gender.lower()
+        # Normalizar la emoción a mayúsculas
+        emotion_key = emotion.upper()
         
         # Obtener datos actuales
-        raw_counts = stats.get("raw_counts", {})
+        data = stats.get("data", {})
         
-        # Asegurar que existan las entradas para esta categoría y género
-        if category not in raw_counts:
-            raw_counts[category] = {"Male": {}, "Female": {}}
-        if gender not in raw_counts[category]:
-            raw_counts[category][gender] = {}
+        # Asegurar que existan las entradas para esta categoría
+        if category not in data:
+            data[category] = {
+                "male": {},
+                "female": {}
+            }
+        
+        # Asegurar que el género existe (por si acaso)
+        if gender_key not in data[category]:
+            data[category][gender_key] = {}
         
         # Incrementar contador para esta emoción
-        gender_emotions = raw_counts[category][gender]
-        gender_emotions[emotion] = gender_emotions.get(emotion, 0) + 1
+        if emotion_key not in data[category][gender_key]:
+            data[category][gender_key][emotion_key] = 0
         
-        # Calcular emoción predominante para cada género en cada categoría
-        data = {}
-        for cat, genders in raw_counts.items():
-            data[cat] = {}
-            for g, emotions in genders.items():
-                if emotions:
-                    predominant = max(emotions.items(), key=lambda x: x[1])[0]
-                    data[cat][g] = predominant
+        data[category][gender_key][emotion_key] += 1
         
         # Actualizar documento
         collections["Estadisticas"].update_one(
             {"_id": "emotional_differences_by_category"},
             {"$set": {
                 "data": data,
-                "raw_counts": raw_counts,
                 "last_updated": datetime.utcnow().isoformat()
             }}
         )

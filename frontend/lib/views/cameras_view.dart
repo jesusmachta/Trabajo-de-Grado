@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart'; // To get the base URL potentially
+import '../widgets/toast_notification.dart'; // Import the new ToastService
 
 // Define the base URL for the API
 const String _apiBaseUrl =
@@ -32,6 +33,9 @@ class _CamerasViewState extends State<CamerasView> {
       CameraStatusFilter.todos; // Default filter status
   String _searchTerm = ''; // For search functionality
   final TextEditingController _searchController = TextEditingController();
+  int _currentPage = 0;
+  int _rowsPerPage = 10;
+  final List<int> _rowsPerPageOptions = [10, 20, 50];
 
   @override
   void initState() {
@@ -286,11 +290,7 @@ class _CamerasViewState extends State<CamerasView> {
       if (response.statusCode == 201) {
         await _fetchCameras(); // This will also call _filterCameras() now
         Navigator.of(currentContext).pop();
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(
-              content: Text('Cámara añadida con éxito.'),
-              backgroundColor: Colors.green),
-        );
+        ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
       } else {
         String errorMessage = 'Failed to add camera';
         try {
@@ -310,11 +310,7 @@ class _CamerasViewState extends State<CamerasView> {
         if (Navigator.of(currentContext).canPop()) {
           Navigator.of(currentContext).pop();
         }
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al añadir cámara: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(currentContext, 'Error al añadir cámara: $e');
       }
     }
   }
@@ -343,6 +339,8 @@ class _CamerasViewState extends State<CamerasView> {
 
       if (response.statusCode == 200) {
         // Success, state already updated
+        ToastService.showSuccess(currentContext,
+            'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
       } else {
         if (index != -1) {
           setState(() {
@@ -361,11 +359,8 @@ class _CamerasViewState extends State<CamerasView> {
         });
       }
       if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al actualizar estado: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(
+            currentContext, 'Error al actualizar estado: $e');
       }
     }
   }
@@ -383,11 +378,7 @@ class _CamerasViewState extends State<CamerasView> {
 
       if (response.statusCode == 204) {
         await _fetchCameras(); // This will also call _filterCameras() now
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(
-              content: Text('Cámara eliminada con éxito.'),
-              backgroundColor: Colors.green),
-        );
+        ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
       } else if (response.statusCode == 404) {
         throw Exception('Camera not found (already deleted?).');
       } else {
@@ -396,11 +387,7 @@ class _CamerasViewState extends State<CamerasView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al eliminar cámara: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(currentContext, 'Error al eliminar cámara: $e');
       }
     }
   }
@@ -425,11 +412,8 @@ class _CamerasViewState extends State<CamerasView> {
       if (response.statusCode == 200) {
         await _fetchCameras(); // This will also call _filterCameras() now
         Navigator.of(currentContext).pop();
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(
-              content: Text('Cámara actualizada con éxito.'),
-              backgroundColor: Colors.green),
-        );
+        ToastService.showSuccess(
+            currentContext, 'Cámara actualizada con éxito.');
       } else {
         String errorMessage = 'Failed to update camera';
         try {
@@ -449,11 +433,8 @@ class _CamerasViewState extends State<CamerasView> {
         if (Navigator.of(currentContext).canPop()) {
           Navigator.of(currentContext).pop();
         }
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-              content: Text('Error al actualizar cámara: $e'),
-              backgroundColor: Colors.red),
-        );
+        ToastService.showError(
+            currentContext, 'Error al actualizar cámara: $e');
       }
     }
   }
@@ -524,14 +505,9 @@ class _CamerasViewState extends State<CamerasView> {
 
                       setDialogState(() {});
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Categorías cargadas: ${_activeCategories.length}'),
-                          backgroundColor: _activeCategories.isEmpty
-                              ? Colors.red
-                              : Colors.green,
-                        ),
+                      ToastService.showInfo(
+                        context,
+                        'Categorías cargadas: ${_activeCategories.length}',
                       );
                     },
                   ),
@@ -773,14 +749,9 @@ class _CamerasViewState extends State<CamerasView> {
 
                       setDialogState(() {});
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Categorías cargadas: ${_activeCategories.length}'),
-                          backgroundColor: _activeCategories.isEmpty
-                              ? Colors.red
-                              : Colors.green,
-                        ),
+                      ToastService.showInfo(
+                        context,
+                        'Categorías cargadas: ${_activeCategories.length}',
                       );
                     },
                   ),
@@ -990,11 +961,19 @@ class _CamerasViewState extends State<CamerasView> {
           return idContains || categoryName.contains(searchLower);
         }).toList();
       }
+      _currentPage = 0; // Resetear página al filtrar
     });
   }
 
   // Helper widget to build the main content (DataTable)
   Widget _buildCamerasTable() {
+    final int startIndex = _currentPage * _rowsPerPage;
+    final int endIndex = (_currentPage + 1) * _rowsPerPage;
+    final List<Map<String, dynamic>> pageCameras =
+        _filteredCameras.skip(startIndex).take(_rowsPerPage).toList();
+    final int totalPages = (_filteredCameras.length / _rowsPerPage).ceil();
+    final Color azulOscuro = const Color(0xFF223A5E);
+    final Color grisClaro = const Color(0xFFE0E0E0);
     return Column(
       children: [
         Card(
@@ -1030,14 +1009,12 @@ class _CamerasViewState extends State<CamerasView> {
                         label: Text('Acciones',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                  rows: _filteredCameras.map((camera) {
+                  rows: pageCameras.map((camera) {
                     final mongoId = camera['_id'] as String;
                     final idCamara = camera['Id_Camara'] ?? 'N/A';
                     final categoriaFallback =
                         camera['Categoria_Producto'] ?? 'Desconocida';
                     final isActive = camera['isActive'] as bool? ?? false;
-
-                    // Get category name from _activeCategories list if possible
                     final categoryData = _activeCategories.firstWhere(
                       (cat) =>
                           (cat['Id_Tipo_Producto'] ?? cat['Tipo_Producto']) ==
@@ -1050,12 +1027,10 @@ class _CamerasViewState extends State<CamerasView> {
                     final categoryName = categoryData['Nombre'] ??
                         categoryData['Categoria_Producto'] ??
                         categoriaFallback;
-
                     return DataRow(
                       cells: [
                         DataCell(Text(idCamara.toString())),
                         DataCell(Text(categoryName.toString())),
-                        // Status Cell with Switch
                         DataCell(Row(
                           children: [
                             Switch(
@@ -1063,26 +1038,27 @@ class _CamerasViewState extends State<CamerasView> {
                               onChanged: (newValue) {
                                 _toggleCameraStatus(mongoId, isActive);
                               },
-                              activeColor: Colors.green,
-                              inactiveThumbColor: Colors.grey,
-                              inactiveTrackColor: Colors.grey.shade300,
+                              activeColor: Colors.white,
+                              activeTrackColor: azulOscuro,
+                              inactiveThumbColor: Colors.white,
+                              inactiveTrackColor: grisClaro,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
+                              splashRadius: 18,
                             ),
                             const SizedBox(width: 8),
-                            Text(isActive ? 'Activa' : 'Inactiva',
+                            Text(isActive ? 'Activo' : 'Inactivo',
                                 style: TextStyle(
                                     color: isActive
-                                        ? Colors.green
-                                        : Colors.red.shade700)),
+                                        ? azulOscuro
+                                        : Colors.red.shade700,
+                                    fontWeight: FontWeight.w500)),
                           ],
                         )),
-                        // Actions Cell
                         DataCell(
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Edit Button - Removed border, keep blue icon
                               Tooltip(
                                 message: 'Editar Cámara',
                                 child: IconButton(
@@ -1096,7 +1072,6 @@ class _CamerasViewState extends State<CamerasView> {
                                       _showEditCameraDialog(camera),
                                 ),
                               ),
-                              // Delete Button - Removed border, keep red icon
                               Tooltip(
                                 message: 'Eliminar Cámara',
                                 child: IconButton(
@@ -1122,12 +1097,94 @@ class _CamerasViewState extends State<CamerasView> {
             );
           }),
         ),
+        // --- CONTROLES DE PAGINACIÓN ESTILO MATERIAL ---
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Filas por página:', style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _rowsPerPage,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                items: _rowsPerPageOptions.map((value) {
+                  return DropdownMenuItem<int>(
+                    value: value,
+                    child: Text(value.toString()),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _rowsPerPage = value;
+                      _currentPage = 0;
+                    });
+                  }
+                },
+                underline: Container(),
+              ),
+              const SizedBox(width: 32),
+              Text(
+                  'Página ${_filteredCameras.isEmpty ? 0 : _currentPage + 1} de $totalPages',
+                  style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                color: Colors.black.withOpacity(_currentPage > 0 ? 0.87 : 0.2),
+                onPressed: _currentPage > 0
+                    ? () => setState(() => _currentPage--)
+                    : null,
+                splashRadius: 18,
+                iconSize: 24,
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                color: Colors.black.withOpacity(
+                    endIndex < _filteredCameras.length ? 0.87 : 0.2),
+                onPressed: endIndex < _filteredCameras.length
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                splashRadius: 18,
+                iconSize: 24,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final authController = Provider.of<AuthController>(context);
+    final isAdmin = authController.currentUser?.role == 'admin';
+    if (!isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Acceso denegado')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text('No tienes permisos para acceder a esta sección.',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.dashboard),
+                label: const Text('Volver al Dashboard'),
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final theme = Theme.of(context);
     Widget bodyContent;
 
@@ -1178,8 +1235,11 @@ class _CamerasViewState extends State<CamerasView> {
                 children: [
                   Text(
                     'Gestión de Cámaras',
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF223A5E),
+                      fontSize: 22,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(

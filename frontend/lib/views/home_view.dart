@@ -10,6 +10,7 @@ import '../controllers/route_guard.dart';
 import '../main.dart'; // Importar para acceder al themeController
 import 'cameras_view.dart';
 import 'profile_view.dart';
+import '../controllers/chat_controller.dart'; // Import ChatController
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
@@ -29,7 +30,8 @@ class _HomeViewState extends State<HomeView> {
   final GlobalKey<StatisticsViewState> _statisticsViewKey =
       GlobalKey<StatisticsViewState>();
 
-  late final List<Widget> _pages;
+  late List<Widget> _pages;
+  late List<String> _titles;
 
   @override
   void initState() {
@@ -43,23 +45,35 @@ class _HomeViewState extends State<HomeView> {
         authController.checkAuthAndRedirect(context);
       }
     });
+    // Inicializar _pages y _titles en didChangeDependencies para tener acceso al usuario
+  }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final authController = Provider.of<AuthController>(context, listen: false);
+    final isAdmin = authController.currentUser?.role == 'admin';
     _pages = [
       DashboardView(toggleTheme: widget.toggleTheme),
       StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
-      UsersView(toggleTheme: widget.toggleTheme),
-      CategoriesView(toggleTheme: widget.toggleTheme),
-      CamerasView(toggleTheme: widget.toggleTheme),
+      if (isAdmin) UsersView(toggleTheme: widget.toggleTheme),
+      if (isAdmin) CategoriesView(toggleTheme: widget.toggleTheme),
+      if (isAdmin) CamerasView(toggleTheme: widget.toggleTheme),
     ];
+    _titles = [
+      'Dashboard',
+      'Estadísticas',
+      if (isAdmin) 'Gestión de Usuarios',
+      if (isAdmin) 'Categorías',
+      if (isAdmin) 'Gestión de Cámaras',
+    ];
+    // Si el usuario no es admin y el índice actual es > 1, volver al dashboard
+    if (!isAdmin && _currentIndex > 1) {
+      setState(() {
+        _currentIndex = 0;
+      });
+    }
   }
-
-  final List<String> _titles = [
-    'Dashboard',
-    'Estadísticas',
-    'Gestión de Usuarios',
-    'Categorías',
-    'Gestión de Cámaras',
-  ];
 
   // Helper to properly encode profile picture URLs
   String _encodeProfilePictureUrl(String? url) {
@@ -124,9 +138,15 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+        title: Text(
+          _titles[_currentIndex],
+          style: const TextStyle(
+            color: Color(0xFF223A5E),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF223A5E),
         elevation: 0,
         centerTitle: false,
         actions: [
@@ -134,10 +154,10 @@ class _HomeViewState extends State<HomeView> {
             children: [
               Text(
                 '¡Hola, $userName!',
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  color: Color(0xFF223A5E),
                 ),
               ),
               const SizedBox(width: 12),
@@ -185,6 +205,20 @@ class _HomeViewState extends State<HomeView> {
                 },
               ),
               const SizedBox(width: 8),
+              // Chatbot Toggle Button
+              IconButton(
+                icon: Icon(
+                  Icons.auto_awesome, // Sparkle icon for AI
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                tooltip: 'Abrir Chat AI',
+                onPressed: () {
+                  // Access ChatController and toggle the overlay
+                  Provider.of<ChatController>(context, listen: false)
+                      .toggleChatOverlay(context);
+                },
+              ),
+              const SizedBox(width: 16), // Add some spacing before drawer icon
             ],
           ),
         ],
@@ -274,42 +308,49 @@ class _HomeViewState extends State<HomeView> {
                 );
               }).toList(),
             ),
-            ListTile(
-              leading: const Icon(Icons.admin_panel_settings, size: 32),
-              title: const Text('Roles y Privilegios',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              selected: _currentIndex == 2,
-              onTap: () {
-                setState(() {
-                  _currentIndex = 2;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.category, size: 32),
-              title: const Text('Categorías',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              selected: _currentIndex == 3,
-              onTap: () {
-                setState(() {
-                  _currentIndex = 3;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, size: 32),
-              title: const Text('Cámaras',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              selected: _currentIndex == 4,
-              onTap: () {
-                setState(() {
-                  _currentIndex = 4;
-                });
-                Navigator.pop(context);
-              },
-            ),
+            // Solo mostrar estos botones si es admin
+            if (Provider.of<AuthController>(context).currentUser?.role ==
+                'admin') ...[
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings, size: 32),
+                title: const Text('Roles y Privilegios',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                selected: _currentIndex == 2,
+                onTap: () {
+                  setState(() {
+                    _currentIndex = 2;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.category, size: 32),
+                title: const Text('Categorías',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                selected: _currentIndex == 3,
+                onTap: () {
+                  setState(() {
+                    _currentIndex = 3;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, size: 32),
+                title: const Text('Cámaras',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                selected: _currentIndex == 4,
+                onTap: () {
+                  setState(() {
+                    _currentIndex = 4;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ],
             const Divider(),
             ListTile(
               leading: Icon(

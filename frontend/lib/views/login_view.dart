@@ -138,29 +138,12 @@ class _LoginViewState extends State<LoginView> {
                     const SizedBox(height: 24),
 
                     // Password field
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Contraseña',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 18,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // Implement forgot password functionality
-                          },
-                          child: const Text(
-                            '¿Olvidaste tu contraseña?',
-                            style: TextStyle(
-                              color: Color(0xFF0277BD),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      'Contraseña',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 18,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
@@ -189,37 +172,7 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         contentPadding:
                             const EdgeInsets.symmetric(vertical: 20),
-                        helperText:
-                            'La contraseña debe tener: 6+ caracteres, 1+ mayúscula, 1+ minúscula, 1+ número, 1+ carácter especial',
-                        helperMaxLines: 2,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Remember session checkbox
-                    Row(
-                      children: [
-                        Transform.scale(
-                          scale: 1.2,
-                          child: Checkbox(
-                            value: _rememberSession,
-                            onChanged: (value) {
-                              setState(() {
-                                _rememberSession = value ?? false;
-                              });
-                            },
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                        ),
-                        const Text(
-                          'Recordar mi sesión',
-                          style: TextStyle(
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
                     ),
                     const SizedBox(height: 32),
 

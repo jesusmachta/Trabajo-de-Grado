@@ -6,6 +6,7 @@ import 'views/login_view.dart';
 import 'views/dashboard_view.dart';
 import 'controllers/auth_controller.dart';
 import 'controllers/user_controller.dart';
+import 'controllers/chat_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -23,6 +24,16 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (context) => AuthController()),
           ChangeNotifierProvider(create: (context) => UserController()),
+          ChangeNotifierProxyProvider<AuthController, ChatController>(
+            create: (context) => ChatController(
+                Provider.of<AuthController>(context, listen: false)),
+            update: (context, auth, previousChatController) {
+              if (previousChatController == null) {
+                return ChatController(auth);
+              }
+              return previousChatController;
+            },
+          ),
         ],
         child: const MyApp(),
       ),
@@ -75,6 +86,17 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'StoreSense',
       debugShowCheckedModeBanner: false,
+      // Add a builder to allow overlays for toast notifications
+      builder: (context, child) {
+        // Ensure we have an overlay for toast notifications
+        return Overlay(
+          initialEntries: [
+            OverlayEntry(
+              builder: (context) => child!,
+            ),
+          ],
+        );
+      },
       // Tema claro con azul E1F5FF
       theme: ThemeData(
         useMaterial3: true,

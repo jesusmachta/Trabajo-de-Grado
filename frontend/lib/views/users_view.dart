@@ -6,6 +6,7 @@ import '../controllers/auth_controller.dart' hide User;
 import '../models/user_model.dart'; // Use this User model
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../widgets/toast_notification.dart'; // Import the new ToastService
 
 class UsersView extends StatefulWidget {
   final Function toggleTheme;
@@ -66,31 +67,18 @@ class _UsersViewState extends State<UsersView> {
     if (authController.token != null) {
       try {
         userController.fetchUsers(authController.token!).catchError((error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al cargar usuarios: ${error.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          ToastService.showError(
+              context, 'Error al cargar usuarios: ${error.toString()}');
         });
       } catch (e) {
         // Handle any synchronous errors
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Error al iniciar carga de usuarios: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastService.showError(
+            context, 'Error al iniciar carga de usuarios: ${e.toString()}');
       }
     } else {
       // Inform user they need to login
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sesión no iniciada. Por favor inicie sesión primero.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      ToastService.showWarning(
+          context, 'Sesión no iniciada. Por favor inicie sesión primero.');
     }
   }
 
@@ -327,11 +315,8 @@ class _UsersViewState extends State<UsersView> {
                       // password: password.isNotEmpty ? password : null,
                     );
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content:
-                              Text('Error: Usuario original no encontrado.')),
-                    );
+                    ToastService.showError(
+                        context, 'Error: Usuario original no encontrado.');
                   }
                 } else {
                   // Add new user
@@ -348,18 +333,14 @@ class _UsersViewState extends State<UsersView> {
 
                 if (success) {
                   Navigator.of(context).pop(); // Close dialog on success
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(
-                            'Usuario ${_isEditMode ? 'actualizado' : 'agregado'} con éxito')),
-                  );
+                  ToastService.showSuccess(context,
+                      'Usuario ${_isEditMode ? 'actualizado' : 'agregado'} con éxito');
                 } else {
                   // Error message is handled by the controller
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(userController.error ??
-                            'Error al ${_isEditMode ? 'actualizar' : 'agregar'} usuario')),
-                  );
+                  ToastService.showError(
+                      context,
+                      userController.error ??
+                          'Error al ${_isEditMode ? 'actualizar' : 'agregar'} usuario');
                 }
               }
             },
@@ -400,15 +381,11 @@ class _UsersViewState extends State<UsersView> {
               Navigator.of(context).pop(); // Close confirmation dialog
 
               if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Usuario eliminado con éxito')),
-                );
+                ToastService.showSuccess(
+                    context, 'Usuario eliminado con éxito');
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(
-                          userController.error ?? 'Error al eliminar usuario')),
-                );
+                ToastService.showError(context,
+                    userController.error ?? 'Error al eliminar usuario');
               }
             },
             child: const Text('Eliminar'),
@@ -446,9 +423,7 @@ class _UsersViewState extends State<UsersView> {
 
     // Check if token is available
     if (authController.token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: No autenticado.')),
-      );
+      ToastService.showError(context, 'Error: No autenticado.');
       return false;
     }
 
@@ -460,9 +435,7 @@ class _UsersViewState extends State<UsersView> {
         userController.users.indexWhere((u) => u.id == userId);
     if (userIndex == -1) {
       // User not found
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Usuario no encontrado.')),
-      );
+      ToastService.showError(context, 'Error: Usuario no encontrado.');
       return false;
     }
 
@@ -488,6 +461,8 @@ class _UsersViewState extends State<UsersView> {
 
       if (response.statusCode == 200) {
         // Success - UI already updated
+        ToastService.showSuccess(context,
+            'Estado de usuario actualizado a ${newStatus ? 'activo' : 'inactivo'}');
         return true;
       } else {
         // API call failed, revert the UI change
@@ -497,11 +472,8 @@ class _UsersViewState extends State<UsersView> {
           userController.users[userIndex] = revertedUser;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Error al actualizar estado. Código: ${response.statusCode}')),
-        );
+        ToastService.showError(context,
+            'Error al actualizar estado. Código: ${response.statusCode}');
         return false;
       }
     } catch (e) {
@@ -512,9 +484,7 @@ class _UsersViewState extends State<UsersView> {
         userController.users[userIndex] = revertedUser;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de red: ${e.toString()}')),
-      );
+      ToastService.showError(context, 'Error de red: ${e.toString()}');
       return false;
     }
   }
@@ -556,8 +526,11 @@ class _UsersViewState extends State<UsersView> {
                       children: [
                         Text(
                           'Roles y Privilegios',
-                          style: theme.textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF223A5E),
+                            fontSize: 22,
+                          ),
                         ),
                         TextButton.icon(
                           onPressed: () {
@@ -711,6 +684,8 @@ class _UsersViewState extends State<UsersView> {
 
   Widget _buildUserTable(
       List<User> users, ThemeData theme, AuthController authController) {
+    final Color azulOscuro = const Color(0xFF223A5E);
+    final Color grisClaro = const Color(0xFFE0E0E0);
     return Card(
         elevation: 2,
         clipBehavior: Clip.antiAlias,
@@ -789,17 +764,19 @@ class _UsersViewState extends State<UsersView> {
                                         _toggleUserStatus(
                                             user.id, user.isActive);
                                       },
-                                activeColor: Colors.green,
-                                inactiveThumbColor: Colors.grey,
-                                inactiveTrackColor: Colors.grey.shade300,
+                                activeColor: Colors.white,
+                                activeTrackColor: azulOscuro,
+                                inactiveThumbColor: Colors.white,
+                                inactiveTrackColor: grisClaro,
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
+                                splashRadius: 18,
                               ),
                               const SizedBox(width: 8),
                               Text(user.isActive ? 'Activo' : 'Inactivo',
                                   style: TextStyle(
                                       color: user.isActive
-                                          ? Colors.green
+                                          ? azulOscuro
                                           : Colors.red.shade700,
                                       fontWeight: FontWeight.w500)),
                             ],

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../controllers/categories_controller.dart';
+import '../widgets/toast_notification.dart'; // Import the new ToastService
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../controllers/auth_controller.dart';
 
 // Add enum for category status filter similar to user filter
 enum CategoryStatusFilter { todos, activo, inactivo }
@@ -21,6 +26,9 @@ class _CategoriesViewState extends State<CategoriesView> {
   String searchQuery = '';
   CategoryStatusFilter _selectedStatus =
       CategoryStatusFilter.todos; // Default filter status
+  int _currentPage = 0;
+  int _rowsPerPage = 10;
+  final List<int> _rowsPerPageOptions = [10, 20, 50];
 
   @override
   void initState() {
@@ -47,9 +55,7 @@ class _CategoriesViewState extends State<CategoriesView> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading categories: $e')),
-      );
+      ToastService.showError(context, 'Error loading categories: $e');
     }
   }
 
@@ -77,6 +83,7 @@ class _CategoriesViewState extends State<CategoriesView> {
       }
 
       filteredCategories = result;
+      _currentPage = 0; // Resetear página al filtrar
     });
   }
 
@@ -89,68 +96,453 @@ class _CategoriesViewState extends State<CategoriesView> {
   }
 
   void _deleteCategory(Map<String, dynamic> category) async {
-    final bool confirm = await showDialog(
+    final int tipoProducto =
+        category["Tipo_Producto"] ?? category["Id_Tipo_Producto"];
+    final String categoriaId = category["_id"];
+    final String categoriaNombre =
+        category["Categoria_Producto"] ?? "Categoría";
+
+    // 1. Obtener cámaras vinculadas a la categoría
+    List<Map<String, dynamic>> cameras = [];
+    bool tipoProductoIsActive = category["isActive"] == true;
+    try {
+      cameras = await _controller.getCamerasByTipoProducto(tipoProducto);
+    } catch (e) {
+      ToastService.showError(context, 'Error al buscar cámaras vinculadas: $e');
+      return;
+    }
+
+    // 2. Si no hay cámaras vinculadas, eliminar la categoría normalmente
+    if (cameras.isEmpty) {
+      final bool confirm = await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Eliminar Categoría'),
+            content: Text(
+              '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
+            ),
+            actions: [
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.blue),
+                ),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: Colors.blue)),
+              ),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child:
+                    const Text('Eliminar', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirm == true) {
+        try {
+          await _controller.deleteCategory(categoriaId);
+          await _loadCategories();
+          ToastService.showSuccess(
+              context, 'Categoría eliminada: $categoriaNombre');
+        } catch (e) {
+          ToastService.showError(context, 'Error al eliminar categoría: $e');
+        }
+      }
+      return;
+    }
+
+    // 3. Si hay cámaras vinculadas, validar isActive en cámaras y Tipo_Producto
+    final bool anyCameraActive = cameras.any((cam) => cam["isActive"] == true);
+    if (!anyCameraActive && !tipoProductoIsActive) {
+      // Todas las cámaras y la categoría están inactivas, eliminar todo
+      final bool confirm = await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Eliminar Categoría y Cámaras'),
+            content: Text(
+              'Esta categoría tiene cámaras vinculadas, pero todas están inactivas. ¿Deseas eliminar la categoría y todas sus cámaras asociadas? Esta acción no se puede deshacer.',
+            ),
+            actions: [
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.blue),
+                ),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: Colors.blue)),
+              ),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Eliminar todo',
+                    style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirm == true) {
+        try {
+          // Eliminar todas las cámaras asociadas
+          for (final cam in cameras) {
+            await _deleteCameraById(cam["_id"]);
+          }
+          // Eliminar la categoría
+          await _controller.deleteCategory(categoriaId);
+          await _loadCategories();
+          ToastService.showSuccess(context, 'Categoría y cámaras eliminadas');
+        } catch (e) {
+          ToastService.showError(context, 'Error al eliminar: $e');
+        }
+      }
+      return;
+    }
+
+    // 4. Si alguna cámara o la categoría está activa, mostrar modal con opciones
+    await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Eliminar Categoría'),
-          content: Text(
-            '¿Estás seguro de que deseas eliminar la categoría "${category["Categoria_Producto"]}"? Esta acción no se puede deshacer.',
-          ),
-          actions: [
-            // Botón de cancelar con borde azul
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.blue), // Borde azul
+        String? selectedCategoryId;
+        String? errorText;
+        bool isProcessing = false;
+        final theme = Theme.of(context);
+        final Color azulPrincipal = theme.colorScheme.primary;
+        final Color azulClaro =
+            theme.colorScheme.primaryContainer.withOpacity(0.25);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header azul con icono de cerrar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: azulPrincipal,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(18),
+                          topRight: Radius.circular(18),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 18),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Cámaras vinculadas activas',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: isProcessing
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 28),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 18),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No puedes eliminar la categoría "$categoriaNombre" porque tiene cámaras activas vinculadas. ¿Qué deseas hacer?',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 18),
+                          // Cámaras vinculadas en recuadro azul claro
+                          Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: azulClaro,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Cámaras vinculadas:',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.bold)),
+                                ...cameras.map((cam) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 3.0),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.lens,
+                                              color: azulPrincipal, size: 14),
+                                          const SizedBox(width: 6),
+                                          Text('ID: ${cam["Id_Camara"]}',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w500)),
+                                          if (cam["isActive"] == true)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  left: 6.0),
+                                              child: Text(
+                                                '(Activo)',
+                                                style: TextStyle(
+                                                    color: azulPrincipal,
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 13),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    )),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Text('Opciones:',
+                              style: theme.textTheme.bodyLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.delete_outline),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.fromHeight(48),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 10, horizontal: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              textStyle: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.w600),
+                            ),
+                            onPressed: isProcessing
+                                ? null
+                                : () async {
+                                    setModalState(() => isProcessing = true);
+                                    try {
+                                      for (final cam in cameras) {
+                                        await _deleteCameraById(cam["_id"]);
+                                      }
+                                      await _controller
+                                          .deleteCategory(categoriaId);
+                                      await _loadCategories();
+                                      if (mounted) Navigator.of(context).pop();
+                                      ToastService.showSuccess(context,
+                                          'Cámaras y categoría eliminadas');
+                                    } catch (e) {
+                                      setModalState(() => isProcessing = false);
+                                      ToastService.showError(
+                                          context, 'Error al eliminar: $e');
+                                    }
+                                  },
+                            label: const Text('Eliminar cámaras y categoría'),
+                          ),
+                          const SizedBox(height: 10),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.swap_horiz),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: azulPrincipal,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.fromHeight(48),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 10, horizontal: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              textStyle: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.w600),
+                            ),
+                            onPressed: isProcessing
+                                ? null
+                                : () async {
+                                    final List<Map<String, dynamic>>
+                                        otherCategories = categories
+                                            .where((cat) =>
+                                                cat["_id"] != categoriaId)
+                                            .toList();
+                                    await showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return StatefulBuilder(
+                                          builder: (context, setState2) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                  'Reasignar cámaras'),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text(
+                                                      'Selecciona la categoría a la que deseas mover las cámaras:'),
+                                                  const SizedBox(height: 10),
+                                                  DropdownButtonFormField<
+                                                      String>(
+                                                    value: selectedCategoryId,
+                                                    items: otherCategories
+                                                        .map((cat) {
+                                                      return DropdownMenuItem<
+                                                          String>(
+                                                        value: cat["_id"]
+                                                            as String,
+                                                        child: Text(
+                                                            cat["Categoria_Producto"] ??
+                                                                'Sin nombre'),
+                                                      );
+                                                    }).toList(),
+                                                    onChanged: (value) {
+                                                      setState2(() {
+                                                        selectedCategoryId =
+                                                            value;
+                                                        errorText = null;
+                                                      });
+                                                    },
+                                                    decoration: InputDecoration(
+                                                      labelText:
+                                                          'Nueva categoría',
+                                                      errorText: errorText,
+                                                      contentPadding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                              vertical: 8,
+                                                              horizontal: 10),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(context)
+                                                          .pop(),
+                                                  child: const Text('Cancelar'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () async {
+                                                    if (selectedCategoryId ==
+                                                        null) {
+                                                      setState2(() => errorText =
+                                                          'Selecciona una categoría');
+                                                      return;
+                                                    }
+                                                    setModalState(() =>
+                                                        isProcessing = true);
+                                                    try {
+                                                      final newTipoProducto = otherCategories
+                                                              .firstWhere((cat) =>
+                                                                  cat["_id"] ==
+                                                                  selectedCategoryId)[
+                                                          "Tipo_Producto"] as int;
+                                                      for (final cam
+                                                          in cameras) {
+                                                        await _updateCameraTipoProducto(
+                                                            cam["_id"],
+                                                            cam["Id_Camara"],
+                                                            newTipoProducto);
+                                                      }
+                                                      await _controller
+                                                          .deleteCategory(
+                                                              categoriaId);
+                                                      await _loadCategories();
+                                                      if (mounted)
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      if (mounted)
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      ToastService.showSuccess(
+                                                          context,
+                                                          'Cámaras reasignadas y categoría eliminada');
+                                                    } catch (e) {
+                                                      setModalState(() =>
+                                                          isProcessing = false);
+                                                      ToastService.showError(
+                                                          context,
+                                                          'Error al reasignar: $e');
+                                                    }
+                                                  },
+                                                  child: const Text(
+                                                      'Reasignar y eliminar categoría'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                    );
+                                  },
+                            label: const Text(
+                                'Reasignar cámaras a otra categoría'),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: isProcessing
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
+                              style: TextButton.styleFrom(
+                                  foregroundColor: azulPrincipal),
+                              child: const Text('Cancelar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: () {
-                Navigator.of(context).pop(false); // Cancelar
-              },
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.blue), // Texto azul
-              ),
-            ),
-            // Botón de eliminar con borde rojo
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red), // Borde rojo
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(true); // Confirmar
-              },
-              child: const Text(
-                'Eliminar',
-                style: TextStyle(color: Colors.red), // Texto rojo
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );
+  }
 
-    if (confirm == true) {
-      try {
-        // Llamar al controlador para eliminar la categoría
-        await _controller.deleteCategory(category["_id"]);
+  // Función auxiliar para eliminar cámara por id (llama al endpoint de cámaras)
+  Future<void> _deleteCameraById(String cameraMongoId) async {
+    final url = Uri.parse('http://127.0.0.1:8000/api/cameras/$cameraMongoId');
+    final response = await http.delete(url);
+    if (response.statusCode != 204) {
+      throw Exception('Error al eliminar cámara: ${response.body}');
+    }
+  }
 
-        // Recargar la lista de categorías
-        await _loadCategories(); // This will also call _applyFilters() now
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Categoría eliminada: ${category["Categoria_Producto"]}',
-            ),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al eliminar categoría: $e'),
-          ),
-        );
-      }
+  // Función auxiliar para actualizar el Tipo_Producto de una cámara (reasignar)
+  Future<void> _updateCameraTipoProducto(
+      String cameraMongoId, int idCamara, int newTipoProducto) async {
+    final url = Uri.parse('http://127.0.0.1:8000/api/cameras/$cameraMongoId');
+    final response = await http.put(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'Id_Camara': idCamara,
+        'Tipo_Producto': newTipoProducto,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Error al reasignar cámara: ${response.body}');
     }
   }
 
@@ -239,17 +631,12 @@ class _CategoriesViewState extends State<CategoriesView> {
                       // Cerramos modal
                       if (mounted) Navigator.of(context).pop();
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('Categoría actualizada exitosamente')),
-                      );
+                      ToastService.showSuccess(
+                          context, 'Categoría actualizada exitosamente');
                     } catch (e) {
                       if (mounted) Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text('Error al actualizar categoría: $e')),
-                      );
+                      ToastService.showError(
+                          context, 'Error al actualizar categoría: $e');
                     }
                   },
                   child: const Text('Guardar'),
@@ -368,14 +755,11 @@ class _CategoriesViewState extends State<CategoriesView> {
                       // Cerrar el modal
                       if (mounted) Navigator.of(context).pop();
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Categoría creada exitosamente')),
-                      );
+                      ToastService.showSuccess(
+                          context, 'Categoría creada exitosamente');
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al crear categoría: $e')),
-                      );
+                      ToastService.showError(
+                          context, 'Error al crear categoría: $e');
                     }
                   },
                   child: const Text('Crear'),
@@ -415,12 +799,8 @@ class _CategoriesViewState extends State<CategoriesView> {
 
       // Show success message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}'),
-          ),
-        );
+        ToastService.showSuccess(context,
+            'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}');
       }
     } catch (e) {
       // If there was an error, revert the optimistic update
@@ -435,18 +815,39 @@ class _CategoriesViewState extends State<CategoriesView> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al actualizar estado: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastService.showError(context, 'Error al actualizar estado: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authController = Provider.of<AuthController>(context);
+    final isAdmin = authController.currentUser?.role == 'admin';
+    if (!isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Acceso denegado')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text('No tienes permisos para acceder a esta sección.',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.dashboard),
+                label: const Text('Volver al Dashboard'),
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -473,9 +874,10 @@ class _CategoriesViewState extends State<CategoriesView> {
                   children: [
                     Text(
                       'Categorías',
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
+                        color: Color(0xFF223A5E),
+                        fontSize: 24,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -592,6 +994,13 @@ class _CategoriesViewState extends State<CategoriesView> {
 
   // Helper widget to build the main content (DataTable)
   Widget _buildCategoriesTable() {
+    final int startIndex = _currentPage * _rowsPerPage;
+    final int endIndex = (_currentPage + 1) * _rowsPerPage;
+    final List<Map<String, dynamic>> pageCategories =
+        filteredCategories.skip(startIndex).take(_rowsPerPage).toList();
+    final int totalPages = (filteredCategories.length / _rowsPerPage).ceil();
+    final Color azulOscuro = const Color(0xFF223A5E);
+    final Color grisClaro = const Color(0xFFE0E0E0);
     return Column(
       children: [
         Card(
@@ -627,15 +1036,13 @@ class _CategoriesViewState extends State<CategoriesView> {
                         label: Text('Acciones',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                  rows: filteredCategories.map((category) {
+                  rows: pageCategories.map((category) {
                     final mongoId = category['_id'] as String;
                     final nombre =
                         category["Categoria_Producto"] ?? 'Desconocida';
                     final isActive = category["isActive"] as bool? ?? false;
-
                     return DataRow(
                       cells: [
-                        // Foto cell
                         DataCell(
                           CircleAvatar(
                             radius: 20,
@@ -648,38 +1055,35 @@ class _CategoriesViewState extends State<CategoriesView> {
                             ),
                           ),
                         ),
-                        // Category name cell
                         DataCell(Text(nombre)),
-                        // Status Cell with Switch instead of Chip
-                        DataCell(
-                          Row(
-                            children: [
-                              Switch(
-                                value: isActive,
-                                onChanged: (newValue) {
-                                  _toggleCategoryStatus(category);
-                                },
-                                activeColor: Colors.green,
-                                inactiveThumbColor: Colors.grey,
-                                inactiveTrackColor: Colors.grey.shade300,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(isActive ? 'Activo' : 'Inactivo',
-                                  style: TextStyle(
-                                      color: isActive
-                                          ? Colors.green
-                                          : Colors.red.shade700)),
-                            ],
-                          ),
-                        ),
-                        // Actions Cell
+                        DataCell(Row(
+                          children: [
+                            Switch(
+                              value: isActive,
+                              onChanged: (newValue) {
+                                _toggleCategoryStatus(category);
+                              },
+                              activeColor: Colors.white,
+                              activeTrackColor: azulOscuro,
+                              inactiveThumbColor: Colors.white,
+                              inactiveTrackColor: grisClaro,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              splashRadius: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(isActive ? 'Activo' : 'Inactivo',
+                                style: TextStyle(
+                                    color: isActive
+                                        ? azulOscuro
+                                        : Colors.red.shade700,
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        )),
                         DataCell(
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Edit Button - Removed border, keep blue icon
                               Tooltip(
                                 message: 'Editar Categoría',
                                 child: IconButton(
@@ -693,7 +1097,6 @@ class _CategoriesViewState extends State<CategoriesView> {
                                       _showEditCategoryModal(category),
                                 ),
                               ),
-                              // Delete Button - Removed border, keep red icon
                               Tooltip(
                                 message: 'Eliminar Categoría',
                                 child: IconButton(
@@ -716,6 +1119,61 @@ class _CategoriesViewState extends State<CategoriesView> {
               ),
             );
           }),
+        ),
+        // --- CONTROLES DE PAGINACIÓN ESTILO MATERIAL ---
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Filas por página:', style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _rowsPerPage,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                items: _rowsPerPageOptions.map((value) {
+                  return DropdownMenuItem<int>(
+                    value: value,
+                    child: Text(value.toString()),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _rowsPerPage = value;
+                      _currentPage = 0;
+                    });
+                  }
+                },
+                underline: Container(),
+              ),
+              const SizedBox(width: 32),
+              Text(
+                  'Página ${filteredCategories.isEmpty ? 0 : _currentPage + 1} de $totalPages',
+                  style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                color: Colors.black.withOpacity(_currentPage > 0 ? 0.87 : 0.2),
+                onPressed: _currentPage > 0
+                    ? () => setState(() => _currentPage--)
+                    : null,
+                splashRadius: 18,
+                iconSize: 24,
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                color: Colors.black.withOpacity(
+                    endIndex < filteredCategories.length ? 0.87 : 0.2),
+                onPressed: endIndex < filteredCategories.length
+                    ? () => setState(() => _currentPage++)
+                    : null,
+                splashRadius: 18,
+                iconSize: 24,
+              ),
+            ],
+          ),
         ),
       ],
     );

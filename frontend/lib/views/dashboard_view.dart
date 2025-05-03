@@ -157,17 +157,20 @@ class _DashboardViewState extends State<DashboardView> {
           // Dashboard title
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color:
-                  Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
+            decoration: const BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Panel de Estadísticas Históricas',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: const TextStyle(
+                    color: Color(0xFF223A5E),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
@@ -1207,7 +1210,7 @@ class _DashboardViewState extends State<DashboardView> {
         case 'snacks':
           return Icons.cookie;
         case 'frutas':
-          return Icons.apple;
+          return Icons.shopping_basket;
         case 'alcohol':
           return Icons.wine_bar;
         case 'bebidas':
@@ -1404,7 +1407,7 @@ class _DashboardViewState extends State<DashboardView> {
         case 'snacks':
           return Icons.cookie;
         case 'frutas':
-          return Icons.apple;
+          return Icons.shopping_basket;
         case 'alcohol':
           return Icons.wine_bar;
         case 'bebidas':
@@ -1531,7 +1534,7 @@ class _DashboardViewState extends State<DashboardView> {
         case 'snacks':
           return Icons.cookie;
         case 'frutas':
-          return Icons.apple;
+          return Icons.shopping_basket;
         case 'alcohol':
           return Icons.wine_bar;
         case 'bebidas':
