@@ -88,6 +88,10 @@ def create_emotional_differences_doc():
             "last_updated": datetime.now().isoformat()
         }
         
+        # Remove raw_counts from the document
+        if "raw_counts" in emotional_differences_doc:
+            del emotional_differences_doc["raw_counts"]
+        
         # Insert or update the document in the database
         result = stats_collection.replace_one(
             {"_id": "emotional_differences_by_category"},

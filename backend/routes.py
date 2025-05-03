@@ -732,7 +732,7 @@ def top_successful_categories():
 @router.get("/statistics/emotional-differences-by-category/")
 def emotional_differences_by_category():
     """
-    Endpoint para obtener las emociones predominantes por género en cada categoría de productos.
+    Endpoint para obtener las emociones por género en cada categoría de productos.
     """
     try:
         # Obtener datos de la colección Estadisticas
@@ -740,9 +740,13 @@ def emotional_differences_by_category():
         if not stats:
             raise Exception("Estadísticas no encontradas")
         
-        # Obtener datos del campo "data" 
-        data = stats.get("data", {})
-        return {"message": "Success", "data": data}
+        # Asegurarse de que solo devolvemos los campos necesarios
+        response_data = {
+            "message": "Success",
+            "data": stats.get("data", {})
+        }
+        
+        return response_data
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
