@@ -121,10 +121,15 @@ class CategoriesController {
   }
 
   // Delete a category
-  Future<void> deleteCategory(String id) async {
+  Future<void> deleteCategory(String id, String token) async {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     try {
-      final response = await _client.delete(url);
+      final response = await _client.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
+      );
 
       if (response.statusCode != 200) {
         throw Exception('Error al eliminar categoría: ${response.body}');

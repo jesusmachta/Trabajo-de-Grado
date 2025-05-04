@@ -105,428 +105,59 @@ class _CategoriesViewState extends State<CategoriesView> {
   }
 
   void _deleteCategory(Map<String, dynamic> category) async {
-    final int tipoProducto =
-        category["Tipo_Producto"] ?? category["Id_Tipo_Producto"];
     final String categoriaId = category["_id"];
     final String categoriaNombre =
         category["Categoria_Producto"] ?? "Categoría";
 
-    // 1. Obtener cámaras vinculadas a la categoría
-    List<Map<String, dynamic>> cameras = [];
-    bool tipoProductoIsActive = category["isActive"] == true;
-    try {
-      cameras = await _controller.getCamerasByTipoProducto(tipoProducto);
-    } catch (e) {
-      ToastService.showError(context, 'Error al buscar cámaras vinculadas: $e');
-      return;
-    }
-
-    // 2. Si no hay cámaras vinculadas, eliminar la categoría normalmente
-    if (cameras.isEmpty) {
-      final bool confirm = await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Eliminar Categoría'),
-            content: Text(
-              '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
-            ),
-            actions: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.blue),
-                ),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Colors.blue)),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child:
-                    const Text('Eliminar', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirm == true) {
-        try {
-          await _controller.deleteCategory(categoriaId);
-          await _loadCategories();
-          ToastService.showSuccess(
-              context, 'Categoría eliminada: $categoriaNombre');
-        } catch (e) {
-          ToastService.showError(context, 'Error al eliminar categoría: $e');
-        }
-      }
-      return;
-    }
-
-    // 3. Si hay cámaras vinculadas, validar isActive en cámaras y Tipo_Producto
-    final bool anyCameraActive = cameras.any((cam) => cam["isActive"] == true);
-    if (!anyCameraActive && !tipoProductoIsActive) {
-      // Todas las cámaras y la categoría están inactivas, eliminar todo
-      final bool confirm = await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Eliminar Categoría y Cámaras'),
-            content: Text(
-              'Esta categoría tiene cámaras vinculadas, pero todas están inactivas. ¿Deseas eliminar la categoría y todas sus cámaras asociadas? Esta acción no se puede deshacer.',
-            ),
-            actions: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.blue),
-                ),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Colors.blue)),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Eliminar todo',
-                    style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirm == true) {
-        try {
-          // Eliminar todas las cámaras asociadas
-          for (final cam in cameras) {
-            await _deleteCameraById(cam["_id"]);
-          }
-          // Eliminar la categoría
-          await _controller.deleteCategory(categoriaId);
-          await _loadCategories();
-          ToastService.showSuccess(context, 'Categoría y cámaras eliminadas');
-        } catch (e) {
-          ToastService.showError(context, 'Error al eliminar: $e');
-        }
-      }
-      return;
-    }
-
-    // 4. Si alguna cámara o la categoría está activa, mostrar modal con opciones
-    await showDialog(
+    // Confirmar eliminación
+    final bool confirm = await showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (BuildContext context) {
-        String? selectedCategoryId;
-        String? errorText;
-        bool isProcessing = false;
-        final theme = Theme.of(context);
-        final Color azulPrincipal = theme.colorScheme.primary;
-        final Color azulClaro =
-            theme.colorScheme.primaryContainer.withOpacity(0.25);
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18)),
-              insetPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header azul con icono de cerrar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: azulPrincipal,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(18),
-                          topRight: Radius.circular(18),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Cámaras vinculadas activas',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: isProcessing
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                            child: const Icon(Icons.close,
-                                color: Colors.white, size: 28),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 18),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'No puedes eliminar la categoría "$categoriaNombre" porque tiene cámaras activas vinculadas. ¿Qué deseas hacer?',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 18),
-                          // Cámaras vinculadas en recuadro azul claro
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: azulClaro,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Cámaras vinculadas:',
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.bold)),
-                                ...cameras.map((cam) => Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 3.0),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.lens,
-                                              color: azulPrincipal, size: 14),
-                                          const SizedBox(width: 6),
-                                          Text('ID: ${cam["Id_Camara"]}',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w500)),
-                                          if (cam["isActive"] == true)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 6.0),
-                                              child: Text(
-                                                '(Activo)',
-                                                style: TextStyle(
-                                                    color: azulPrincipal,
-                                                    fontWeight: FontWeight.w500,
-                                                    fontSize: 13),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    )),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          Text('Opciones:',
-                              style: theme.textTheme.bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.delete_outline),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(48),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              textStyle: const TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.w600),
-                            ),
-                            onPressed: isProcessing
-                                ? null
-                                : () async {
-                                    setModalState(() => isProcessing = true);
-                                    try {
-                                      for (final cam in cameras) {
-                                        await _deleteCameraById(cam["_id"]);
-                                      }
-                                      await _controller
-                                          .deleteCategory(categoriaId);
-                                      await _loadCategories();
-                                      if (mounted) Navigator.of(context).pop();
-                                      ToastService.showSuccess(context,
-                                          'Cámaras y categoría eliminadas');
-                                    } catch (e) {
-                                      setModalState(() => isProcessing = false);
-                                      ToastService.showError(
-                                          context, 'Error al eliminar: $e');
-                                    }
-                                  },
-                            label: const Text('Eliminar cámaras y categoría'),
-                          ),
-                          const SizedBox(height: 10),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.swap_horiz),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: azulPrincipal,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(48),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              textStyle: const TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.w600),
-                            ),
-                            onPressed: isProcessing
-                                ? null
-                                : () async {
-                                    final List<Map<String, dynamic>>
-                                        otherCategories = categories
-                                            .where((cat) =>
-                                                cat["_id"] != categoriaId)
-                                            .toList();
-                                    await showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return StatefulBuilder(
-                                          builder: (context, setState2) {
-                                            return AlertDialog(
-                                              title: const Text(
-                                                  'Reasignar cámaras'),
-                                              content: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Text(
-                                                      'Selecciona la categoría a la que deseas mover las cámaras:'),
-                                                  const SizedBox(height: 10),
-                                                  DropdownButtonFormField<
-                                                      String>(
-                                                    value: selectedCategoryId,
-                                                    items: otherCategories
-                                                        .map((cat) {
-                                                      return DropdownMenuItem<
-                                                          String>(
-                                                        value: cat["_id"]
-                                                            as String,
-                                                        child: Text(
-                                                            cat["Categoria_Producto"] ??
-                                                                'Sin nombre'),
-                                                      );
-                                                    }).toList(),
-                                                    onChanged: (value) {
-                                                      setState2(() {
-                                                        selectedCategoryId =
-                                                            value;
-                                                        errorText = null;
-                                                      });
-                                                    },
-                                                    decoration: InputDecoration(
-                                                      labelText:
-                                                          'Nueva categoría',
-                                                      errorText: errorText,
-                                                      contentPadding:
-                                                          const EdgeInsets
-                                                              .symmetric(
-                                                              vertical: 8,
-                                                              horizontal: 10),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(context)
-                                                          .pop(),
-                                                  child: const Text('Cancelar'),
-                                                ),
-                                                ElevatedButton(
-                                                  onPressed: () async {
-                                                    if (selectedCategoryId ==
-                                                        null) {
-                                                      setState2(() => errorText =
-                                                          'Selecciona una categoría');
-                                                      return;
-                                                    }
-                                                    setModalState(() =>
-                                                        isProcessing = true);
-                                                    try {
-                                                      final newTipoProducto = otherCategories
-                                                              .firstWhere((cat) =>
-                                                                  cat["_id"] ==
-                                                                  selectedCategoryId)[
-                                                          "Tipo_Producto"] as int;
-                                                      for (final cam
-                                                          in cameras) {
-                                                        await _updateCameraTipoProducto(
-                                                            cam["_id"],
-                                                            cam["Id_Camara"],
-                                                            newTipoProducto);
-                                                      }
-                                                      await _controller
-                                                          .deleteCategory(
-                                                              categoriaId);
-                                                      await _loadCategories();
-                                                      if (mounted)
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      if (mounted)
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      ToastService.showSuccess(
-                                                          context,
-                                                          'Cámaras reasignadas y categoría eliminada');
-                                                    } catch (e) {
-                                                      setModalState(() =>
-                                                          isProcessing = false);
-                                                      ToastService.showError(
-                                                          context,
-                                                          'Error al reasignar: $e');
-                                                    }
-                                                  },
-                                                  child: const Text(
-                                                      'Reasignar y eliminar categoría'),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        );
-                                      },
-                                    );
-                                  },
-                            label: const Text(
-                                'Reasignar cámaras a otra categoría'),
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: isProcessing
-                                  ? null
-                                  : () => Navigator.of(context).pop(),
-                              style: TextButton.styleFrom(
-                                  foregroundColor: azulPrincipal),
-                              child: const Text('Cancelar'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        return AlertDialog(
+          title: const Text('Eliminar Categoría'),
+          content: Text(
+            '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child:
+                  const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            ),
+          ],
         );
       },
     );
+
+    if (confirm == true) {
+      try {
+        // Obtén el token JWT desde el AuthController
+        final authController =
+            Provider.of<AuthController>(context, listen: false);
+        final String? token = authController.token;
+
+        if (token == null) {
+          throw Exception('No se encontró el token de autenticación.');
+        }
+
+        // Llamar al controlador para eliminar la categoría
+        await _controller.deleteCategory(categoriaId, token);
+
+        // Recargar la lista de categorías
+        await _loadCategories();
+
+        // Mostrar mensaje de éxito
+        ToastService.showSuccess(
+            context, 'Categoría eliminada: $categoriaNombre');
+      } catch (e) {
+        // Mostrar mensaje de error
+        ToastService.showError(context, 'Error al eliminar categoría: $e');
+      }
+    }
   }
 
   // Función auxiliar para eliminar cámara por id (llama al endpoint de cámaras)
