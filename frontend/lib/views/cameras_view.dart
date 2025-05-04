@@ -81,14 +81,11 @@ class _CamerasViewState extends State<CamerasView> {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         setState(() {
-          // Ordenar las cámaras por ID por defecto
           _cameras = List<Map<String, dynamic>>.from(data)
             ..sort((a, b) =>
                 (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
           _isLoadingCameras = false;
-
-          // Aplicar filtros después de cargar los datos
-          _filterCameras();
+          _filterCameras(); // Aplicar filtros después de cargar los datos
         });
       } else {
         throw Exception(
@@ -99,7 +96,6 @@ class _CamerasViewState extends State<CamerasView> {
       setState(() {
         _camerasError = 'Error al cargar cámaras: $e';
         _isLoadingCameras = false;
-        print(_camerasError);
       });
     }
   }
@@ -414,20 +410,33 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Realiza la solicitud a la API
       final response = await http.delete(
         Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
+        headers: {
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
       );
 
       if (!mounted) return;
 
       if (response.statusCode == 204) {
-        await _fetchCameras(); // This will also call _filterCameras() now
+        await _fetchCameras(); // Recargar la lista de cámaras
         ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
       } else if (response.statusCode == 404) {
-        throw Exception('Camera not found (already deleted?).');
+        throw Exception('Cámara no encontrada o ya eliminada.');
       } else {
         throw Exception(
-            'Failed to delete camera: ${response.statusCode} ${response.body}');
+            'Error al eliminar cámara: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
       if (mounted) {

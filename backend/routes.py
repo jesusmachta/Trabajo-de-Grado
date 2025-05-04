@@ -1728,23 +1728,39 @@ async def update_camera_status(
 
 @router.delete("/cameras/{camera_id_mongo}", status_code=204, tags=["Cameras"])
 async def delete_camera(
-    camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to delete")
+    camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to delete"),
+    empresa: str = Depends(get_empresa)
 ):
     """
-    Deletes a camera entry by its MongoDB ObjectId.
+    Deletes a camera entry by its MongoDB ObjectId, ensuring it belongs to the authenticated user's company.
     """
     try:
-        object_id = ObjectId(camera_id_mongo)
-    except Exception:
-         raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
+        # Validar el formato del ObjectId
+        try:
+            object_id = ObjectId(camera_id_mongo)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
 
-    try:
-        delete_result = collections['Tipo_Producto_Zona_Camara'].delete_one({"_id": object_id})
+        # Verificar si la cámara pertenece a la empresa
+        camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
+        if not camera:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company."
+            )
+
+        # Eliminar la cámara
+        delete_result = collections['Tipo_Producto_Zona_Camara'].delete_one({"_id": object_id, "empresa": empresa})
 
         if delete_result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found.")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company."
+            )
 
-        return # No content response for successful deletion
+        # Respuesta exitosa sin contenido
+        return
+
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
