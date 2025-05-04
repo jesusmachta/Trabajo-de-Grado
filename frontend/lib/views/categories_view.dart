@@ -255,26 +255,33 @@ class _CategoriesViewState extends State<CategoriesView> {
                     }
 
                     try {
+                      // Obtén el token JWT desde el AuthController
+                      final authController =
+                          Provider.of<AuthController>(context, listen: false);
+                      final String? token = authController.token;
+
+                      if (token == null) {
+                        throw Exception(
+                            'No se encontró el token de autenticación.');
+                      }
+
                       // Llamar al controlador para actualizar la categoría
                       await _controller.updateCategory(
                         category["_id"],
                         nameController.text.trim(),
                         isActive,
+                        token, // Pasar el token aquí
                       );
 
-                      // Esperamos un poco para asegurarnos que el backend haya guardado
-                      await Future.delayed(const Duration(milliseconds: 200));
+                      // Recargar la lista de categorías
+                      await _loadCategories();
 
-                      // Recargamos
-                      await _loadCategories(); // This will also call _applyFilters() now
-
-                      // Cerramos modal
+                      // Cerrar el modal
                       if (mounted) Navigator.of(context).pop();
 
                       ToastService.showSuccess(
                           context, 'Categoría actualizada exitosamente');
                     } catch (e) {
-                      if (mounted) Navigator.of(context).pop();
                       ToastService.showError(
                           context, 'Error al actualizar categoría: $e');
                     }
@@ -429,6 +436,15 @@ class _CategoriesViewState extends State<CategoriesView> {
     final String categoryName = category["Categoria_Producto"] ?? "Categoría";
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
       // Optimistically update UI first
       setState(() {
         // Find the category in our list and update its status
@@ -446,6 +462,7 @@ class _CategoriesViewState extends State<CategoriesView> {
         categoryId,
         category["Categoria_Producto"],
         !currentStatus,
+        token, // Pasar el token como cuarto argumento
       );
 
       // Show success message

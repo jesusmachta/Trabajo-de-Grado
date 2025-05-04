@@ -99,12 +99,16 @@ class CategoriesController {
   }
 
   // Update a category
-  Future<void> updateCategory(String id, String name, bool isActive) async {
+  Future<void> updateCategory(
+      String id, String name, bool isActive, String token) async {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     try {
       final response = await _client.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
         body: json.encode({
           "Categoria_Producto": name,
           "isActive": isActive,
