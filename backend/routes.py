@@ -1148,10 +1148,15 @@ async def login(user_data: UserLogin):
             logger.warning(f"Failed login attempt for user: {user_data.email}")
             raise HTTPException(status_code=401, detail="Invalid email or password")
         
+        company = user.get("empresa")
+        if not company: 
+            logger.warning(f"User {user_data.email} does not have an associated company")
+            raise HTTPException(status_code=400, detail="User does not have an associated company")
+        
         # Create and return access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": str(user["_id"])}, 
+            data={"sub": str(user["_id"]), "empresa": company}, 
             expires_delta=access_token_expires
         )
         
@@ -1166,6 +1171,7 @@ async def login(user_data: UserLogin):
             "email": user.get("email"),
             "full_name": user.get("full_name"),
             "role": user.get("role"),
+            "empresa": company,
             "profile_picture": user.get("profile_picture")  # Include profile picture URL
         }
     except HTTPException:
