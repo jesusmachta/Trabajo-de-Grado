@@ -72,6 +72,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
 class ImagePayload(BaseModel):
     image_base64: str
     id_camara: int
+    empresa: str  # Added empresa field
 
 # User models
 class UserCreate(BaseModel):
@@ -773,6 +774,7 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         # Leer la imagen en formato Base64
         image_base64 = payload.image_base64
         id_camara = payload.id_camara
+        empresa = payload.empresa  # Get the empresa parameter
 
         if not image_base64:
             raise HTTPException(status_code=400, detail="Empty image file provided")
@@ -846,7 +848,7 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         logger.info(f"Image uploaded to S3: {s3_url}")
 
         # Llamar al siguiente endpoint para analizar la imagen
-        background_tasks.add_task(analyze_image_endpoint, enhanced_image_bytes.tobytes(), id_camara)
+        background_tasks.add_task(analyze_image_endpoint, enhanced_image_bytes.tobytes(), id_camara, empresa)  # Pass empresa to the next function
 
         return {"message": "Image uploaded successfully, processing started."}
 
@@ -855,7 +857,7 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
+async def analyze_image_endpoint(image_bytes: bytes, id_camara: int, empresa: str):  # Add empresa parameter
     try:
         logger.info("Starting analyze_image_endpoint")
 
@@ -872,7 +874,7 @@ async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
         logger.info("Image analysis completed, calling save_to_db_endpoint")
 
         # Llamar al siguiente endpoint
-        await save_to_db_endpoint(analysis_result_path, id_camara)
+        await save_to_db_endpoint(analysis_result_path, id_camara, empresa)  # Pass empresa to the next function
         logger.info("save_to_db_endpoint called successfully")
 
         return {"message": "Image analysis completed successfully, processing started."}
@@ -882,7 +884,7 @@ async def analyze_image_endpoint(image_bytes: bytes, id_camara: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def save_to_db_endpoint(result_path: str, id_camara: int):
+async def save_to_db_endpoint(result_path: str, id_camara: int, empresa: str):  # Add empresa parameter
     try:
         logger.info("Starting save_to_db_endpoint")
 
@@ -941,6 +943,7 @@ async def save_to_db_endpoint(result_path: str, id_camara: int):
                     "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato HH:MM:SS
                     "id_camara": id_camara,
                     "categoria_producto": categoria_producto,  # Agregar categoria_producto
+                    "empresa": empresa,  # Add empresa to the document
                     "gender": face['Gender']['Value'],
                     "age_range": {
                         "low": face['AgeRange']['Low'],
