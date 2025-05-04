@@ -1649,34 +1649,75 @@ async def create_camera(
 @router.put("/cameras/{camera_id_mongo}", response_model=Dict[str, Any], tags=["Cameras"])
 async def update_camera_status(
     camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to update"),
-    update_data: Dict[str, Any] = Body(...)
+    update_data: Dict[str, Any] = Body(...),
+    empresa: str = Depends(get_empresa)
 ):
     """
-    Updates an existing camera's status (isActive field).
-    Expects a body like: {"isActive": <bool>}
+    Updates an existing camera's status or associated fields.
+    Expects a body like: {"isActive": <bool>, "Id_Camara": <int>, "Tipo_Producto": <int>}
     """
-    if 'isActive' not in update_data or not isinstance(update_data['isActive'], bool):
-        raise HTTPException(status_code=400, detail="Invalid request body. 'isActive' (boolean) is required.")
-
     try:
+        # Validar el formato del ObjectId
         object_id = ObjectId(camera_id_mongo)
     except Exception:
-         raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
+        raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
+
+    # Validar los datos de entrada
+    if not isinstance(update_data, dict):
+        raise HTTPException(status_code=400, detail="Invalid request body format.")
+    
+    # Validar campos opcionales
+    is_active = update_data.get("isActive")
+    id_camara = update_data.get("Id_Camara")
+    tipo_producto = update_data.get("Tipo_Producto")
+
+    if is_active is not None and not isinstance(is_active, bool):
+        raise HTTPException(status_code=400, detail="'isActive' must be a boolean.")
+
+    if id_camara is not None and not isinstance(id_camara, int):
+        raise HTTPException(status_code=400, detail="'Id_Camara' must be an integer.")
+
+    if tipo_producto is not None and not isinstance(tipo_producto, int):
+        raise HTTPException(status_code=400, detail="'Tipo_Producto' must be an integer.")
 
     try:
+        # Verificar si la cámara pertenece a la empresa
+        camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
+        if not camera:
+            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company.")
+
+        # Verificar si el nuevo `Id_Camara` ya existe para la misma empresa
+        if id_camara is not None:
+            existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara, "empresa": empresa})
+            if existing_camera and str(existing_camera["_id"]) != camera_id_mongo:
+                raise HTTPException(status_code=409, detail=f"Camera with Id_Camara {id_camara} already exists for this company.")
+
+        # Verificar si el `Tipo_Producto` pertenece a la misma empresa
+        if tipo_producto is not None:
+            product_type = collections['Tipo_Producto'].find_one({"Tipo_Producto": tipo_producto, "empresa": empresa})
+            if not product_type:
+                raise HTTPException(status_code=404, detail=f"Tipo_Producto {tipo_producto} not found for this company.")
+
+        # Construir los campos a actualizar
+        update_fields = {}
+        if is_active is not None:
+            update_fields["isActive"] = is_active
+        if id_camara is not None:
+            update_fields["Id_Camara"] = id_camara
+        if tipo_producto is not None:
+            update_fields["Tipo_Producto"] = tipo_producto
+
+        # Actualizar la cámara
         update_result = collections['Tipo_Producto_Zona_Camara'].update_one(
-            {"_id": object_id},
-            {"$set": {"isActive": update_data['isActive']}}
+            {"_id": object_id, "empresa": empresa},
+            {"$set": update_fields}
         )
 
         if update_result.matched_count == 0:
-            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found.")
+            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company.")
 
-        if update_result.modified_count == 0:
-             # Return 304 Not Modified or the current document? Let's return the doc.
-             pass # It means the value was already set to the desired state
-
-        updated_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id})
+        # Obtener la cámara actualizada
+        updated_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
         return serialize_doc(updated_camera)
 
     except HTTPException as http_exc:

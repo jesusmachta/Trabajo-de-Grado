@@ -348,42 +348,58 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
     final newStatus = !currentStatus;
 
+    // Encuentra la cámara en la lista y actualiza su estado de manera optimista
     final index = _cameras.indexWhere((cam) => cam['_id'] == mongoId);
     if (index != -1) {
       setState(() {
         _cameras[index]['isActive'] = newStatus;
-        _filterCameras(); // Apply filters after updating camera status
+        _filterCameras(); // Aplicar filtros después de actualizar el estado
       });
     }
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Realiza la solicitud a la API
       final response = await http.put(
         Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
         body: json.encode({'isActive': newStatus}),
       );
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        // Success, state already updated
+        // Éxito, el estado ya se actualizó de manera optimista
         ToastService.showSuccess(currentContext,
             'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
       } else {
+        // Revertir el cambio optimista si falla la solicitud
         if (index != -1) {
           setState(() {
             _cameras[index]['isActive'] = currentStatus;
-            _filterCameras(); // Apply filters after reverting to original status
+            _filterCameras(); // Aplicar filtros después de revertir el estado
           });
         }
         throw Exception(
-            'Failed to update camera status: ${response.statusCode} ${response.body}');
+            'Error al actualizar estado de la cámara: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
+      // Revertir el cambio optimista si ocurre un error
       if (index != -1 && _cameras[index]['isActive'] != currentStatus) {
         setState(() {
           _cameras[index]['isActive'] = currentStatus;
-          _filterCameras(); // Apply filters after handling error
+          _filterCameras(); // Aplicar filtros después de manejar el error
         });
       }
       if (mounted) {
@@ -426,9 +442,22 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Realiza la solicitud a la API
       final response = await http.put(
         Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
         body: json.encode({
           'Id_Camara': idCamara,
           'Tipo_Producto': categoryId,
@@ -438,21 +467,21 @@ class _CamerasViewState extends State<CamerasView> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        await _fetchCameras(); // This will also call _filterCameras() now
+        await _fetchCameras(); // Recargar la lista de cámaras
         Navigator.of(currentContext).pop();
         ToastService.showSuccess(
             currentContext, 'Cámara actualizada con éxito.');
       } else {
-        String errorMessage = 'Failed to update camera';
+        String errorMessage = 'Error al actualizar cámara';
         try {
           final errorBody = json.decode(response.body);
           if (errorBody is Map && errorBody.containsKey('detail')) {
             errorMessage = errorBody['detail'];
           } else {
-            errorMessage = 'Failed to update camera: ${response.statusCode}';
+            errorMessage = 'Error al actualizar cámara: ${response.statusCode}';
           }
         } catch (_) {
-          errorMessage = 'Failed to update camera: ${response.statusCode}';
+          errorMessage = 'Error al actualizar cámara: ${response.statusCode}';
         }
         throw Exception(errorMessage);
       }
