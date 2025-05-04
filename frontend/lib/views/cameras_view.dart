@@ -290,9 +290,22 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Realiza la solicitud a la API
       final response = await http.post(
         Uri.parse('$_apiBaseUrl/cameras'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
         body: json.encode({
           'Id_Camara': idCamara,
           'Tipo_Producto': categoryId,
@@ -303,20 +316,20 @@ class _CamerasViewState extends State<CamerasView> {
       if (!mounted) return;
 
       if (response.statusCode == 201) {
-        await _fetchCameras(); // This will also call _filterCameras() now
+        await _fetchCameras(); // Recargar la lista de cámaras
         Navigator.of(currentContext).pop();
         ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
       } else {
-        String errorMessage = 'Failed to add camera';
+        String errorMessage = 'Error al añadir cámara';
         try {
           final errorBody = json.decode(response.body);
           if (errorBody is Map && errorBody.containsKey('detail')) {
             errorMessage = errorBody['detail'];
           } else {
-            errorMessage = 'Failed to add camera: ${response.statusCode}';
+            errorMessage = 'Error al añadir cámara: ${response.statusCode}';
           }
         } catch (_) {
-          errorMessage = 'Failed to add camera: ${response.statusCode}';
+          errorMessage = 'Error al añadir cámara: ${response.statusCode}';
         }
         throw Exception(errorMessage);
       }
@@ -457,9 +470,6 @@ class _CamerasViewState extends State<CamerasView> {
   // --- Dialogs ---
 
   void _showAddCameraDialog() {
-    print('Opening Add Camera Dialog');
-
-    // Si hay un problema cargando categorías, intentamos cargarlas directamente con datos predefinidos
     if (_isLoadingCategories || _activeCategories.isEmpty) {
       _loadCategoriesDirectly();
     }
@@ -468,11 +478,8 @@ class _CamerasViewState extends State<CamerasView> {
     final idCamaraController = TextEditingController();
     int? selectedCategoryId;
 
-    // Lista de IDs de cámaras existentes para validación
     final List<int> existingCameraIds =
         _cameras.map((camera) => camera['Id_Camara'] as int).toList();
-
-    print('Existing camera IDs: $existingCameraIds');
 
     showDialog(
       context: context,
@@ -480,7 +487,6 @@ class _CamerasViewState extends State<CamerasView> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            // Crear un mapa simple de ID a nombre para las categorías
             final Map<int, String> categoryMap = {};
             for (var category in _activeCategories) {
               final id = category['Tipo_Producto'] as int? ??
@@ -496,40 +502,8 @@ class _CamerasViewState extends State<CamerasView> {
               categoryMap[id] = name;
             }
 
-            print('Available categories: $categoryMap');
-
             return AlertDialog(
-              title: Row(
-                children: [
-                  const Text('Añadir Nueva Cámara'),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Actualizar categorías',
-                    onPressed: () async {
-                      setDialogState(() {
-                        _isLoadingCategories = true;
-                      });
-
-                      try {
-                        await _fetchActiveCategories();
-                      } catch (e) {
-                        print('Error refreshing categories: $e');
-                        _loadCategoriesDirectly();
-                      }
-
-                      setDialogState(() {});
-
-                      ToastService.showInfo(
-                        context,
-                        'Categorías cargadas: ${_activeCategories.length}',
-                      );
-                    },
-                  ),
-                ],
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              title: const Text('Añadir Nueva Cámara'),
               content: SizedBox(
                 width: 400,
                 child: Form(
@@ -567,13 +541,10 @@ class _CamerasViewState extends State<CamerasView> {
 
                       const SizedBox(height: 24),
 
-                      // Dropdown simplificado
+                      // Dropdown para seleccionar categoría
                       if (_isLoadingCategories)
                         const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(),
-                          ),
+                          child: CircularProgressIndicator(),
                         )
                       else if (_activeCategories.isEmpty)
                         Center(
@@ -583,58 +554,28 @@ class _CamerasViewState extends State<CamerasView> {
                           ),
                         )
                       else
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Seleccionar Categoría:',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            // Simple dropdown button
-                            Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: DropdownButton<int>(
-                                value: selectedCategoryId,
-                                isExpanded: true,
-                                hint: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text('Seleccione una categoría'),
-                                ),
-                                underline:
-                                    Container(), // Eliminar línea inferior
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                items: categoryMap.entries.map((entry) {
-                                  return DropdownMenuItem<int>(
-                                    value: entry.key,
-                                    child: Text(entry.value),
-                                  );
-                                }).toList(),
-                                onChanged: (int? newValue) {
-                                  print(
-                                      'Selected category: $newValue - ${categoryMap[newValue]}');
-                                  setDialogState(() {
-                                    selectedCategoryId = newValue;
-                                  });
-                                },
-                              ),
-                            ),
-                            if (selectedCategoryId != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  'Categoría seleccionada: ${categoryMap[selectedCategoryId]}',
-                                  style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                          ],
+                        DropdownButtonFormField<int>(
+                          value: selectedCategoryId,
+                          decoration: const InputDecoration(
+                            labelText: 'Seleccionar Categoría',
+                          ),
+                          items: categoryMap.entries.map((entry) {
+                            return DropdownMenuItem<int>(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            );
+                          }).toList(),
+                          onChanged: (int? newValue) {
+                            setDialogState(() {
+                              selectedCategoryId = newValue;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Por favor seleccione una categoría';
+                            }
+                            return null;
+                          },
                         ),
                     ],
                   ),

@@ -1599,7 +1599,10 @@ async def get_cameras_with_details(empresa: str = Depends(get_empresa)):
 
 
 @router.post("/cameras", response_model=Dict[str, Any], status_code=201, tags=["Cameras"])
-async def create_camera(camera_data: Dict[str, Any] = Body(...)):
+async def create_camera(
+    camera_data: Dict[str, Any] = Body(...),
+    empresa: str = Depends(get_empresa)
+):
     """
     Creates a new camera entry in Tipo_Producto_Zona_Camara.
     Expects a body like: {"Id_Camara": <int>, "Tipo_Producto": <int>, "isActive": <bool>}
@@ -1609,21 +1612,37 @@ async def create_camera(camera_data: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=400, detail="Missing required fields: Id_Camara, Tipo_Producto, isActive")
 
     try:
-        # Optional: Check if camera ID already exists
-        existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": camera_data["Id_Camara"]})
+        # Verificar si el ID de la cámara ya existe para la misma empresa
+        existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({
+            "Id_Camara": camera_data["Id_Camara"],
+            "empresa": empresa
+        })
         if existing_camera:
-             raise HTTPException(status_code=409, detail=f"Camera with Id_Camara {camera_data['Id_Camara']} already exists.")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Camera with Id_Camara {camera_data['Id_Camara']} already exists for this company."
+            )
 
-        # Optional: Check if Tipo_Producto exists
-        product_type = collections['Tipo_Producto'].find_one({"Tipo_Producto": camera_data["Tipo_Producto"]})
+        # Verificar si el Tipo_Producto existe y pertenece a la misma empresa
+        product_type = collections['Tipo_Producto'].find_one({
+            "Tipo_Producto": camera_data["Tipo_Producto"],
+            "empresa": empresa
+        })
         if not product_type:
-            raise HTTPException(status_code=404, detail=f"Tipo_Producto {camera_data['Tipo_Producto']} not found.")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Tipo_Producto {camera_data['Tipo_Producto']} not found for this company."
+            )
 
+        # Agregar el campo empresa al documento de la cámara
+        camera_data["empresa"] = empresa
+
+        # Insertar la nueva cámara en la base de datos
         insert_result = collections['Tipo_Producto_Zona_Camara'].insert_one(camera_data)
         created_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": insert_result.inserted_id})
         return serialize_doc(created_camera)
     except HTTPException as http_exc:
-        raise http_exc # Re-raise specific HTTP exceptions
+        raise http_exc  # Re-raise specific HTTP exceptions
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating camera: {str(e)}")
 
