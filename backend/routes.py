@@ -1,10 +1,12 @@
 from backend.statistics.apis.categories_api import get_categories
+from backend.statistics.apis.categories_api import router as categories_router
 from backend.statistics.apis.update_category_api import update_category
 from backend.statistics.apis.update_category_api import router as update_category_router
 from backend.statistics.apis.delete_category_api import router as delete_category_router
 from backend.statistics.apis.create_category_api import router as create_category_router
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
+from backend.auth.dependencies import get_empresa, get_current_user
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, Field # Added Field
@@ -46,7 +48,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 import bcrypt
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-import re
+
 
 
 router = APIRouter()
@@ -103,6 +105,8 @@ class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = Field(default_factory=list) # Use Field for default factory
 
+# router.include_router(categories_router, prefix="/api", tags=["Categories"])
+
 def get_next_sequence_value(sequence_name):
     try:
         sequence_document = collections['counters'].find_one_and_update(
@@ -130,6 +134,7 @@ def initialize_routes(app):
     app.include_router(delete_category_router, prefix="/api")
     app.include_router(create_category_router, prefix="/api")
     app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Added chat_router
+    app.include_router(categories_router, prefix="/api", tags=["Categories"])
     
     # Configurar evento de apagado para detener el programador
     @app.on_event("shutdown")
@@ -234,13 +239,13 @@ def daily_traffic():
     except Exception as e:
         return {"message": "Error", "error": str(e)}
     
-@router.get("/categories/")
-def categories():
-    try: 
-        data = get_categories()
-        return {"message": "Success", "data": data}
-    except Exception as e: 
-        return {"message": "Error", "error": str(e)}
+# @router.get("/categories/")
+# def categories():
+#     try: 
+#         data = get_categories()
+#         return {"message": "Success", "data": data}
+#     except Exception as e: 
+#         return {"message": "Error", "error": str(e)}
     
 @router.get("/statistics/least-hours/")
 def daily_traffic():
@@ -1020,37 +1025,40 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Decode JWT token to get current user."""
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+# async def get_current_user(token: str = Depends(oauth2_scheme)):
+#     """Decode JWT token to get current user."""
+#     credentials_exception = HTTPException(
+#         status_code=401,
+#         detail="Could not validate credentials",
+#         headers={"WWW-Authenticate": "Bearer"},
+#     )
     
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except jwt.PyJWTError:
-        raise credentials_exception
+#     try:
+#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+#         user_id: str = payload.get("sub")
+#         company: str = payload.get("empresa")
+#         if user_id is None or company is None:
+#             raise credentials_exception
+#     except jwt.PyJWTError:
+#         raise credentials_exception
     
-    try:
-        # Try to find user with both string and integer ID formats
-        user = collections['Users'].find_one({"_id": int(user_id)})
-        if user is None:
-            # Try with string version as fallback
-            user = collections['Users'].find_one({"_id": user_id})
-            if user is None:
-                raise credentials_exception
-    except (ValueError, TypeError):
-        # If int conversion fails, try with string directly
-        user = collections['Users'].find_one({"_id": user_id})
-        if user is None:
-            raise credentials_exception
+#     try:
+#         # Try to find user with both string and integer ID formats
+#         user = collections['Users'].find_one({"_id": int(user_id)})
+#         if user is None:
+#             # Try with string version as fallback
+#             user = collections['Users'].find_one({"_id": user_id})
+#             if user is None:
+#                 raise credentials_exception
+#     except (ValueError, TypeError):
+#         # If int conversion fails, try with string directly
+#         user = collections['Users'].find_one({"_id": user_id})
+#         if user is None:
+#             raise credentials_exception
+#         if user.get("empresa") != company:
+#            raise HTTPException(status_code=403, detail="User does not belong to the specified company")  
     
-    return user
+#     return user
 
 def validate_password(password: str) -> tuple[bool, str]:
     """
@@ -1148,15 +1156,15 @@ async def login(user_data: UserLogin):
             logger.warning(f"Failed login attempt for user: {user_data.email}")
             raise HTTPException(status_code=401, detail="Invalid email or password")
         
-        company = user.get("empresa")
-        if not company: 
+        empresa = user.get("empresa")
+        if not empresa: 
             logger.warning(f"User {user_data.email} does not have an associated company")
             raise HTTPException(status_code=400, detail="User does not have an associated company")
         
         # Create and return access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": str(user["_id"]), "empresa": company}, 
+            data={"sub": str(user["_id"]), "empresa": empresa}, 
             expires_delta=access_token_expires
         )
         
@@ -1171,7 +1179,7 @@ async def login(user_data: UserLogin):
             "email": user.get("email"),
             "full_name": user.get("full_name"),
             "role": user.get("role"),
-            "empresa": company,
+            "empresa": empresa,
             "profile_picture": user.get("profile_picture")  # Include profile picture URL
         }
     except HTTPException:

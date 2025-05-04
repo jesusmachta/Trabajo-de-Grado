@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from bson import ObjectId
 from backend.database import collections
+from backend.auth.dependencies import get_empresa
 
 router = APIRouter()
 categories_collection = collections["Tipo_Producto"]

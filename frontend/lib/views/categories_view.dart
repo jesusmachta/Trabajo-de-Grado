@@ -42,20 +42,29 @@ class _CategoriesViewState extends State<CategoriesView> {
     });
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Llama a getCategories con el token
       final List<Map<String, dynamic>> categoryData =
-          await _controller.getCategories();
+          await _controller.getCategories(token);
 
       setState(() {
         categories = categoryData;
-        // Apply filters after loading
-        _applyFilters();
+        _applyFilters(); // Aplica los filtros después de cargar las categorías
         isLoading = false;
       });
     } catch (e) {
       setState(() {
         isLoading = false;
       });
-      ToastService.showError(context, 'Error loading categories: $e');
+      ToastService.showError(context, 'Error al cargar categorías: $e');
     }
   }
 

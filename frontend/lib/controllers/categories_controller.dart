@@ -25,7 +25,7 @@ class CategoriesController {
   final Duration _cacheInvalidationTime = const Duration(minutes: 5);
 
   // Fetch categories from the API
-  Future<List<Map<String, dynamic>>> getCategories() async {
+  Future<List<Map<String, dynamic>>> getCategories(String token) async {
     // Check if cache is valid
     if (_cachedCategories != null &&
         _lastFetchTime != null &&
@@ -35,17 +35,20 @@ class CategoriesController {
     }
 
     try {
-      final url = Uri.parse('$baseUrl/api/categories/');
-      final response = await _client
-          .get(url)
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+      final url = Uri.parse('$baseUrl/api/categories');
+      final response = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
         throw Exception(
             'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
       });
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> categoryData = jsonResponse['data']['data'];
+        final List<dynamic> categoryData = jsonResponse['data'];
 
         // Cache the data
         _cachedCategories = List<Map<String, dynamic>>.from(categoryData);
