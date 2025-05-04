@@ -72,13 +72,16 @@ class CategoriesController {
   }
 
   // Create a new category
-  Future<void> createCategory(
-      int tipoProducto, String categoriaProducto, bool isActive) async {
+  Future<void> createCategory(int tipoProducto, String categoriaProducto,
+      bool isActive, String token) async {
     final url = Uri.parse('$baseUrl/api/categories/create');
     try {
       final response = await _client.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
         body: json.encode({
           "Tipo_Producto": tipoProducto,
           "Categoria_Producto": categoriaProducto,

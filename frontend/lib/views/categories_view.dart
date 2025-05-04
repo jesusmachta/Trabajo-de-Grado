@@ -751,15 +751,26 @@ class _CategoriesViewState extends State<CategoriesView> {
                     }
 
                     try {
+                      // Obtén el token JWT desde el AuthController
+                      final authController =
+                          Provider.of<AuthController>(context, listen: false);
+                      final String? token = authController.token;
+
+                      if (token == null) {
+                        throw Exception(
+                            'No se encontró el token de autenticación.');
+                      }
+
                       // Llamar al controlador para crear la categoría
                       await _controller.createCategory(
                         int.parse(tipoProductoController.text.trim()),
                         categoriaProductoController.text.trim(),
                         isActive,
+                        token, // Pasar el token aquí
                       );
 
                       // Recargar la lista de categorías
-                      await _loadCategories(); // This will also call _applyFilters() now
+                      await _loadCategories();
 
                       // Cerrar el modal
                       if (mounted) Navigator.of(context).pop();
