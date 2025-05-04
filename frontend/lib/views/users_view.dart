@@ -71,12 +71,12 @@ class _UsersViewState extends State<UsersView> {
               context, 'Error al cargar usuarios: ${error.toString()}');
         });
       } catch (e) {
-        // Handle any synchronous errors
+        // Manejar errores síncronos
         ToastService.showError(
             context, 'Error al iniciar carga de usuarios: ${e.toString()}');
       }
     } else {
-      // Inform user they need to login
+      // Informar al usuario que necesita iniciar sesión
       ToastService.showWarning(
           context, 'Sesión no iniciada. Por favor inicie sesión primero.');
     }

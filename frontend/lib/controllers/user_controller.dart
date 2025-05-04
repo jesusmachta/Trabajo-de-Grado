@@ -24,47 +24,22 @@ class UserController with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/users'),
+        Uri.parse('http://127.0.0.1:8000/api/users'),
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
         },
       );
 
       if (response.statusCode == 200) {
-        final responseBody = jsonDecode(response.body);
-        if (responseBody.containsKey('data') && responseBody['data'] is List) {
-          final List<dynamic> responseData = responseBody['data'];
-          _users =
-              responseData.map((userData) => User.fromJson(userData)).toList();
-        } else {
-          _users = []; // Reset users if the response format is unexpected
-          _error = 'Formato de respuesta inesperado';
-        }
-        _isLoading = false;
-        notifyListeners();
-      } else if (response.statusCode == 401) {
-        _error =
-            'Sesión expirada o no autorizada. Por favor inicie sesión nuevamente.';
-        _users = [];
-        _isLoading = false;
-        notifyListeners();
+        final List<dynamic> data =
+            json.decode(utf8.decode(response.bodyBytes))['data'];
+        _users = data.map((user) => User.fromJson(user)).toList();
       } else {
-        try {
-          final responseData = jsonDecode(response.body);
-          _error = responseData['detail'] ??
-              'Error al obtener usuarios: ${response.statusCode}';
-        } catch (e) {
-          _error = 'Error al obtener usuarios: ${response.statusCode}';
-        }
-        _users = [];
-        _isLoading = false;
-        notifyListeners();
+        _error = 'Error al cargar usuarios: ${response.statusCode}';
       }
     } catch (e) {
-      _error =
-          'Error de conexión: ${e.toString()}. Intente de nuevo más tarde.';
-      _users = [];
+      _error = 'Error de red: ${e.toString()}';
+    } finally {
       _isLoading = false;
       notifyListeners();
     }

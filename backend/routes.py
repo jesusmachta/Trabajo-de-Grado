@@ -1198,22 +1198,36 @@ class UserUpdate(BaseModel):
 
 @router.get("/users", response_model=dict)
 async def get_users(current_user: dict = Depends(get_current_user)):
-    """Endpoint to get all users. Admin only."""
-    # Check if user is admin
+    """
+    Endpoint to get all users. Admin only, filtered by company.
+    """
+    # Verificar si el usuario tiene el rol de administrador
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Access forbidden: Admin only")
-    
+
+    # Obtener la empresa del usuario autenticado
+    empresa = current_user.get("empresa")
+    if not empresa:
+        raise HTTPException(status_code=400, detail="User does not belong to any company")
+
     try:
-        users = list(collections['Users'].find({}, {"password": 0}))  # Exclude password field
-        
-        # Convert ObjectId to string for JSON serialization
+        # Obtener todos los usuarios de la misma empresa, excluyendo campos sensibles
+        users = list(collections['Users'].find(
+            {"empresa": empresa},  # Filtrar por empresa
+            {"password": 0}  # Excluir el campo password
+        ))
+
+        # Convertir ObjectId a string para serialización JSON
         for user in users:
             user["_id"] = str(user["_id"])
-        
+
         return {"message": "Success", "data": users}
+    except HTTPException as http_exc:
+        # Re-lanzar excepciones HTTP específicas
+        raise http_exc
     except Exception as e:
-        logger.error(f"Error fetching users: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+        logger.error(f"Error fetching users for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching users.")
 
 @router.get("/users/me", response_model=dict)
 async def get_current_user_profile(current_user: dict = Depends(get_current_user)):
@@ -1287,22 +1301,6 @@ async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Dep
     except Exception as e:
         logger.error(f"Error updating profile: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
-
-@router.get("/users/{user_id}", response_model=dict)
-async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    """Get a specific user. Admin or self only."""
-    # Check if user is admin or self
-    if current_user.get("role") != "admin" and str(current_user.get("_id")) != user_id:
-        raise HTTPException(status_code=403, detail="Access forbidden: Admin or self only")
-    
-    user = collections['Users'].find_one({"_id": int(user_id)}, {"password": 0})
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Convert ObjectId to string for JSON serialization
-    user["_id"] = str(user["_id"])
-    
-    return {"message": "Success", "data": user}
 
 @router.put("/users/{user_id}", response_model=dict)
 async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_current_user)):
