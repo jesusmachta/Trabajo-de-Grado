@@ -59,30 +59,45 @@ class _CamerasViewState extends State<CamerasView> {
     });
 
     try {
-      final response = await http.get(Uri.parse('$_apiBaseUrl/cameras'));
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Realiza la solicitud a la API
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/cameras'),
+        headers: {
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
+      );
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         setState(() {
-          // Sort cameras by ID by default
+          // Ordenar las cámaras por ID por defecto
           _cameras = List<Map<String, dynamic>>.from(data)
             ..sort((a, b) =>
                 (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
           _isLoadingCameras = false;
 
-          // Apply filters after loading data
+          // Aplicar filtros después de cargar los datos
           _filterCameras();
         });
       } else {
         throw Exception(
-            'Failed to load cameras: ${response.statusCode} ${response.body}');
+            'Error al cargar cámaras: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _camerasError = 'Error fetching cameras: $e';
+        _camerasError = 'Error al cargar cámaras: $e';
         _isLoadingCameras = false;
         print(_camerasError);
       });
@@ -974,6 +989,7 @@ class _CamerasViewState extends State<CamerasView> {
     final int totalPages = (_filteredCameras.length / _rowsPerPage).ceil();
     final Color azulOscuro = const Color(0xFF223A5E);
     final Color grisClaro = const Color(0xFFE0E0E0);
+
     return Column(
       children: [
         Card(
@@ -1012,25 +1028,14 @@ class _CamerasViewState extends State<CamerasView> {
                   rows: pageCameras.map((camera) {
                     final mongoId = camera['_id'] as String;
                     final idCamara = camera['Id_Camara'] ?? 'N/A';
-                    final categoriaFallback =
+                    final categoriaProducto =
                         camera['Categoria_Producto'] ?? 'Desconocida';
                     final isActive = camera['isActive'] as bool? ?? false;
-                    final categoryData = _activeCategories.firstWhere(
-                      (cat) =>
-                          (cat['Id_Tipo_Producto'] ?? cat['Tipo_Producto']) ==
-                          camera['Tipo_Producto'],
-                      orElse: () => {
-                        'Nombre': categoriaFallback,
-                        'Categoria_Producto': categoriaFallback
-                      },
-                    );
-                    final categoryName = categoryData['Nombre'] ??
-                        categoryData['Categoria_Producto'] ??
-                        categoriaFallback;
+
                     return DataRow(
                       cells: [
                         DataCell(Text(idCamara.toString())),
-                        DataCell(Text(categoryName.toString())),
+                        DataCell(Text(categoriaProducto.toString())),
                         DataCell(Row(
                           children: [
                             Switch(
@@ -1097,7 +1102,7 @@ class _CamerasViewState extends State<CamerasView> {
             );
           }),
         ),
-        // --- CONTROLES DE PAGINACIÓN ESTILO MATERIAL ---
+        // Controles de paginación
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           child: Row(

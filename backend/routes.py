@@ -1542,33 +1542,49 @@ def serialize_doc(doc):
     return doc
 
 @router.get("/cameras", response_model=List[Dict[str, Any]], tags=["Cameras"])
-async def get_cameras_with_details():
+async def get_cameras_with_details(empresa: str = Depends(get_empresa)):
     """
     Retrieves all cameras from Tipo_Producto_Zona_Camara and joins them
-    with their corresponding product category from Tipo_Producto.
+    with their corresponding product category from Tipo_Producto, filtered by empresa.
     """
     try:
-        # Use aggregation pipeline to join collections
+        # Use aggregation pipeline to join collections and filter by empresa
         pipeline = [
+            {
+                '$match': {
+                    'empresa': empresa  # Filtrar por la empresa del usuario autenticado
+                }
+            },
             {
                 '$lookup': {
                     'from': 'Tipo_Producto',
-                    'localField': 'Tipo_Producto',
-                    'foreignField': 'Tipo_Producto',
+                    'let': {'tipoProducto': '$Tipo_Producto'},
+                    'pipeline': [
+                        {
+                            '$match': {
+                                '$expr': {
+                                    '$and': [
+                                        {'$eq': ['$Tipo_Producto', '$$tipoProducto']},
+                                        {'$eq': ['$empresa', empresa]}  # Filtrar por empresa en Tipo_Producto
+                                    ]
+                                }
+                            }
+                        }
+                    ],
                     'as': 'productDetails'
                 }
             },
             {
                 '$unwind': {
                     'path': '$productDetails',
-                    'preserveNullAndEmptyArrays': True # Keep cameras even if no matching product found
+                    'preserveNullAndEmptyArrays': True  # Mantener cámaras incluso si no hay coincidencias
                 }
             },
             {
                 '$project': {
                     '_id': 1,
                     'Id_Camara': 1,
-                    'Tipo_Producto_Id': '$Tipo_Producto', # Keep the ID
+                    'Tipo_Producto_Id': '$Tipo_Producto',
                     'Categoria_Producto': '$productDetails.Categoria_Producto',
                     'isActive': 1
                 }
@@ -1576,11 +1592,6 @@ async def get_cameras_with_details():
         ]
         cameras_cursor = collections['Tipo_Producto_Zona_Camara'].aggregate(pipeline)
         cameras_list = [serialize_doc(camera) for camera in cameras_cursor]
-        
-        # Handle cases where Categoria_Producto might be null if join failed
-        for camera in cameras_list:
-            if 'Categoria_Producto' not in camera or camera['Categoria_Producto'] is None:
-                camera['Categoria_Producto'] = 'Desconocida' # Or some default/indicator
 
         return cameras_list
     except Exception as e:
