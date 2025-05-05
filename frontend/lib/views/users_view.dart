@@ -29,6 +29,8 @@ class _UsersViewState extends State<UsersView> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _profilePictureController =
+      TextEditingController();
   String _selectedRole = 'user';
   bool _selectedIsActive = true;
   // TODO: Implement profile picture selection/upload
@@ -57,6 +59,7 @@ class _UsersViewState extends State<UsersView> {
     _emailController.dispose();
     _passwordController.dispose();
     _fullNameController.dispose();
+    _profilePictureController.dispose();
     super.dispose();
   }
 
@@ -95,11 +98,12 @@ class _UsersViewState extends State<UsersView> {
   void _showEditUserDialog(User user) {
     _clearForm();
     _emailController.text = user.email;
-    _passwordController.text = ''; // Password is not displayed for editing
+    _passwordController.text = ''; // La contraseña no se muestra para edición
     _fullNameController.text = user.fullName;
     _selectedRole = user.role;
     _selectedIsActive = user.isActive;
     _selectedProfilePicture = user.profilePicture;
+    _profilePictureController.text = user.profilePicture ?? '';
     _isEditMode = true;
     _editingUserId = user.id;
 
@@ -113,6 +117,7 @@ class _UsersViewState extends State<UsersView> {
     _emailController.clear();
     _passwordController.clear();
     _fullNameController.clear();
+    _profilePictureController.clear();
     _selectedRole = 'user';
     _selectedIsActive = true;
     _selectedProfilePicture = null;
@@ -122,7 +127,6 @@ class _UsersViewState extends State<UsersView> {
   }
 
   Widget _buildUserDialog() {
-    // Need StatefulWidget for the dialog to manage Dropdown state correctly
     return StatefulBuilder(builder: (context, setDialogState) {
       return AlertDialog(
         title: Text(_isEditMode ? 'Editar Usuario' : 'Agregar Usuario'),
@@ -132,8 +136,6 @@ class _UsersViewState extends State<UsersView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // TODO: Add profile picture upload/selection widget here
-                const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -165,40 +167,12 @@ class _UsersViewState extends State<UsersView> {
                   ),
                   obscureText: true,
                   validator: (value) {
-                    // Password required only when adding a user
                     if (!_isEditMode && (value == null || value.isEmpty)) {
                       return 'Por favor ingresa una contraseña';
                     }
-
-                    // Optional when editing, but if entered, must meet criteria
-                    if (value != null && value.isNotEmpty) {
-                      // Minimum 6 characters
-                      if (value.length < 6) {
-                        return 'La contraseña debe tener al menos 6 caracteres';
-                      }
-
-                      // At least one uppercase letter
-                      if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                        return 'La contraseña debe contener al menos una letra mayúscula';
-                      }
-
-                      // At least one lowercase letter
-                      if (!RegExp(r'[a-z]').hasMatch(value)) {
-                        return 'La contraseña debe contener al menos una letra minúscula';
-                      }
-
-                      // At least one special character
-                      if (!RegExp(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]')
-                          .hasMatch(value)) {
-                        return 'La contraseña debe contener al menos un carácter especial';
-                      }
-
-                      // At least one number
-                      if (!RegExp(r'[0-9]').hasMatch(value)) {
-                        return 'La contraseña debe contener al menos un número';
-                      }
+                    if (value != null && value.isNotEmpty && value.length < 6) {
+                      return 'La contraseña debe tener al menos 6 caracteres';
                     }
-
                     return null;
                   },
                 ),
@@ -213,6 +187,24 @@ class _UsersViewState extends State<UsersView> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor ingresa un nombre';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _profilePictureController,
+                  decoration: const InputDecoration(
+                    labelText: 'URL de la Foto de Perfil',
+                    hintText: 'Ingresa la URL de la foto de perfil',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty) {
+                      final uri = Uri.tryParse(value);
+                      if (uri == null || !uri.isAbsolute) {
+                        return 'Por favor ingresa una URL válida';
+                      }
                     }
                     return null;
                   },
@@ -288,38 +280,29 @@ class _UsersViewState extends State<UsersView> {
                 final fullName = _fullNameController.text;
                 final role = _selectedRole;
                 final isActive = _selectedIsActive;
-                final profilePicture =
-                    _selectedProfilePicture; // Use selected picture
+                final profilePicture = _profilePictureController.text;
 
                 bool success = false;
                 if (_isEditMode && _editingUserId != null) {
-                  // Find the original user to copyWith
-                  try {
-                    final originalUser = userController.users
-                        .firstWhere((u) => u.id == _editingUserId);
+                  final originalUser = userController.users
+                      .firstWhere((u) => u.id == _editingUserId);
 
-                    final updatedUser = originalUser.copyWith(
-                      email: email,
-                      fullName: fullName,
-                      role: role,
-                      isActive: isActive,
-                      profilePicture: profilePicture,
-                      // Password update needs separate handling if provided
-                    );
+                  final updatedUser = originalUser.copyWith(
+                    email: email,
+                    fullName: fullName,
+                    role: role,
+                    isActive: isActive,
+                    profilePicture: profilePicture.isNotEmpty
+                        ? profilePicture
+                        : originalUser.profilePicture,
+                  );
 
-                    // Handle password update separately if needed (backend logic)
-                    success = await userController.updateUser(
-                      authController.token!,
-                      updatedUser,
-                      // Optionally pass password if changed:
-                      // password: password.isNotEmpty ? password : null,
-                    );
-                  } catch (e) {
-                    ToastService.showError(
-                        context, 'Error: Usuario original no encontrado.');
-                  }
+                  success = await userController.updateUser(
+                    authController.token!,
+                    updatedUser,
+                    password: password.isNotEmpty ? password : null,
+                  );
                 } else {
-                  // Add new user
                   success = await userController.addUser(
                     authController.token!,
                     email: email,
@@ -327,16 +310,16 @@ class _UsersViewState extends State<UsersView> {
                     fullName: fullName,
                     role: role,
                     isActive: isActive,
-                    profilePicture: profilePicture,
+                    profilePicture:
+                        profilePicture.isNotEmpty ? profilePicture : null,
                   );
                 }
 
                 if (success) {
-                  Navigator.of(context).pop(); // Close dialog on success
+                  Navigator.of(context).pop();
                   ToastService.showSuccess(context,
                       'Usuario ${_isEditMode ? 'actualizado' : 'agregado'} con éxito');
                 } else {
-                  // Error message is handled by the controller
                   ToastService.showError(
                       context,
                       userController.error ??

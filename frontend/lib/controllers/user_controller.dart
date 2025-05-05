@@ -98,29 +98,36 @@ class UserController with ChangeNotifier {
   }
 
   // Update user
-  Future<bool> updateUser(String token, User user) async {
+  Future<bool> updateUser(String token, User user, {String? password}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      final body = {
+        'email': user.email,
+        'full_name': user.fullName,
+        'role': user.role,
+        'is_active': user.isActive,
+        'profile_picture': user.profilePicture, // Incluir el campo aquí
+      };
+
+      // Solo incluir la contraseña si se proporciona
+      if (password != null && password.isNotEmpty) {
+        body['password'] = password;
+      }
+
       final response = await http.put(
         Uri.parse('$_baseUrl/users/${user.id}'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'email': user.email,
-          'full_name': user.fullName,
-          'role': user.role,
-          'profile_picture': user.profilePicture,
-          'is_active': user.isActive,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
-        // Update the user in the list
+        // Actualizar el usuario en la lista
         final index = _users.indexWhere((u) => u.id == user.id);
         if (index != -1) {
           _users[index] = user;

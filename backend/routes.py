@@ -7,7 +7,7 @@ from backend.statistics.apis.create_category_api import router as create_categor
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 from backend.auth.dependencies import get_empresa, get_current_user
-
+import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, Field # Added Field
 from backend.aws import analyze_image, upload_image_to_s3
@@ -1096,7 +1096,7 @@ def validate_password(password: str) -> tuple[bool, str]:
     return True, ""
 
 @router.post("/signup", response_model=Token)
-async def signup(user_data: UserCreate):
+async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
     """Endpoint for user registration."""
     # Check if user already exists
     if collections['Users'].find_one({"email": user_data.email}) is not None:
@@ -1118,6 +1118,7 @@ async def signup(user_data: UserCreate):
         "password": hashed_password,
         "full_name": user_data.full_name,
         "role": user_data.role,
+        "empresa": empresa,  # Agregar la empresa al documento
         "created_at": datetime.utcnow().isoformat()
     }
     
@@ -1127,7 +1128,7 @@ async def signup(user_data: UserCreate):
     # Create and return access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user_id)}, 
+        data={"sub": str(user_id), "empresa": empresa}, 
         expires_delta=access_token_expires
     )
     
@@ -1138,6 +1139,7 @@ async def signup(user_data: UserCreate):
         "email": user.get("email"),
         "full_name": user.get("full_name"),
         "role": user.get("role"),
+        "empresa": empresa,  # Incluir la empresa en la respuesta
         "profile_picture": user.get("profile_picture")  # Include profile picture URL even if it's null
     }
 
@@ -1195,6 +1197,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[str] = None
     password: Optional[str] = None
+    profile_picture: Optional[str] = None
 
 @router.get("/users", response_model=dict)
 async def get_users(current_user: dict = Depends(get_current_user)):
@@ -1303,52 +1306,71 @@ async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Dep
         raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
 
 @router.put("/users/{user_id}", response_model=dict)
-async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_current_user)):
-    """Endpoint to update a user. Admin or self only."""
-    # Check if user is admin or self
+async def update_user(
+    user_id: str,
+    user_data: UserUpdate,
+    current_user: dict = Depends(get_current_user),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Endpoint to update a user. Admin or self only, filtered by company.
+    """
+    # Verificar si el usuario es administrador o está actualizando su propio perfil
     if current_user.get("role") != "admin" and str(current_user.get("_id")) != user_id:
         raise HTTPException(status_code=403, detail="Access forbidden: Admin or self only")
-    
-    # Find user
-    user = collections['Users'].find_one({"_id": int(user_id)})
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Prepare update data
-    update_data = {}
-    if user_data.email is not None:
-        # Check if email is already taken by another user
-        existing_user = collections['Users'].find_one({"email": user_data.email})
-        if existing_user is not None and str(existing_user["_id"]) != user_id:
-            raise HTTPException(status_code=400, detail="Email already registered")
-        update_data["email"] = user_data.email
-    
-    if user_data.full_name is not None:
-        update_data["full_name"] = user_data.full_name
-    
-    # Only admin can change roles
-    if user_data.role is not None:
-        if current_user.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="Only admin can change roles")
-        update_data["role"] = user_data.role
-    
-    # Update password if provided
-    if user_data.password is not None:
-        # Validate password
-        is_valid, error_message = validate_password(user_data.password)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_message)
-        update_data["password"] = hash_password(user_data.password)
-    
-    # Update user
-    if update_data:
-        collections['Users'].update_one({"_id": int(user_id)}, {"$set": update_data})
-    
-    # Get updated user
-    updated_user = collections['Users'].find_one({"_id": int(user_id)}, {"password": 0})
-    updated_user["_id"] = str(updated_user["_id"])
-    
-    return {"message": "User updated successfully", "data": updated_user}
+
+    try:
+        # Buscar el usuario a actualizar y verificar que pertenezca a la misma empresa
+        user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa})
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found or does not belong to your company")
+
+        # Preparar los datos para la actualización
+        update_data = {}
+        if user_data.email is not None:
+            # Verificar si el email ya está registrado por otro usuario
+            existing_user = collections['Users'].find_one({"email": user_data.email, "empresa": empresa})
+            if existing_user is not None and str(existing_user["_id"]) != user_id:
+                raise HTTPException(status_code=400, detail="Email already registered")
+            update_data["email"] = user_data.email
+
+        if user_data.full_name is not None:
+            update_data["full_name"] = user_data.full_name
+
+        # Solo los administradores pueden cambiar roles
+        if user_data.role is not None:
+            if current_user.get("role") != "admin":
+                raise HTTPException(status_code=403, detail="Only admin can change roles")
+            update_data["role"] = user_data.role
+
+        # Actualizar la contraseña si se proporciona
+        if user_data.password is not None:
+            # Validar la contraseña
+            is_valid, error_message = validate_password(user_data.password)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=error_message)
+            update_data["password"] = hash_password(user_data.password)
+
+        # Incluir el campo profile_picture si se proporciona
+        if user_data.profile_picture is not None:
+            update_data["profile_picture"] = user_data.profile_picture
+
+        # Realizar la actualización en la base de datos
+        if update_data:
+            collections['Users'].update_one({"_id": int(user_id)}, {"$set": update_data})
+
+        # Obtener el usuario actualizado
+        updated_user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa}, {"password": 0})
+        if updated_user:
+            updated_user["_id"] = str(updated_user["_id"])
+
+        return {"message": "User updated successfully", "data": updated_user}
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Error updating user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating user.")
 
 @router.delete("/users/{user_id}", response_model=dict)
 async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
