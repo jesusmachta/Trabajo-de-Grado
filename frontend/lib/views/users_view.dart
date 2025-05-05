@@ -361,7 +361,7 @@ class _UsersViewState extends State<UsersView> {
                 userId,
               );
 
-              Navigator.of(context).pop(); // Close confirmation dialog
+              Navigator.of(context).pop(); // Cerrar el diálogo de confirmación
 
               if (success) {
                 ToastService.showSuccess(

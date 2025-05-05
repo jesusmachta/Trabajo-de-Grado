@@ -217,7 +217,7 @@ class UserController with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        // Remove the user from the list
+        // Eliminar el usuario de la lista local
         _users.removeWhere((user) => user.id == userId);
         _isLoading = false;
         notifyListeners();

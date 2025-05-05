@@ -1373,25 +1373,37 @@ async def update_user(
         raise HTTPException(status_code=500, detail="Error updating user.")
 
 @router.delete("/users/{user_id}", response_model=dict)
-async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    """Endpoint to delete a user. Admin only."""
-    # Check if user is admin
+async def delete_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Endpoint to delete a user. Admin only, filtered by company.
+    """
+    # Verificar si el usuario tiene el rol de administrador
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Access forbidden: Admin only")
     
-    # Find user
-    user = collections['Users'].find_one({"_id": int(user_id)})
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Prevent deleting self
-    if str(current_user.get("_id")) == user_id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    
-    # Delete user
-    collections['Users'].delete_one({"_id": int(user_id)})
-    
-    return {"message": "User deleted successfully"}
+    try:
+        # Buscar el usuario a eliminar y verificar que pertenezca a la misma empresa
+        user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa})
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found or does not belong to your company")
+        
+        # Prevenir que un usuario elimine su propia cuenta
+        if str(current_user.get("_id")) == user_id:
+            raise HTTPException(status_code=400, detail="Cannot delete your own account")
+        
+        # Eliminar el usuario
+        collections['Users'].delete_one({"_id": int(user_id), "empresa": empresa})
+        
+        return {"message": "User deleted successfully"}
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Error deleting user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error deleting user.")
 
 # --- Profile Picture Management ---
 class ProfilePicturePayload(BaseModel):
