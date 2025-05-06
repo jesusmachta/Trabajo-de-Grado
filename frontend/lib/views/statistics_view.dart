@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/controllers/auth_controller.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../controllers/statistics_controller.dart';
 import '../models/chart_data.dart';
@@ -134,356 +136,51 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Cargar estadísticas según la opción seleccionada
   Future<void> _loadStatistics() async {
-    // Si ya estamos cargando, evitar múltiples llamadas
     if (_isLoading) return;
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-        // Clear previous data when loading new stat, unless it's the same stat
-        // _statisticsData = null; // Let's keep old data until new is loaded
-      });
-    }
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró un token de autenticación.');
+      }
+
       print('--- Loading Statistics ---');
       print('Selected Stat: $_selectedStat');
 
-      // Limpiar cache para gender-age-combined para asegurar datos actualizados
-      if (_selectedStat == 'gender-age-combined') {
-        print('Clearing cache for gender-age-combined');
-        _controller.clearCache(_selectedStat);
-        _controller.clearCache('gender-distribution');
-        _controller.clearCache('age-distribution');
-      }
-
-      // Preparar parámetros según el tipo de estadística
       Map<String, String>? params;
-      dynamic data; // Variable to hold the fetched data
+      dynamic data;
 
-      // --- Special handling for visited-categories-combined ---
-      if (_selectedStat == 'visited-categories-combined') {
-        print('Handling visited-categories-combined');
-        print('Period Type: $_selectedCategoryPeriodType');
-
-        if (_selectedCategoryPeriodType == 'week') {
-          if (_selectedCategoryWeek != null) {
-            final formatter = DateFormat('yyyy-MM-dd');
-            final dateStr = formatter.format(_selectedCategoryWeek!);
-            params = {'period': 'week', 'date': dateStr};
-            print('Params: $params');
-            // Fetch most and least visited for the specific week
-            final mostVisitedResponse =
-                await _controller.getStatistics('most-visited', params: params);
-            final leastVisitedResponse = await _controller
-                .getStatistics('least-visited', params: params);
-
-            // Combine results
-            data = {
-              'message': 'Success',
-              'data': {
-                'most_visited_category': mostVisitedResponse['data']
-                    ?['most_visited_category'],
-                'most_visited_count': mostVisitedResponse['data']?['count'],
-                'least_visited_category': leastVisitedResponse['data']?[
-                    'category'], // Note: 'category' key for least visited from backend
-                'least_visited_count': leastVisitedResponse['data']?['count'],
-                'period_info': {
-                  'type': 'week',
-                  'date': _selectedCategoryWeek,
-                }
-              }
-            };
-          } else {
-            _error = 'Por favor selecciona una semana.';
-          }
-        } else if (_selectedCategoryPeriodType == 'month') {
-          if (_selectedCategoryMonth != null) {
-            final formatter = DateFormat('yyyy-MM');
-            final dateStr = formatter.format(_selectedCategoryMonth!);
-            params = {'period': 'month', 'date': dateStr};
-            print('Params: $params');
-            // Fetch most and least visited for the specific month
-            final mostVisitedResponse =
-                await _controller.getStatistics('most-visited', params: params);
-            final leastVisitedResponse = await _controller
-                .getStatistics('least-visited', params: params);
-
-            // Combine results
-            data = {
-              'message': 'Success',
-              'data': {
-                'most_visited_category': mostVisitedResponse['data']
-                    ?['most_visited_category'],
-                'most_visited_count': mostVisitedResponse['data']?['count'],
-                'least_visited_category': leastVisitedResponse['data']
-                    ?['category'],
-                'least_visited_count': leastVisitedResponse['data']?['count'],
-                'period_info': {
-                  'type': 'month',
-                  'date': _selectedCategoryMonth,
-                }
-              }
-            };
-          } else {
-            _error = 'Por favor selecciona un mes.';
-          }
-        } else {
-          // 'overall'
-          // Since the API endpoint is causing 404, use hardcoded data for now
-          print('Using hardcoded historical data for categories');
-          data = {
-            'message': 'Success',
-            'data': {
-              'most_visited_category': 'Snacks',
-              'most_visited_count': 140,
-              'least_visited_category': 'Frutas',
-              'least_visited_count': 12,
-              'period_info': {'type': 'overall'}
-            }
-          };
+      if (_requiresParams(_selectedStat)) {
+        params = {'period': _selectedPeriod};
+        if (_selectedPeriod == 'week') {
+          params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
+        } else if (_selectedPeriod == 'month') {
+          params['month'] = _selectedMonth.toString();
+          params['year'] = _selectedYear.toString();
         }
-        // --- End of special handling for visited-categories-combined ---
-      }
-      // --- Special handling for gender-age-combined ---
-      else if (_selectedStat == 'gender-age-combined') {
-        print('Handling gender-age-combined');
-        print('Period Type: $_selectedCategoryPeriodType');
-
-        if (_selectedCategoryPeriodType == 'week') {
-          if (_selectedCategoryWeek != null) {
-            try {
-              // Format date as yyyy-MM-dd for the start of the week
-              final formatter = DateFormat('yyyy-MM-dd');
-              final weekDate = formatter.format(_selectedCategoryWeek!);
-
-              // Use direct access to get both gender and age data for the specific week
-              final genderResponse = await _controller.getStatistics(
-                  'gender-distribution',
-                  params: {'period': 'week', 'date': weekDate});
-
-              final ageResponse = await _controller.getStatistics(
-                  'age-distribution',
-                  params: {'period': 'week', 'date': weekDate});
-
-              // Check if we have valid data
-              if (genderResponse.containsKey('data') &&
-                  ageResponse.containsKey('data')) {
-                data = {
-                  'message': 'Success',
-                  'data': {
-                    'gender': genderResponse['data'],
-                    'age': ageResponse['data'],
-                    'period_info': {
-                      'type': 'week',
-                      'date': _selectedCategoryWeek,
-                    }
-                  }
-                };
-              } else {
-                print('No data found for the selected week');
-                _error =
-                    'No hay datos disponibles para la semana seleccionada.';
-              }
-            } catch (e) {
-              print('Error loading gender-age data for week: $e');
-              _error = 'Error al cargar los datos: $e';
-            }
-          } else {
-            _error = 'Por favor selecciona una semana.';
-          }
-        } else if (_selectedCategoryPeriodType == 'month') {
-          if (_selectedCategoryMonth != null) {
-            try {
-              // Extract year and month from selected date
-              final year = _selectedCategoryMonth!.year;
-              final month = _selectedCategoryMonth!.month;
-              final monthStr = '$year-${month.toString().padLeft(2, '0')}';
-
-              // Use direct access to get both gender and age data for the specific month
-              final genderResponse = await _controller
-                  .getStatistics('gender-distribution', params: {
-                'period': 'month',
-                'month': month.toString(),
-                'year': year.toString()
-              });
-
-              final ageResponse = await _controller
-                  .getStatistics('age-distribution', params: {
-                'period': 'month',
-                'month': month.toString(),
-                'year': year.toString()
-              });
-
-              // Check if we have valid data
-              if (genderResponse.containsKey('data') &&
-                  ageResponse.containsKey('data')) {
-                data = {
-                  'message': 'Success',
-                  'data': {
-                    'gender': genderResponse['data'],
-                    'age': ageResponse['data'],
-                    'period_info': {
-                      'type': 'month',
-                      'date': _selectedCategoryMonth,
-                    }
-                  }
-                };
-              } else {
-                print('No data found for the selected month');
-                _error = 'No hay datos disponibles para el mes seleccionado.';
-              }
-            } catch (e) {
-              print('Error loading gender-age data for month: $e');
-              _error = 'Error al cargar los datos: $e';
-            }
-          } else {
-            _error = 'Por favor selecciona un mes.';
-          }
-        } else {
-          // 'overall' - get the full historical data
-          try {
-            final genderResponse =
-                await _controller.getStatistics('gender-distribution');
-            final ageResponse =
-                await _controller.getStatistics('age-distribution');
-
-            // Check if we have valid data
-            if (genderResponse.containsKey('data') &&
-                ageResponse.containsKey('data')) {
-              data = {
-                'message': 'Success',
-                'data': {
-                  'gender': genderResponse['data'],
-                  'age': ageResponse['data'],
-                  'period_info': {'type': 'overall'}
-                }
-              };
-            } else {
-              print('No data found for historical overview');
-              _error = 'No hay datos históricos disponibles.';
-            }
-          } catch (e) {
-            print('Error loading historical gender-age data: $e');
-            _error = 'Error al cargar los datos históricos: $e';
-          }
-        }
-
-        print('Gender-Age Combined Data: $data');
-      }
-      // --- End of special handling for gender-age-combined ---
-
-      // **** ADD HANDLING FOR age-gender-distribution-by-category (no params) ****
-      else if (_selectedStat == 'age-gender-distribution-by-category') {
-        print('Handling age-gender-distribution-by-category (no params)');
-        data = await _controller.getStatistics(_selectedStat);
-      }
-      // **** END ADD HANDLING ****
-
-      // **** ADD HANDLING FOR emotional-differences-by-category (no params) ****
-      else if (_selectedStat == 'emotional-differences-by-category') {
-        print('Handling emotional-differences-by-category (no params)');
-        data = await _controller.getStatistics(_selectedStat);
-      }
-      // **** END ADD HANDLING ****
-
-      else if (_requiresParams(_selectedStat)) {
-        // --- Handling for other statistics requiring general params ---
-        print('Handling general parameterized statistic');
-        print('Period: $_selectedPeriod');
-        print('Date: ${_selectedDate.toString()}');
-        print('End Date: ${_selectedEndDate?.toString() ?? "N/A"}');
-        print('Month: $_selectedMonth');
-        print('Year: $_selectedYear');
-
-        if (_selectedStat == 'emotion-comparison') {
-          params = {'period': _selectedPeriod};
-          if (_selectedPeriod == 'week') {
-            final formatter = DateFormat('yyyy-MM-dd');
-            params['date'] = formatter.format(_selectedDate);
-            if (_selectedEndDate != null) {
-              params['end_date'] = formatter.format(_selectedEndDate!);
-            }
-          } else if (_selectedPeriod == 'month' &&
-              _selectedMonth != null &&
-              _selectedYear != null) {
-            params['month'] = _selectedMonth.toString();
-            params['year'] = _selectedYear.toString();
-          }
-          _controller.clearCache('emotion-comparison');
-        } else if (_selectedStat.contains('distribution')) {
-          // Note: most-visited/least-visited are handled individually above if needed,
-          // but 'visited-categories-combined' handles the combined view.
-          params = {'period': _selectedPeriod};
-          if (_selectedPeriod == 'week') {
-            final formatter = DateFormat('yyyy-MM-dd');
-            params['date'] = formatter.format(_selectedDate);
-            if (_selectedEndDate != null) {
-              params['end_date'] = formatter.format(_selectedEndDate!);
-            }
-          } else if (_selectedPeriod == 'month' &&
-              _selectedMonth != null &&
-              _selectedYear != null) {
-            params['month'] = _selectedMonth.toString();
-            params['year'] = _selectedYear.toString();
-          }
-        }
-        print('Params for general stats: $params');
-        data = await _controller.getStatistics(_selectedStat, params: params);
-        // --- End of handling for other statistics requiring general params ---
-      } else {
-        // --- Handling for statistics that DO NOT require params ---
-        print('Handling non-parameterized statistic');
-        // Determine which controller method to call based on _selectedStat
-        switch (_selectedStat) {
-          case 'busy-days-combined':
-            data = await _controller.getBusyDaysStatistics();
-            break;
-          case 'top-successful-categories': // Now represents Top Visited Categories
-            try {
-              // Fetches List<dynamic> directly
-              data = await _controller.getTopSuccessfulCategories();
-            } catch (e) {
-              print('Error loading top categories (by visit): $e');
-              _error = e.toString();
-            }
-            break;
-          // Add other non-parameterized stats here
-          default:
-            // Default case: call getStatistics without params
-            data = await _controller.getStatistics(_selectedStat);
-            break;
-        }
-        // --- End of handling for statistics that DO NOT require params ---
       }
 
-      // --- Update state with fetched data or error ---
-      if (mounted) {
-        setState(() {
-          if (_error == null) {
-            _statisticsData = data;
-            print('Successfully loaded data for $_selectedStat');
-            // Optional: print structure for debugging
-            if (_statisticsData is Map && _statisticsData.containsKey('data')) {
-              print('Data: ${_statisticsData['data']}');
-            }
-          } else {
-            print('Error occurred during fetch: $_error');
-            _statisticsData = null; // Clear data on error
-          }
-          _isLoading = false;
-        });
-      }
-      print('--- Loading Complete ---');
+      data = await _controller.getStatistics(_selectedStat,
+          params: params, token: token);
+
+      setState(() {
+        _statisticsData = data;
+        _isLoading = false;
+      });
     } catch (e) {
       print('Error in _loadStatistics: $e');
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
     }
   }
 

@@ -59,15 +59,21 @@ class _DashboardViewState extends State<DashboardView> {
     });
 
     try {
-      // Get all dashboard statistics without period filtering
-      final data = await _controller.getAllDashboardStatistics();
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró un token de autenticación.');
+      }
+
+      final data = await _controller.getAllDashboardStatistics(token);
 
       setState(() {
         _dashboardData = data;
         _isLoading = false;
       });
 
-      // Print success message
       print('Dashboard data loaded successfully');
     } catch (e) {
       print('Error loading dashboard data: $e');
