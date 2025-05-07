@@ -9,204 +9,96 @@ from collections import defaultdict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def initialize_statistics():
+def initialize_statistics(empresa=None):
     """
     Inicializa los documentos de estadísticas en la colección Estadisticas si no existen.
-    También verifica si es necesario recalcular las estadísticas desde los datos históricos
-    si se detecta que faltan documentos.
+    Si se pasa empresa, los crea solo para esa empresa. Si no, crea para todas las empresas (legacy).
     """
     need_recalculation = False
-    
-    # Lista de estadísticas a inicializar
-    stats_docs = [
-        {
-            "_id": "peak_hours", 
-            "description": "Horas pico por día de la semana",
-            "data": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-            "daily_counts": {"Monday": {}, "Tuesday": {}, "Wednesday": {}, "Thursday": {}, "Friday": {}, "Saturday": {}, "Sunday": {}},
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "least_busy_hours", 
-            "description": "Horas menos concurridas por día de la semana",
-            "data": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-            "daily_counts": {"Monday": {}, "Tuesday": {}, "Wednesday": {}, "Thursday": {}, "Friday": {}, "Saturday": {}, "Sunday": {}},
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "most_busy_day", 
-            "description": "Día más concurrido de la semana",
-            "data": {"day": "", "count": 0},
-            "weekly_counts": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "least_busy_day", 
-            "description": "Día menos concurrido de la semana",
-            "data": {"day": "", "count": 0},
-            "weekly_counts": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "most_visited_category", 
-            "description": "Categoría más visitada",
-            "daily": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}}
-            "weekly": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}} (fecha es lunes de esa semana)
-            "monthly": {},  # {"YYYY-MM": {"category": "nombre", "count": N}}
-            "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "least_visited_category", 
-            "description": "Categoría menos visitada",
-            "daily": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}}
-            "weekly": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}} (fecha es lunes de esa semana)
-            "monthly": {},  # {"YYYY-MM": {"category": "nombre", "count": N}}
-            "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "historical_categories", 
-            "description": "Categorías más y menos visitadas históricamente",
-            "most_visited": {"category": "", "count": 0},
-            "least_visited": {"category": "", "count": 0},
-            "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "emotion_percentage_by_category", 
-            "description": "Porcentaje de emociones por categoría",
-            "data": {},  # {"categoria1": {"HAPPY": N%, "SAD": M%, ...}, ...}
-            "raw_counts": {},  # {"categoria1": {"HAPPY": N, "SAD": M, ...}, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "most_frequent_emotions",
-            "description": "Emociones más frecuentes",
-            "data": {},  # {"HAPPY": N, "SAD": M, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "age_distribution",
-            "description": "Distribución por edades",
-            "weekly": {},  # {"YYYY-MM-DD": {"0-18": N, "19-30": M, ...}}
-            "monthly": {},  # {"YYYY-MM": {"0-18": N, "19-30": M, ...}}
-            "overall": {"0-18": 0, "19-30": 0, "31-45": 0, "46-60": 0, "60+": 0},
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "gender_distribution",
-            "description": "Distribución por género",
-            "weekly": {},  # {"YYYY-MM-DD": {"Male": N, "Female": M}}
-            "monthly": {},  # {"YYYY-MM": {"Male": N, "Female": M}}
-            "overall": {"Male": 0, "Female": 0},
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "emotion_comparison",
-            "description": "Comparación de emociones positivas y negativas",
-            "weekly": {},  # {"YYYY-MM-DD": {"day": "Monday", "HAPPY": N, "SAD": M}}
-            "monthly": {},  # {"YYYY-MM": {"HAPPY": N, "SAD": M}}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "preferred_category_by_gender",
-            "description": "Categorías preferidas por género",
-            "data": {
-                "Male": {"category": "", "count": 0},
-                "Female": {"category": "", "count": 0}
-            },
-            "raw_counts": {
-                "Male": {},  # {"categoria1": N, "categoria2": M, ...}
-                "Female": {}  # {"categoria1": N, "categoria2": M, ...}
-            },
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "top_successful_categories",
-            "description": "Categorías que generan más emociones positivas",
-            "data": [],  # [{"category": "nombre", "happy_percentage": N%}, ...]
-            "raw_counts": {},  # {"categoria1": {"HAPPY": N, "total": M}, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "emotional_differences_by_category",
-            "description": "Emociones por género en cada categoría de productos",
-            "data": {},  # {"categoria1": {"male": {"HAPPY": N, ...}, "female": {"SAD": M, ...}}, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        },
-        {
-            "_id": "age_gender_distribution_by_category",
-            "description": "Combinaciones de género y edad más frecuentes por categoría",
-            "data": {},  # {"categoria1": [{"gender": "Male", "age_range": "19-30", "count": N}, ...], ...}
-            "raw_counts": {},  # {"categoria1": {"Male": {"0-18": N, ...}, "Female": {...}}, ...}
-            "last_updated": datetime.utcnow().isoformat()
-        }
+    stat_names = [
+        "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
+        "most_visited_category", "least_visited_category", "historical_categories",
+        "emotion_percentage_by_category", "most_frequent_emotions", "age_distribution",
+        "gender_distribution", "emotion_comparison", "preferred_category_by_gender",
+        "top_successful_categories", "emotional_differences_by_category",
+        "age_gender_distribution_by_category"
     ]
-    
-    # Inicializar documentos si no existen
-    for doc in stats_docs:
-        if collections["Estadisticas"].count_documents({"_id": doc["_id"]}) == 0:
-            collections["Estadisticas"].insert_one(doc)
-            logger.info(f"Inicializado documento de estadísticas: {doc['_id']}")
-            need_recalculation = True  # Marcar para recalcular si se creó algún documento
-    
-    # Contar documentos en Persona_AR
-    persona_count = collections["Persona_AR"].count_documents({})
-    
-    # Si se necesita recalcular (porque faltaban documentos) y hay datos en Persona_AR
+    # Si no se pasa empresa, legacy: crear para empresa vacía
+    empresa_val = empresa if empresa else "default"
+    for stat in stat_names:
+        _id = f"{stat}:{empresa_val}"
+        if collections["Estadisticas"].count_documents({"_id": _id}) == 0:
+            base_doc = {"_id": _id, "empresa": empresa_val, "last_updated": datetime.utcnow().isoformat()}
+            if stat == "peak_hours":
+                base_doc.update({"description": "Horas pico por día de la semana", "data": {}})
+            elif stat == "least_busy_hours":
+                base_doc.update({"description": "Horas menos concurridas por día de la semana", "data": {}})
+            elif stat == "most_busy_day":
+                base_doc.update({"description": "Día más concurrido de la semana", "data": {}})
+            elif stat == "least_busy_day":
+                base_doc.update({"description": "Día menos concurrido de la semana", "data": {}})
+            elif stat == "most_visited_category":
+                base_doc.update({"description": "Categoría más visitada", "category_counts": {}, "daily": {}, "weekly": {}, "monthly": {}})
+            elif stat == "least_visited_category":
+                base_doc.update({"description": "Categoría menos visitada", "category_counts": {}, "daily": {}, "weekly": {}, "monthly": {}})
+            elif stat == "historical_categories":
+                base_doc.update({"description": "Categorías más y menos visitadas históricamente", "most_visited": {"category": "", "count": 0}, "least_visited": {"category": "", "count": 0}})
+            elif stat == "emotion_percentage_by_category":
+                base_doc.update({"description": "Porcentaje de emociones por categoría", "data": {}})
+            elif stat == "most_frequent_emotions":
+                base_doc.update({"description": "Emociones más frecuentes", "data": {}})
+            elif stat == "age_distribution":
+                base_doc.update({"description": "Distribución por edades", "overall": {}, "weekly": {}, "monthly": {}})
+            elif stat == "gender_distribution":
+                base_doc.update({"description": "Distribución por género", "overall": {}, "weekly": {}, "monthly": {}})
+            elif stat == "emotion_comparison":
+                base_doc.update({"description": "Comparación de emociones por día", "weekly": {}, "monthly": {}})
+            elif stat == "preferred_category_by_gender":
+                base_doc.update({"description": "Categorías preferidas por género", "data": {"Male": {"category": "", "count": 0}, "Female": {"category": "", "count": 0}}, "raw_counts": {"Male": {}, "Female": {}}})
+            elif stat == "top_successful_categories":
+                base_doc.update({"description": "Categorías más exitosas", "data": [], "raw_counts": {}})
+            elif stat == "emotional_differences_by_category":
+                base_doc.update({"description": "Diferencias emocionales por categoría", "data": {}})
+            elif stat == "age_gender_distribution_by_category":
+                base_doc.update({"description": "Distribución de edad y género por categoría", "data": {}})
+            collections["Estadisticas"].insert_one(base_doc)
+            logger.info(f"Inicializado documento de estadísticas: {_id}")
+            need_recalculation = True
+    persona_count = collections["Persona_AR"].count_documents({"empresa": empresa_val})
     if need_recalculation and persona_count > 0:
         logger.info("Se detectaron documentos de estadísticas faltantes, recalculando desde datos históricos...")
-        recalculate_all_statistics()
+        recalculate_all_statistics(empresa=empresa_val)
 
-def recalculate_all_statistics():
+def recalculate_all_statistics(empresa=None):
     """
     Recalcula todas las estadísticas desde cero usando los datos históricos de Persona_AR.
-    Esta función procesa todos los documentos de la colección Persona_AR y actualiza
-    todos los documentos de estadísticas.
+    Si se pasa empresa, solo para esa empresa.
     """
     try:
         logger.info("Iniciando recálculo completo de estadísticas desde datos históricos...")
-        
-        # Reiniciar los documentos de estadísticas a su estado inicial
-        reset_statistics_documents()
-        
-        # Contar documentos para mostrar progreso
-        total_docs = collections["Persona_AR"].count_documents({})
+        reset_statistics_documents(empresa=empresa)
+        total_docs = collections["Persona_AR"].count_documents({"empresa": empresa} if empresa else {})
         if total_docs == 0:
             logger.info("No hay documentos en Persona_AR para recalcular estadísticas.")
             return
-            
         processed = 0
-        
-        # Procesar todos los documentos de Persona_AR
-        cursor = collections["Persona_AR"].find({}).sort("date", pymongo.ASCENDING)
-        
-        # Lista para almacenar documentos con errores
+        cursor = collections["Persona_AR"].find({"empresa": empresa} if empresa else {}).sort("date", pymongo.ASCENDING)
         error_docs = []
-        
         for document in cursor:
             try:
                 update_statistics_on_insert(document)
                 processed += 1
-                
-                # Mostrar progreso cada 100 documentos
                 if processed % 100 == 0 or processed == total_docs:
                     logger.info(f"Procesados {processed}/{total_docs} documentos ({processed/total_docs*100:.1f}%)")
             except Exception as doc_error:
-                # Registrar error y continuar con el siguiente documento
                 doc_id = document.get('id', 'desconocido')
                 error_docs.append(doc_id)
                 logger.error(f"Error procesando documento {doc_id}: {doc_error}")
                 continue
-        
-        # Verificar si se han procesado documentos
         if processed == 0:
             logger.warning("No se procesaron documentos durante el recálculo.")
         else:
             logger.info(f"Recálculo de estadísticas completado. Procesados {processed} documentos.")
-            
-        # Informar sobre errores
         if error_docs:
             logger.warning(f"Hubo errores al procesar {len(error_docs)} documentos durante el recálculo.")
     except Exception as e:
@@ -214,18 +106,13 @@ def recalculate_all_statistics():
         import traceback
         logger.error(traceback.format_exc())
 
-def reset_statistics_documents():
+def reset_statistics_documents(empresa=None):
     """
-    Reinicia todos los documentos de estadísticas a su estado inicial,
-    manteniendo la estructura pero limpiando completamente los datos.
+    Reinicia todos los documentos de estadísticas a su estado inicial para una empresa específica.
     """
     try:
         logger.info("Limpiando completamente todos los documentos de estadísticas...")
-        
-        # ENFOQUE RADICAL: Eliminar y recrear todos los documentos
-        
-        # 1. Lista de IDs de documentos de estadísticas
-        stat_ids = [
+        stat_names = [
             "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
             "most_visited_category", "least_visited_category", "historical_categories",
             "emotion_percentage_by_category", "most_frequent_emotions", "age_distribution",
@@ -233,145 +120,13 @@ def reset_statistics_documents():
             "top_successful_categories", "emotional_differences_by_category",
             "age_gender_distribution_by_category"
         ]
-        
-        # 2. Eliminar todos los documentos de estadísticas existentes
-        for doc_id in stat_ids:
-            collections["Estadisticas"].delete_one({"_id": doc_id})
-            logger.info(f"Eliminado documento de estadísticas: {doc_id}")
-        
-        # 3. Recrear los documentos desde cero
-        # Lista de estadísticas a inicializar (mismo esquema que en initialize_statistics)
-        stats_docs = [
-            {
-                "_id": "peak_hours", 
-                "description": "Horas pico por día de la semana",
-                "data": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-                "daily_counts": {"Monday": {}, "Tuesday": {}, "Wednesday": {}, "Thursday": {}, "Friday": {}, "Saturday": {}, "Sunday": {}},
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "least_busy_hours", 
-                "description": "Horas menos concurridas por día de la semana",
-                "data": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-                "daily_counts": {"Monday": {}, "Tuesday": {}, "Wednesday": {}, "Thursday": {}, "Friday": {}, "Saturday": {}, "Sunday": {}},
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "most_busy_day", 
-                "description": "Día más concurrido de la semana",
-                "data": {"day": "", "count": 0},
-                "weekly_counts": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "least_busy_day", 
-                "description": "Día menos concurrido de la semana",
-                "data": {"day": "", "count": 0},
-                "weekly_counts": {"Monday": 0, "Tuesday": 0, "Wednesday": 0, "Thursday": 0, "Friday": 0, "Saturday": 0, "Sunday": 0},
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "most_visited_category", 
-                "description": "Categoría más visitada",
-                "daily": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}}
-                "weekly": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}} (fecha es lunes de esa semana)
-                "monthly": {},  # {"YYYY-MM": {"category": "nombre", "count": N}}
-                "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "least_visited_category", 
-                "description": "Categoría menos visitada",
-                "daily": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}}
-                "weekly": {},  # {"YYYY-MM-DD": {"category": "nombre", "count": N}} (fecha es lunes de esa semana)
-                "monthly": {},  # {"YYYY-MM": {"category": "nombre", "count": N}}
-                "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "historical_categories", 
-                "description": "Categorías más y menos visitadas históricamente",
-                "most_visited": {"category": "", "count": 0},
-                "least_visited": {"category": "", "count": 0},
-                "category_counts": {},  # {"categoria1": N, "categoria2": M, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "emotion_percentage_by_category", 
-                "description": "Porcentaje de emociones por categoría",
-                "data": {},  # {"categoria1": {"HAPPY": N%, "SAD": M%, ...}, ...}
-                "raw_counts": {},  # {"categoria1": {"HAPPY": N, "SAD": M, ...}, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "most_frequent_emotions",
-                "description": "Emociones más frecuentes",
-                "data": {},  # {"HAPPY": N, "SAD": M, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "age_distribution",
-                "description": "Distribución por edades",
-                "weekly": {},  # {"YYYY-MM-DD": {"0-18": N, "19-30": M, ...}}
-                "monthly": {},  # {"YYYY-MM": {"0-18": N, "19-30": M, ...}}
-                "overall": {"0-18": 0, "19-30": 0, "31-45": 0, "46-60": 0, "60+": 0},
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "gender_distribution",
-                "description": "Distribución por género",
-                "weekly": {},  # {"YYYY-MM-DD": {"Male": N, "Female": M}}
-                "monthly": {},  # {"YYYY-MM": {"Male": N, "Female": M}}
-                "overall": {"Male": 0, "Female": 0},
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "emotion_comparison",
-                "description": "Comparación de emociones positivas y negativas",
-                "weekly": {},  # {"YYYY-MM-DD": {"day": "Monday", "HAPPY": N, "SAD": M}}
-                "monthly": {},  # {"YYYY-MM": {"HAPPY": N, "SAD": M}}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "preferred_category_by_gender",
-                "description": "Categorías preferidas por género",
-                "data": {
-                    "Male": {"category": "", "count": 0},
-                    "Female": {"category": "", "count": 0}
-                },
-                "raw_counts": {
-                    "Male": {},  # {"categoria1": N, "categoria2": M, ...}
-                    "Female": {}  # {"categoria1": N, "categoria2": M, ...}
-                },
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "top_successful_categories",
-                "description": "Categorías que generan más emociones positivas",
-                "data": [],  # [{"category": "nombre", "happy_percentage": N%}, ...]
-                "raw_counts": {},  # {"categoria1": {"HAPPY": N, "total": M}, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "emotional_differences_by_category",
-                "description": "Emociones por género en cada categoría de productos",
-                "data": {},  # {"categoria1": {"male": {"HAPPY": N, ...}, "female": {"SAD": M, ...}}, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            },
-            {
-                "_id": "age_gender_distribution_by_category",
-                "description": "Combinaciones de género y edad más frecuentes por categoría",
-                "data": {},  # {"categoria1": [{"gender": "Male", "age_range": "19-30", "count": N}, ...], ...}
-                "raw_counts": {},  # {"categoria1": {"Male": {"0-18": N, ...}, "Female": {...}}, ...}
-                "last_updated": datetime.utcnow().isoformat()
-            }
-        ]
-        
-        # Crear nuevos documentos desde cero
-        for doc in stats_docs:
-            collections["Estadisticas"].insert_one(doc)
-            logger.info(f"Recreado documento de estadísticas: {doc['_id']}")
-        
+        empresa_val = empresa if empresa else "default"
+        for stat in stat_names:
+            _id = f"{stat}:{empresa_val}"
+            collections["Estadisticas"].delete_one({"_id": _id})
+            logger.info(f"Eliminado documento de estadísticas: {_id}")
+        # Recrear
+        initialize_statistics(empresa=empresa_val)
         logger.info("Documentos de estadísticas reiniciados completamente")
     except Exception as e:
         logger.error(f"Error en reset_statistics_documents: {e}")
@@ -455,7 +210,7 @@ def update_statistics_on_insert(document: Dict[str, Any]):
 
 def update_peak_hours(day_of_week: str, hour: int, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "peak_hours", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"peak_hours:{empresa}"})
         if not stats:
             logger.warning(f"Documento de estadísticas 'peak_hours' no encontrado para empresa {empresa}")
             return
@@ -465,7 +220,7 @@ def update_peak_hours(day_of_week: str, hour: int, empresa: str):
         hour_counts[hour] = hour_counts.get(hour, 0) + 1
         peak_hour = max(hour_counts.items(), key=lambda x: x[1])[0] if hour_counts else 0
         collections["Estadisticas"].update_one(
-            {"_id": "peak_hours", "empresa": empresa},
+            {"_id": f"peak_hours:{empresa}"},
             {"$set": {
                 f"data.{day_of_week}": peak_hour,
                 f"daily_counts.{day_of_week}": {str(h): c for h, c in hour_counts.items()},
@@ -477,7 +232,7 @@ def update_peak_hours(day_of_week: str, hour: int, empresa: str):
 
 def update_least_busy_hours(day_of_week: str, hour: int, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "least_busy_hours", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"least_busy_hours:{empresa}"})
         if not stats:
             logger.warning(f"Documento de estadísticas 'least_busy_hours' no encontrado para empresa {empresa}")
             return
@@ -492,7 +247,7 @@ def update_least_busy_hours(day_of_week: str, hour: int, empresa: str):
         least_busy_hours = [h for h in range(6, 24) if h in hour_counts]
         least_busy_hour = min(least_busy_hours, key=lambda h: hour_counts.get(h, 0)) if least_busy_hours else 0
         collections["Estadisticas"].update_one(
-            {"_id": "least_busy_hours", "empresa": empresa},
+            {"_id": f"least_busy_hours:{empresa}"},
             {"$set": {
                 f"data.{day_of_week}": least_busy_hour,
                 f"daily_counts.{day_of_week}": {str(h): c for h, c in hour_counts.items()},
@@ -504,7 +259,7 @@ def update_least_busy_hours(day_of_week: str, hour: int, empresa: str):
 
 def update_busy_days(day_of_week: str, empresa: str):
     try:
-        most_busy = collections["Estadisticas"].find_one({"_id": "most_busy_day", "empresa": empresa})
+        most_busy = collections["Estadisticas"].find_one({"_id": f"most_busy_day:{empresa}"})
         if not most_busy:
             logger.warning(f"Documento de estadísticas 'most_busy_day' no encontrado para empresa {empresa}")
             return
@@ -512,14 +267,14 @@ def update_busy_days(day_of_week: str, empresa: str):
         weekly_counts[day_of_week] = weekly_counts.get(day_of_week, 0) + 1
         most_busy_day = max(weekly_counts.items(), key=lambda x: x[1])
         collections["Estadisticas"].update_one(
-            {"_id": "most_busy_day", "empresa": empresa},
+            {"_id": f"most_busy_day:{empresa}"},
             {"$set": {
                 "data": {"day": most_busy_day[0], "count": most_busy_day[1]},
                 "weekly_counts": weekly_counts,
                 "last_updated": datetime.utcnow().isoformat()
             }}
         )
-        least_busy = collections["Estadisticas"].find_one({"_id": "least_busy_day", "empresa": empresa})
+        least_busy = collections["Estadisticas"].find_one({"_id": f"least_busy_day:{empresa}"})
         if not least_busy:
             logger.warning(f"Documento de estadísticas 'least_busy_day' no encontrado para empresa {empresa}")
             return
@@ -527,7 +282,7 @@ def update_busy_days(day_of_week: str, empresa: str):
         weekly_counts[day_of_week] = weekly_counts.get(day_of_week, 0) + 1
         least_busy_day = min(weekly_counts.items(), key=lambda x: x[1])
         collections["Estadisticas"].update_one(
-            {"_id": "least_busy_day", "empresa": empresa},
+            {"_id": f"least_busy_day:{empresa}"},
             {"$set": {
                 "data": {"day": least_busy_day[0], "count": least_busy_day[1]},
                 "weekly_counts": weekly_counts,
@@ -539,9 +294,9 @@ def update_busy_days(day_of_week: str, empresa: str):
 
 def update_visited_categories(category: str, date_str: str, monday_of_week: str, month_str: str, empresa: str):
     try:
-        most_visited = collections["Estadisticas"].find_one({"_id": "most_visited_category", "empresa": empresa})
-        least_visited = collections["Estadisticas"].find_one({"_id": "least_visited_category", "empresa": empresa})
-        historical = collections["Estadisticas"].find_one({"_id": "historical_categories", "empresa": empresa})
+        most_visited = collections["Estadisticas"].find_one({"_id": f"most_visited_category:{empresa}"})
+        least_visited = collections["Estadisticas"].find_one({"_id": f"least_visited_category:{empresa}"})
+        historical = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
         if not all([most_visited, least_visited, historical]):
             logger.warning(f"Documentos de categorías visitadas no encontrados para empresa {empresa}")
             return
@@ -549,13 +304,13 @@ def update_visited_categories(category: str, date_str: str, monday_of_week: str,
             category_counts = doc.get("category_counts", {})
             category_counts[category] = category_counts.get(category, 0) + 1
             collections["Estadisticas"].update_one(
-                {"_id": doc["_id"], "empresa": empresa},
+                {"_id": doc["_id"]},
                 {"$set": {"category_counts": category_counts, "last_updated": datetime.utcnow().isoformat()}}
             )
         most_cat_counts = most_visited["category_counts"]
         most_cat = max(most_cat_counts.items(), key=lambda x: x[1]) if most_cat_counts else ("", 0)
         collections["Estadisticas"].update_one(
-            {"_id": "most_visited_category", "empresa": empresa},
+            {"_id": f"most_visited_category:{empresa}"},
             {"$set": {
                 f"daily.{date_str}": {"category": most_cat[0], "count": most_cat[1]},
                 f"weekly.{monday_of_week}": {"category": most_cat[0], "count": most_cat[1]},
@@ -567,7 +322,7 @@ def update_visited_categories(category: str, date_str: str, monday_of_week: str,
         active_categories = {k: v for k, v in least_cat_counts.items() if v > 0}
         least_cat = min(active_categories.items(), key=lambda x: x[1]) if active_categories else ("", 0)
         collections["Estadisticas"].update_one(
-            {"_id": "least_visited_category", "empresa": empresa},
+            {"_id": f"least_visited_category:{empresa}"},
             {"$set": {
                 f"daily.{date_str}": {"category": least_cat[0], "count": least_cat[1]},
                 f"weekly.{monday_of_week}": {"category": least_cat[0], "count": least_cat[1]},
@@ -580,7 +335,7 @@ def update_visited_categories(category: str, date_str: str, monday_of_week: str,
         active_hist = {k: v for k, v in hist_counts.items() if v > 0}
         least_hist = min(active_hist.items(), key=lambda x: x[1]) if active_hist else ("", 0)
         collections["Estadisticas"].update_one(
-            {"_id": "historical_categories", "empresa": empresa},
+            {"_id": f"historical_categories:{empresa}"},
             {"$set": {
                 "most_visited": {"category": most_hist[0], "count": most_hist[1]},
                 "least_visited": {"category": least_hist[0], "count": least_hist[1]},
@@ -592,7 +347,7 @@ def update_visited_categories(category: str, date_str: str, monday_of_week: str,
 
 def update_emotion_percentage_by_category(category: str, emotion: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "emotion_percentage_by_category", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"emotion_percentage_by_category:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'emotion_percentage_by_category' no encontrado para empresa {empresa}")
             return
@@ -605,7 +360,7 @@ def update_emotion_percentage_by_category(category: str, emotion: str, empresa: 
             total = sum(emotions.values())
             data[cat] = {emotion: round((count / total) * 100, 2) for emotion, count in emotions.items()}
         collections["Estadisticas"].update_one(
-            {"_id": "emotion_percentage_by_category", "empresa": empresa},
+            {"_id": f"emotion_percentage_by_category:{empresa}"},
             {"$set": {
                 "data": data,
                 "raw_counts": raw_counts,
@@ -617,14 +372,14 @@ def update_emotion_percentage_by_category(category: str, emotion: str, empresa: 
 
 def update_most_frequent_emotions(emotion: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "most_frequent_emotions", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"most_frequent_emotions:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'most_frequent_emotions' no encontrado para empresa {empresa}")
             return
         data = stats.get("data", {})
         data[emotion] = data.get(emotion, 0) + 1
         collections["Estadisticas"].update_one(
-            {"_id": "most_frequent_emotions", "empresa": empresa},
+            {"_id": f"most_frequent_emotions:{empresa}"},
             {"$set": {
                 "data": data,
                 "last_updated": datetime.utcnow().isoformat()
@@ -635,7 +390,7 @@ def update_most_frequent_emotions(emotion: str, empresa: str):
 
 def update_age_distribution(age_group: str, monday_of_week: str, month_str: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "age_distribution", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"age_distribution:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'age_distribution' no encontrado para empresa {empresa}")
             return
@@ -650,7 +405,7 @@ def update_age_distribution(age_group: str, monday_of_week: str, month_str: str,
         monthly[month_str] = month_data
         overall[age_group] = overall.get(age_group, 0) + 1
         collections["Estadisticas"].update_one(
-            {"_id": "age_distribution", "empresa": empresa},
+            {"_id": f"age_distribution:{empresa}"},
             {"$set": {
                 "weekly": weekly,
                 "monthly": monthly,
@@ -663,7 +418,7 @@ def update_age_distribution(age_group: str, monday_of_week: str, month_str: str,
 
 def update_gender_distribution(gender: str, monday_of_week: str, month_str: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "gender_distribution", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"gender_distribution:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'gender_distribution' no encontrado para empresa {empresa}")
             return
@@ -678,7 +433,7 @@ def update_gender_distribution(gender: str, monday_of_week: str, month_str: str,
         monthly[month_str] = month_data
         overall[gender] = overall.get(gender, 0) + 1
         collections["Estadisticas"].update_one(
-            {"_id": "gender_distribution", "empresa": empresa},
+            {"_id": f"gender_distribution:{empresa}"},
             {"$set": {
                 "weekly": weekly,
                 "monthly": monthly,
@@ -691,7 +446,7 @@ def update_gender_distribution(gender: str, monday_of_week: str, month_str: str,
 
 def update_emotion_comparison(emotion: str, day_of_week: str, monday_of_week: str, month_str: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "emotion_comparison", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"emotion_comparison:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'emotion_comparison' no encontrado para empresa {empresa}")
             return
@@ -707,7 +462,7 @@ def update_emotion_comparison(emotion: str, day_of_week: str, monday_of_week: st
         month_data[emotion] = month_data.get(emotion, 0) + 1
         monthly[month_str] = month_data
         collections["Estadisticas"].update_one(
-            {"_id": "emotion_comparison", "empresa": empresa},
+            {"_id": f"emotion_comparison:{empresa}"},
             {"$set": {
                 "weekly": weekly,
                 "monthly": monthly,
@@ -719,7 +474,7 @@ def update_emotion_comparison(emotion: str, day_of_week: str, monday_of_week: st
 
 def update_preferred_category_by_gender(gender: str, category: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "preferred_category_by_gender", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'preferred_category_by_gender' no encontrado para empresa {empresa}")
             return
@@ -734,7 +489,7 @@ def update_preferred_category_by_gender(gender: str, category: str, empresa: str
                 preferred = max(categories.items(), key=lambda x: x[1])
                 data[g] = {"category": preferred[0], "count": preferred[1]}
         collections["Estadisticas"].update_one(
-            {"_id": "preferred_category_by_gender", "empresa": empresa},
+            {"_id": f"preferred_category_by_gender:{empresa}"},
             {"$set": {
                 "data": data,
                 "raw_counts": raw_counts,
@@ -746,7 +501,7 @@ def update_preferred_category_by_gender(gender: str, category: str, empresa: str
 
 def update_top_successful_categories(category: str, emotion: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "top_successful_categories", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"top_successful_categories:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'top_successful_categories' no encontrado para empresa {empresa}")
             return
@@ -764,7 +519,7 @@ def update_top_successful_categories(category: str, emotion: str, empresa: str):
                 data.append({"category": cat, "happy_percentage": happy_percentage})
         data.sort(key=lambda x: x["happy_percentage"], reverse=True)
         collections["Estadisticas"].update_one(
-            {"_id": "top_successful_categories", "empresa": empresa},
+            {"_id": f"top_successful_categories:{empresa}"},
             {"$set": {
                 "data": data,
                 "raw_counts": raw_counts,
@@ -776,17 +531,17 @@ def update_top_successful_categories(category: str, emotion: str, empresa: str):
 
 def update_emotional_differences_by_category(category: str, gender: str, emotion: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "emotional_differences_by_category", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"emotional_differences_by_category:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'emotional_differences_by_category' no encontrado para empresa {empresa}")
             collections["Estadisticas"].insert_one({
-                "_id": "emotional_differences_by_category",
+                "_id": f"emotional_differences_by_category:{empresa}",
                 "empresa": empresa,
                 "description": "Emociones por género en cada categoría de productos",
                 "data": {},
                 "last_updated": datetime.utcnow().isoformat()
             })
-            stats = collections["Estadisticas"].find_one({"_id": "emotional_differences_by_category", "empresa": empresa})
+            stats = collections["Estadisticas"].find_one({"_id": f"emotional_differences_by_category:{empresa}"})
         gender_key = gender.lower()
         emotion_key = emotion.upper()
         data = stats.get("data", {})
@@ -801,7 +556,7 @@ def update_emotional_differences_by_category(category: str, gender: str, emotion
             data[category][gender_key][emotion_key] = 0
         data[category][gender_key][emotion_key] += 1
         collections["Estadisticas"].update_one(
-            {"_id": "emotional_differences_by_category", "empresa": empresa},
+            {"_id": f"emotional_differences_by_category:{empresa}"},
             {"$set": {
                 "data": data,
                 "last_updated": datetime.utcnow().isoformat()
@@ -812,7 +567,7 @@ def update_emotional_differences_by_category(category: str, gender: str, emotion
 
 def update_age_gender_distribution_by_category(category: str, gender: str, age_group: str, empresa: str):
     try:
-        stats = collections["Estadisticas"].find_one({"_id": "age_gender_distribution_by_category", "empresa": empresa})
+        stats = collections["Estadisticas"].find_one({"_id": f"age_gender_distribution_by_category:{empresa}"})
         if not stats:
             logger.warning(f"Documento 'age_gender_distribution_by_category' no encontrado para empresa {empresa}")
             return
@@ -832,7 +587,7 @@ def update_age_gender_distribution_by_category(category: str, gender: str, age_g
             cat_combinations.sort(key=lambda x: x["count"], reverse=True)
             data[cat] = cat_combinations
         collections["Estadisticas"].update_one(
-            {"_id": "age_gender_distribution_by_category", "empresa": empresa},
+            {"_id": f"age_gender_distribution_by_category:{empresa}"},
             {"$set": {
                 "data": data,
                 "raw_counts": raw_counts,

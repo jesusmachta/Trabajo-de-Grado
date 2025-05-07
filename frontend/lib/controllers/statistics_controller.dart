@@ -172,11 +172,13 @@ class StatisticsController {
   }
 
   // Fetch both busy days statistics in one call
-  Future<Map<String, dynamic>> getBusyDaysStatistics() async {
+  Future<Map<String, dynamic>> getBusyDaysStatistics(
+      {required String token}) async {
     try {
-      final mostBusyDaysResponse = await getStatistics('busy-days', token: '');
+      final mostBusyDaysResponse =
+          await getStatistics('busy-days', token: token);
       final leastBusyDaysResponse =
-          await getStatistics('least-days', token: '');
+          await getStatistics('least-days', token: token);
 
       // Extraer los datos teniendo en cuenta la estructura actual:
       // data: {"day": "Wednesday", "count": 11}
@@ -196,12 +198,13 @@ class StatisticsController {
   }
 
   // Fetch both most-visited and least-visited categories in one call
-  Future<Map<String, dynamic>> getVisitedCategoriesStatistics() async {
+  Future<Map<String, dynamic>> getVisitedCategoriesStatistics(
+      {Map<String, String>? params, required String token}) async {
     try {
       final mostVisitedResponse =
-          await getStatistics('most-visited', token: '');
+          await getStatistics('most-visited', params: params, token: token);
       final leastVisitedResponse =
-          await getStatistics('least-visited', token: '');
+          await getStatistics('least-visited', params: params, token: token);
 
       // Extract category and count data
       String mostVisitedCategory = mostVisitedResponse['data']
@@ -230,11 +233,11 @@ class StatisticsController {
   }
 
   // Fetch historical visited categories (both most and least) in one call
-  Future<Map<String, dynamic>>
-      getHistoricalVisitedCategoriesStatistics() async {
+  Future<Map<String, dynamic>> getHistoricalVisitedCategoriesStatistics(
+      {required String token}) async {
     try {
       final response =
-          await getStatistics('visited-categories-historical', token: '');
+          await getStatistics('visited-categories-historical', token: token);
 
       // The response already contains both most and least visited categories
       return response;
@@ -246,12 +249,13 @@ class StatisticsController {
   }
 
   // Método para obtener las categorías Top Visitadas
-  Future<List<dynamic>> getTopSuccessfulCategories() async {
+  Future<List<dynamic>> getTopSuccessfulCategories(
+      {required String token}) async {
     try {
       // Endpoint ahora devuelve Top por Visitas Totales
       const endpoint = 'top-successful-categories';
       final url = '$baseUrl/api/statistics/$endpoint/';
-      print('Fetching top categories (by total visits) from: $url');
+      print('Fetching top categories with happy emotions from: $url');
 
       const cacheKey = endpoint;
       if (_isCacheValid(cacheKey)) {
@@ -267,9 +271,13 @@ class StatisticsController {
         }
       }
 
-      final response = await _client
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
         throw Exception(
             'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
       });

@@ -32,7 +32,7 @@ class _LoginViewState extends State<LoginView> {
     if (value == null || value.isEmpty) {
       return 'Por favor ingresa tu correo electrónico';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (!RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
       return 'Por favor ingresa un correo electrónico válido';
     }
     return null;

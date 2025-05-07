@@ -158,18 +158,63 @@ class StatisticsViewState extends State<StatisticsView> {
       Map<String, String>? params;
       dynamic data;
 
-      if (_requiresParams(_selectedStat)) {
-        params = {'period': _selectedPeriod};
-        if (_selectedPeriod == 'week') {
-          params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
-        } else if (_selectedPeriod == 'month') {
-          params['month'] = _selectedMonth.toString();
-          params['year'] = _selectedYear.toString();
+      // NEW LOGIC FOR COMBINED STATS
+      if (_selectedStat == 'visited-categories-combined') {
+        if (_selectedCategoryPeriodType == 'overall') {
+          data = await _controller.getHistoricalVisitedCategoriesStatistics(
+              token: token);
+        } else {
+          params = {'period': _selectedCategoryPeriodType};
+          if (_selectedCategoryPeriodType == 'week' &&
+              _selectedCategoryWeek != null) {
+            params['date'] =
+                DateFormat('yyyy-MM-dd').format(_selectedCategoryWeek!);
+          } else if (_selectedCategoryPeriodType == 'month' &&
+              _selectedCategoryMonth != null) {
+            params['month'] = _selectedCategoryMonth!.month.toString();
+            params['year'] = _selectedCategoryMonth!.year.toString();
+          }
+          data = await _controller.getVisitedCategoriesStatistics(
+              params: params, token: token);
         }
+      } else if (_selectedStat == 'busy-days-combined') {
+        data = await _controller.getBusyDaysStatistics(token: token);
+      } else if (_selectedStat == 'gender-age-combined') {
+        params = {'period': _selectedCategoryPeriodType}; // 'week' or 'month'
+        if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
+          params['date'] = _selectedWeekKey!;
+        } else if (_selectedCategoryPeriodType == 'month' &&
+            _selectedMonthKey != null) {
+          final parts = _selectedMonthKey!.split('-');
+          params['year'] = parts[0];
+          params['month'] = parts[1];
+        }
+        data = await _controller.getGenderAgeDistributionStatistics(
+            params: params, token: token);
+      } else if (_selectedStat == 'top-successful-categories') {
+        // Handle top-successful-categories endpoint separately
+        data = await _controller.getTopSuccessfulCategories(token: token);
+      } else {
+        // Original logic for non-combined (individual) stats
+        if (_requiresParams(_selectedStat)) {
+          params = {'period': _selectedPeriod};
+          if (_selectedPeriod == 'week') {
+            params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
+            // Special handling for emotion-comparison end_date
+            if (_selectedStat == 'emotion-comparison' &&
+                _selectedEndDate != null) {
+              params['end_date'] =
+                  DateFormat('yyyy-MM-dd').format(_selectedEndDate!);
+            }
+          } else if (_selectedPeriod == 'month') {
+            params['month'] = _selectedMonth.toString();
+            params['year'] = _selectedYear.toString();
+          }
+        }
+        data = await _controller.getStatistics(_selectedStat,
+            params: params, token: token);
       }
-
-      data = await _controller.getStatistics(_selectedStat,
-          params: params, token: token);
+      // END OF NEW LOGIC
 
       setState(() {
         _statisticsData = data;
@@ -1807,17 +1852,17 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Visualizador para categorías mejor evaluadas (Ahora Top Visitadas)
   Widget _buildTopCategoriesView(List<dynamic> data) {
-    print('Building top categories view (by total visits) with data: $data');
+    print('Building top categories view with data: $data');
 
-    if (data is! List || data.length < 3) {
+    if (data is! List || data.isEmpty) {
       print(
-          'Error: Invalid data format for top categories. Expected List of 3 items.');
+          'Error: Invalid data format for top categories. Expected non-empty List.');
       return const Center(
-        child: Text('No hay suficientes datos para mostrar el podio.'),
+        child: Text('No hay datos disponibles para mostrar el ranking.'),
       );
     }
 
-    // Asegurarse de que los datos son Map<String, dynamic>
+    // Convert data items to Map<String, dynamic>
     List<Map<String, dynamic>> topCategories = data.map((item) {
       if (item is Map<String, dynamic>) {
         return item;
@@ -1833,11 +1878,20 @@ class StatisticsViewState extends State<StatisticsView> {
 
     topCategories = topCategories.where((map) => map.isNotEmpty).toList();
 
-    if (topCategories.length < 3) {
-      print('Error: Not enough valid category data after filtering.');
+    if (topCategories.isEmpty) {
+      print('Error: No valid category data after filtering.');
       return const Center(
-        child: Text('Formato de datos inválido para algunas categorías.'),
+        child: Text('No hay datos válidos para mostrar el ranking.'),
       );
+    }
+
+    // Ensure we have at least one category
+    while (topCategories.length < 3) {
+      topCategories.add({
+        'category': 'N/A',
+        'rank': topCategories.length + 1,
+        'happy_count': 0
+      });
     }
 
     return Padding(
@@ -1846,9 +1900,7 @@ class StatisticsViewState extends State<StatisticsView> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            // Actualizar título si se desea, o mantenerlo como está.
-            // 'Top Categorías Más Visitadas',
-            'Top Categorías Mejor Evaluadas', // Manteniendo título original por ahora
+            'Top Categorías Mejor Evaluadas',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.primary,
@@ -1859,18 +1911,14 @@ class StatisticsViewState extends State<StatisticsView> {
           LayoutBuilder(
             builder: (context, constraints) {
               bool useRow = constraints.maxWidth > 600;
-              final children = topCategories.map((categoryData) {
-                // Extraer datos usando 'total_count'
+              final children = topCategories.take(3).map((categoryData) {
+                // Extract data from the new format
                 final rank = categoryData['rank'] as int? ?? 0;
                 final category = categoryData['category'] as String? ?? 'Error';
-                // CAMBIO: Usar 'total_count' en lugar de 'happy_count'
-                final count = categoryData['total_count'] as int? ?? 0;
 
                 Widget card = _buildTopCategoryCard(
                   rank: rank,
                   category: category,
-                  // CAMBIO: Pasar 'total_count' como argumento
-                  valueCount: count,
                 );
 
                 return useRow ? Expanded(child: card) : card;
@@ -1880,21 +1928,21 @@ class StatisticsViewState extends State<StatisticsView> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    children[0],
-                    const SizedBox(width: 16),
-                    children[1],
-                    const SizedBox(width: 16),
-                    children[2],
+                    if (children.isNotEmpty) children[0],
+                    if (children.length > 1) const SizedBox(width: 16),
+                    if (children.length > 1) children[1],
+                    if (children.length > 2) const SizedBox(width: 16),
+                    if (children.length > 2) children[2],
                   ],
                 );
               } else {
                 return Column(
                   children: [
-                    children[0],
-                    const SizedBox(height: 16),
-                    children[1],
-                    const SizedBox(height: 16),
-                    children[2],
+                    if (children.isNotEmpty) children[0],
+                    if (children.length > 1) const SizedBox(height: 16),
+                    if (children.length > 1) children[1],
+                    if (children.length > 2) const SizedBox(height: 16),
+                    if (children.length > 2) children[2],
                   ],
                 );
               }
@@ -1905,12 +1953,10 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Helper widget para una tarjeta del podio (Ahora usa total_count)
+  // Helper widget para una tarjeta del podio (sin mostrar contador)
   Widget _buildTopCategoryCard({
     required int rank,
     required String category,
-    // CAMBIO: Renombrar a un nombre más genérico
-    required int valueCount,
   }) {
     Color cardColor;
     Color iconColor;

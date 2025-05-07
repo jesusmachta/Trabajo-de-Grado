@@ -66,49 +66,41 @@ class DashboardController {
       Map<String, dynamic> dashboardData = {};
 
       // Fetch peak hours statistics
-      final peakHoursResponse =
-          await getStatisticById('peak-hours', 'peak_hours', token);
+      final peakHoursResponse = await getStatisticById('peak-hours', token);
       dashboardData['peakHours'] = peakHoursResponse;
 
       // Fetch least busy hours statistics
-      final leastHoursResponse =
-          await getStatisticById('least-hours', 'least_busy_hours', token);
+      final leastHoursResponse = await getStatisticById('least-hours', token);
       dashboardData['leastHours'] = leastHoursResponse;
 
       // Fetch busy days combined statistics
-      final busyDaysResponse = await getBusyDaysStatistics(
-        mostBusyDayId: 'most_busy_day',
-        leastBusyDayId: 'least_busy_day',
-        token: token,
-      );
+      final busyDaysResponse = await getBusyDaysStatistics(token: token);
       dashboardData['busyDays'] = busyDaysResponse;
 
       // Fetch visited categories statistics
-      final visitedCategoriesResponse = await getStatisticById(
-          'visited-categories-historical', 'historical_categories', token);
+      final visitedCategoriesResponse =
+          await getStatisticById('visited-categories-historical', token);
       dashboardData['visitedCategories'] = visitedCategoriesResponse;
 
       // Fetch emotion percentage statistics
-      final emotionResponse = await getStatisticById(
-          'emotion-percentage', 'most_frequent_emotions', token);
+      final emotionResponse =
+          await getStatisticById('most-frequent-emotions', token);
       dashboardData['emotionPercentage'] = emotionResponse;
 
       // Fetch emotion percentage by category
-      final emotionByCategoryResponse = await getStatisticById(
-          'emotion-percentage', 'emotion_percentage_by_category', token);
+      final emotionByCategoryResponse =
+          await getStatisticById('emotion-percentage', token);
       dashboardData['emotionPercentageByCategory'] = emotionByCategoryResponse;
 
       // Fetch preferred categories by gender
-      final preferredCategoriesByGenderResponse = await getStatisticById(
-          'preferred-category-by-gender',
-          'preferred_category_by_gender',
-          token);
+      final preferredCategoriesByGenderResponse =
+          await getStatisticById('preferred-category-by-gender', token);
       dashboardData['preferredCategoriesByGender'] =
           preferredCategoriesByGenderResponse;
 
       // Fetch top categories
-      final topCategoriesResponse = await getStatisticById(
-          'top-successful-categories', 'top_successful_categories', token);
+      final topCategoriesResponse =
+          await getStatisticById('top-successful-categories', token);
       dashboardData['topCategories'] = topCategoriesResponse;
 
       return dashboardData;
@@ -120,9 +112,9 @@ class DashboardController {
 
   // Obtener datos de estadísticas por ID específico
   Future<Map<String, dynamic>> getStatisticById(
-      String endpoint, String documentId, String token) async {
+      String endpoint, String token) async {
     try {
-      final url = '$baseUrl/api/statistics/$endpoint/?id=$documentId';
+      final url = '$baseUrl/api/statistics/$endpoint/';
       final response = await _client.get(
         Uri.parse(url),
         headers: {
@@ -145,15 +137,11 @@ class DashboardController {
 
   // Obtener estadísticas de días más y menos concurridos
   Future<Map<String, dynamic>> getBusyDaysStatistics({
-    required String mostBusyDayId,
-    required String leastBusyDayId,
     required String token,
   }) async {
     try {
-      final mostBusyDaysResponse =
-          await getStatisticById('busy-days', mostBusyDayId, token);
-      final leastBusyDaysResponse =
-          await getStatisticById('least-days', leastBusyDayId, token);
+      final mostBusyDaysResponse = await getStatisticById('busy-days', token);
+      final leastBusyDaysResponse = await getStatisticById('least-days', token);
 
       return {
         'most_busy_day':

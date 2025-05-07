@@ -68,7 +68,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
     if (value == null || value.isEmpty) {
       return 'Por favor ingresa un correo electrónico';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (!RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
       return 'Por favor ingresa un correo electrónico válido';
     }
     return null;
@@ -143,15 +143,80 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
           );
         }
       } else {
-        // Registration failed
+        // Handle different error cases with user-friendly messages
+        String errorMessage;
+
+        if (response.statusCode == 409) {
+          // Conflict - already exists
+          errorMessage =
+              data['detail'] ?? 'Ya existe una empresa con estos datos';
+
+          // Highlight the specific field if possible
+          if (data['detail'] != null) {
+            if (data['detail'].contains('nombre')) {
+              // Show error on company name field
+              setState(() {
+                _formKey.currentState?.validate();
+              });
+            } else if (data['detail'].contains('RIF')) {
+              // Show error on RIF field
+              setState(() {
+                _formKey.currentState?.validate();
+              });
+            } else if (data['detail'].contains('correo')) {
+              // Show error on email field
+              setState(() {
+                _formKey.currentState?.validate();
+              });
+            }
+          }
+        } else if (response.statusCode == 400) {
+          // Bad request - validation error
+          errorMessage =
+              data['detail'] ?? 'Por favor revisa los datos ingresados';
+        } else {
+          // Other errors
+          errorMessage =
+              'Error al registrar la empresa: ${data['detail'] ?? 'Intenta nuevamente'}';
+        }
+
         setState(() {
-          _errorMessage = data['detail'] ?? 'Error al registrar la empresa';
+          _errorMessage = errorMessage;
         });
+
+        // Show a snackbar with the error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_errorMessage ?? 'Error al registrar la empresa'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Error de conexión. Intente de nuevo más tarde: $e';
       });
+
+      // Show a snackbar with the connection error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error de conexión al servidor'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -638,13 +703,36 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
                     if (_errorMessage != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w500,
+                        child: Material(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .errorContainer
+                              .withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ),
 

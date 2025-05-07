@@ -874,17 +874,21 @@ class _DashboardViewState extends State<DashboardView> {
         height: 400,
       );
     }
-    final data = _dashboardData!['busyDays'];
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
+    final busyDaysData = _dashboardData!['busyDays'] as Map<String, dynamic>?;
+
+    if (busyDaysData == null ||
+        !busyDaysData.containsKey('most_busy_day') ||
+        !busyDaysData.containsKey('least_busy_day')) {
       return const StatisticCard(
         title: 'Días de la semana con más y menos afluencia',
         icon: Icons.calendar_month,
-        content: Center(child: Text('Formato de datos incorrecto')),
+        content: Center(
+            child: Text('Formato de datos incorrecto o datos faltantes')),
         expanded: false,
         height: 400,
       );
     }
-    final busyDaysData = data['data'] as Map<String, dynamic>;
+
     // Traducción de días
     final Map<String, String> dayTranslations = {
       'Monday': 'Lunes',
@@ -1585,7 +1589,7 @@ class _DashboardViewState extends State<DashboardView> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        getCategoryIcon(topCategories[1]['category']),
+                        getCategoryIcon(topCategories[1]['category'] ?? 'N/A'),
                         color: Colors.grey.shade700,
                         size: 28,
                       ),
@@ -1605,9 +1609,9 @@ class _DashboardViewState extends State<DashboardView> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              '#2',
-                              style: TextStyle(
+                            Text(
+                              '#${topCategories[1]['rank'] ?? '2'}',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20,
                                 color: Colors.black54,
@@ -1615,7 +1619,7 @@ class _DashboardViewState extends State<DashboardView> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              topCategories[1]['category'],
+                              topCategories[1]['category'] ?? 'N/A',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -1640,7 +1644,7 @@ class _DashboardViewState extends State<DashboardView> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        getCategoryIcon(topCategories[0]['category']),
+                        getCategoryIcon(topCategories[0]['category'] ?? 'N/A'),
                         color: Colors.amber.shade700,
                         size: 36,
                       ),
@@ -1660,9 +1664,9 @@ class _DashboardViewState extends State<DashboardView> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              '#1',
-                              style: TextStyle(
+                            Text(
+                              '#${topCategories[0]['rank'] ?? '1'}',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 24,
                                 color: Colors.black54,
@@ -1670,7 +1674,7 @@ class _DashboardViewState extends State<DashboardView> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              topCategories[0]['category'],
+                              topCategories[0]['category'] ?? 'N/A',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -1695,7 +1699,7 @@ class _DashboardViewState extends State<DashboardView> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        getCategoryIcon(topCategories[2]['category']),
+                        getCategoryIcon(topCategories[2]['category'] ?? 'N/A'),
                         color: Colors.brown.shade700,
                         size: 28,
                       ),
@@ -1715,9 +1719,9 @@ class _DashboardViewState extends State<DashboardView> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              '#3',
-                              style: TextStyle(
+                            Text(
+                              '#${topCategories[2]['rank'] ?? '3'}',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20,
                                 color: Colors.black54,
@@ -1725,7 +1729,7 @@ class _DashboardViewState extends State<DashboardView> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              topCategories[2]['category'],
+                              topCategories[2]['category'] ?? 'N/A',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -1748,19 +1752,22 @@ class _DashboardViewState extends State<DashboardView> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                if (topCategories[1]['total_count'] != null)
+                if (topCategories.length > 1 &&
+                    topCategories[1]['happy_count'] != null)
                   Text(
-                    '${topCategories[1]['total_count']} visitas',
+                    '${topCategories[1]['happy_count']} clientes felices',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                if (topCategories[0]['total_count'] != null)
+                if (topCategories.isNotEmpty &&
+                    topCategories[0]['happy_count'] != null)
                   Text(
-                    '${topCategories[0]['total_count']} visitas',
+                    '${topCategories[0]['happy_count']} clientes felices',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                if (topCategories[2]['total_count'] != null)
+                if (topCategories.length > 2 &&
+                    topCategories[2]['happy_count'] != null)
                   Text(
-                    '${topCategories[2]['total_count']} visitas',
+                    '${topCategories[2]['happy_count']} clientes felices',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
               ],
