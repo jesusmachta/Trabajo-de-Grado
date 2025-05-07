@@ -122,8 +122,8 @@ def get_next_sequence_value(sequence_name):
         raise HTTPException(status_code=500, detail=f"Error al obtener el siguiente valor de secuencia: {e}")
 
 def initialize_routes(app):
-    # Inicializar documentos de estadísticas
-    initialize_statistics()
+    # Inicializar documentos de estadísticas (ya no se hace aquí, solo al registrar empresa)
+    # initialize_statistics()  # ELIMINADO: ahora requiere argumento 'empresa'
     
     # Iniciar el programador de actualizaciones
     start_scheduler()
@@ -2070,8 +2070,9 @@ async def register_company(
             expires_delta=access_token_expires
         )
         
-        # Iniciar tarea en segundo plano para inicializar estadísticas (opcional)
-        background_tasks.add_task(initialize_statistics_for_company, nombre_empresa)
+        # Inicializar estadísticas SOLO UNA VEZ para la nueva empresa
+        from backend.statistics.incremental_stats import initialize_statistics
+        initialize_statistics(nombre_empresa)
         
         return {
             "message": "Empresa registrada exitosamente",
@@ -2100,64 +2101,8 @@ def initialize_statistics_for_company(empresa: str):
     Inicializa los documentos de estadísticas para una nueva empresa.
     Esta función puede ser llamada como una tarea en segundo plano.
     """
-    try:
-        # Verificar si ya existen documentos de estadísticas para esta empresa
-        if collections["Estadisticas"].find_one({"_id": f"peak_hours:{empresa}"}):
-            logger.info(f"Las estadísticas para la empresa '{empresa}' ya fueron inicializadas")
-            return
-        
-        # Lista de nombres de estadísticas
-        stat_names = [
-            "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
-            "most_visited_category", "least_visited_category", "historical_categories",
-            "emotion_percentage_by_category", "most_frequent_emotions", "age_distribution",
-            "gender_distribution", "emotion_comparison", "preferred_category_by_gender",
-            "top_successful_categories", "emotional_differences_by_category",
-            "age_gender_distribution_by_category"
-        ]
-        # Inicializar estadísticas básicas
-        stats_docs = []
-        for stat in stat_names:
-            base_doc = {"_id": f"{stat}:{empresa}", "empresa": empresa, "last_updated": datetime.utcnow().isoformat()}
-            if stat == "peak_hours":
-                base_doc.update({"description": "Horas pico de cada día de la semana", "data": {}, })
-            elif stat == "least_busy_hours":
-                base_doc.update({"description": "Horas menos concurridas de cada día de la semana", "data": {}, })
-            elif stat == "most_busy_day":
-                base_doc.update({"description": "Día más concurrido de la semana", "data": {}, })
-            elif stat == "least_busy_day":
-                base_doc.update({"description": "Día menos concurrido de la semana", "data": {}, })
-            elif stat == "most_visited_category":
-                base_doc.update({"description": "Categoría más visitada", "category_counts": {}, "daily": {}, "weekly": {}, "monthly": {}})
-            elif stat == "least_visited_category":
-                base_doc.update({"description": "Categoría menos visitada", "category_counts": {}, "daily": {}, "weekly": {}, "monthly": {}})
-            elif stat == "historical_categories":
-                base_doc.update({"description": "Datos históricos de categorías visitadas", "most_visited": {"category": "", "count": 0}, "least_visited": {"category": "", "count": 0}})
-            elif stat == "emotion_percentage_by_category":
-                base_doc.update({"description": "Porcentaje de emociones por categoría", "data": {}})
-            elif stat == "most_frequent_emotions":
-                base_doc.update({"description": "Emociones más frecuentes", "data": {}})
-            elif stat == "age_distribution":
-                base_doc.update({"description": "Distribución por edades", "overall": {}, "weekly": {}, "monthly": {}})
-            elif stat == "gender_distribution":
-                base_doc.update({"description": "Distribución por género", "overall": {}, "weekly": {}, "monthly": {}})
-            elif stat == "emotion_comparison":
-                base_doc.update({"description": "Comparación de emociones por día", "weekly": {}, "monthly": {}})
-            elif stat == "preferred_category_by_gender":
-                base_doc.update({"description": "Categorías preferidas por género", "data": {"Male": {"category": "", "count": 0}, "Female": {"category": "", "count": 0}}, "raw_counts": {"Male": {}, "Female": {}}})
-            elif stat == "top_successful_categories":
-                base_doc.update({"description": "Categorías más exitosas", "data": [], "raw_counts": {}})
-            elif stat == "emotional_differences_by_category":
-                base_doc.update({"description": "Diferencias emocionales por categoría", "data": {}})
-            elif stat == "age_gender_distribution_by_category":
-                base_doc.update({"description": "Distribución de edad y género por categoría", "data": {}})
-            stats_docs.append(base_doc)
-        # Insertar documentos de estadísticas
-        collections["Estadisticas"].insert_many(stats_docs)
-        logger.info(f"Estadísticas inicializadas para empresa '{empresa}'")
-    except Exception as e:
-        logger.error(f"Error al inicializar estadísticas para empresa '{empresa}': {str(e)}")
-        # No re-lanzamos la excepción para evitar que falle el registro si fallan las estadísticas
+    # Esta función ya no es necesaria, la inicialización se hace directamente con initialize_statistics
+    pass
 
 # En la regeneración, eliminar por _id que termine con :empresa
 @router.post("/statistics/regenerate-for-company/")

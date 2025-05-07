@@ -9,12 +9,15 @@ from collections import defaultdict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def initialize_statistics(empresa=None):
+def initialize_statistics(empresa):
     """
     Inicializa los documentos de estadísticas en la colección Estadisticas si no existen.
-    Si se pasa empresa, los crea solo para esa empresa. Si no, crea para todas las empresas (legacy).
+    Solo crea para la empresa especificada.
     """
-    need_recalculation = False
+    if not empresa:
+        logger.error("No se puede inicializar estadísticas sin empresa.")
+        return
+
     stat_names = [
         "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
         "most_visited_category", "least_visited_category", "historical_categories",
@@ -23,12 +26,10 @@ def initialize_statistics(empresa=None):
         "top_successful_categories", "emotional_differences_by_category",
         "age_gender_distribution_by_category"
     ]
-    # Si no se pasa empresa, legacy: crear para empresa vacía
-    empresa_val = empresa if empresa else "default"
     for stat in stat_names:
-        _id = f"{stat}:{empresa_val}"
+        _id = f"{stat}:{empresa}"
         if collections["Estadisticas"].count_documents({"_id": _id}) == 0:
-            base_doc = {"_id": _id, "empresa": empresa_val, "last_updated": datetime.utcnow().isoformat()}
+            base_doc = {"_id": _id, "empresa": empresa, "last_updated": datetime.utcnow().isoformat()}
             if stat == "peak_hours":
                 base_doc.update({"description": "Horas pico por día de la semana", "data": {}})
             elif stat == "least_busy_hours":
@@ -63,11 +64,29 @@ def initialize_statistics(empresa=None):
                 base_doc.update({"description": "Distribución de edad y género por categoría", "data": {}})
             collections["Estadisticas"].insert_one(base_doc)
             logger.info(f"Inicializado documento de estadísticas: {_id}")
-            need_recalculation = True
-    persona_count = collections["Persona_AR"].count_documents({"empresa": empresa_val})
-    if need_recalculation and persona_count > 0:
-        logger.info("Se detectaron documentos de estadísticas faltantes, recalculando desde datos históricos...")
-        recalculate_all_statistics(empresa=empresa_val)
+
+def reset_statistics_documents(empresa):
+    """
+    Reinicia todos los documentos de estadísticas a su estado inicial para una empresa específica.
+    """
+    if not empresa:
+        logger.error("No se puede resetear estadísticas sin empresa.")
+        return
+    stat_names = [
+        "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
+        "most_visited_category", "least_visited_category", "historical_categories",
+        "emotion_percentage_by_category", "most_frequent_emotions", "age_distribution",
+        "gender_distribution", "emotion_comparison", "preferred_category_by_gender",
+        "top_successful_categories", "emotional_differences_by_category",
+        "age_gender_distribution_by_category"
+    ]
+    for stat in stat_names:
+        _id = f"{stat}:{empresa}"
+        collections["Estadisticas"].delete_one({"_id": _id})
+        logger.info(f"Eliminado documento de estadísticas: {_id}")
+    # Solo crear los documentos, no llamar a recalculate ni a initialize_statistics de nuevo
+    initialize_statistics(empresa)
+    logger.info("Documentos de estadísticas reiniciados completamente")
 
 def recalculate_all_statistics(empresa=None):
     """
@@ -76,7 +95,7 @@ def recalculate_all_statistics(empresa=None):
     """
     try:
         logger.info("Iniciando recálculo completo de estadísticas desde datos históricos...")
-        reset_statistics_documents(empresa=empresa)
+        # No llamar a reset_statistics_documents aquí para evitar bucles
         total_docs = collections["Persona_AR"].count_documents({"empresa": empresa} if empresa else {})
         if total_docs == 0:
             logger.info("No hay documentos en Persona_AR para recalcular estadísticas.")
@@ -103,33 +122,6 @@ def recalculate_all_statistics(empresa=None):
             logger.warning(f"Hubo errores al procesar {len(error_docs)} documentos durante el recálculo.")
     except Exception as e:
         logger.error(f"Error en recalculate_all_statistics: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-
-def reset_statistics_documents(empresa=None):
-    """
-    Reinicia todos los documentos de estadísticas a su estado inicial para una empresa específica.
-    """
-    try:
-        logger.info("Limpiando completamente todos los documentos de estadísticas...")
-        stat_names = [
-            "peak_hours", "least_busy_hours", "most_busy_day", "least_busy_day",
-            "most_visited_category", "least_visited_category", "historical_categories",
-            "emotion_percentage_by_category", "most_frequent_emotions", "age_distribution",
-            "gender_distribution", "emotion_comparison", "preferred_category_by_gender",
-            "top_successful_categories", "emotional_differences_by_category",
-            "age_gender_distribution_by_category"
-        ]
-        empresa_val = empresa if empresa else "default"
-        for stat in stat_names:
-            _id = f"{stat}:{empresa_val}"
-            collections["Estadisticas"].delete_one({"_id": _id})
-            logger.info(f"Eliminado documento de estadísticas: {_id}")
-        # Recrear
-        initialize_statistics(empresa=empresa_val)
-        logger.info("Documentos de estadísticas reiniciados completamente")
-    except Exception as e:
-        logger.error(f"Error en reset_statistics_documents: {e}")
         import traceback
         logger.error(traceback.format_exc())
 

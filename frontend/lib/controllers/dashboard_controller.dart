@@ -125,6 +125,9 @@ class DashboardController {
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      } else if (response.statusCode == 404) {
+        // No hay datos aún, retornar empty state
+        return {'empty': true};
       } else {
         throw Exception(
             'Error al cargar estadísticas. Código: ${response.statusCode}');

@@ -252,24 +252,26 @@ class _DashboardViewState extends State<DashboardView> {
 
   Widget _buildPeakHoursChart() {
     if (_dashboardData == null || !_dashboardData!.containsKey('peakHours')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Horas con mayor afluencia de clientes',
-        icon: Icons.trending_up,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
-        height: 300,
+        icon: Icons.insights_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        height: 400,
       );
     }
 
     final data = _dashboardData!['peakHours'];
-
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
-      return const StatisticCard(
+    if (data is Map &&
+        (data['empty'] == true ||
+            data['data'] == null ||
+            (data['data'] is Map && (data['data'] as Map).isEmpty))) {
+      return _buildEmptyStateCard(
         title: 'Horas con mayor afluencia de clientes',
-        icon: Icons.trending_up,
-        content: Center(child: Text('Formato de datos incorrecto')),
-        expanded: false,
-        height: 300,
+        icon: Icons.insights_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        height: 400,
       );
     }
 
@@ -490,24 +492,26 @@ class _DashboardViewState extends State<DashboardView> {
 
   Widget _buildLeastHoursChart() {
     if (_dashboardData == null || !_dashboardData!.containsKey('leastHours')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Horas con menor afluencia de clientes',
         icon: Icons.trending_down,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
-        height: 300,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        height: 400,
       );
     }
 
     final data = _dashboardData!['leastHours'];
-
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
-      return const StatisticCard(
+    if (data is Map &&
+        (data['empty'] == true ||
+            data['data'] == null ||
+            (data['data'] is Map && (data['data'] as Map).isEmpty))) {
+      return _buildEmptyStateCard(
         title: 'Horas con menor afluencia de clientes',
         icon: Icons.trending_down,
-        content: Center(child: Text('Formato de datos incorrecto')),
-        expanded: false,
-        height: 300,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        height: 400,
       );
     }
 
@@ -727,23 +731,26 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildEmotionsDetected() {
     if (_dashboardData == null ||
         !_dashboardData!.containsKey('emotionPercentageByCategory')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Emociones detectadas',
-        icon: Icons.emoji_emotions,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
-        height: 300,
+        icon: Icons.emoji_emotions_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        height: 340,
       );
     }
 
     final data = _dashboardData!['emotionPercentageByCategory'];
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
-      return const StatisticCard(
+    if (data is Map &&
+        (data['empty'] == true ||
+            data['data'] == null ||
+            (data['data'] is Map && (data['data'] as Map).isEmpty))) {
+      return _buildEmptyStateCard(
         title: 'Emociones detectadas',
-        icon: Icons.emoji_emotions,
-        content: Center(child: Text('Formato de datos incorrecto')),
-        expanded: false,
-        height: 300,
+        icon: Icons.emoji_emotions_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        height: 340,
       );
     }
 
@@ -866,25 +873,25 @@ class _DashboardViewState extends State<DashboardView> {
 
   Widget _buildBusyDaysAndCalendar() {
     if (_dashboardData == null || !_dashboardData!.containsKey('busyDays')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Días de la semana con más y menos afluencia',
-        icon: Icons.calendar_month,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
+        icon: Icons.calendar_month_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 400,
       );
     }
     final busyDaysData = _dashboardData!['busyDays'] as Map<String, dynamic>?;
-
     if (busyDaysData == null ||
-        !busyDaysData.containsKey('most_busy_day') ||
-        !busyDaysData.containsKey('least_busy_day')) {
-      return const StatisticCard(
+        busyDaysData['most_busy_day'] == null ||
+        busyDaysData['least_busy_day'] == null ||
+        busyDaysData['most_busy_day'] == 'No disponible' ||
+        busyDaysData['least_busy_day'] == 'No disponible') {
+      return _buildEmptyStateCard(
         title: 'Días de la semana con más y menos afluencia',
-        icon: Icons.calendar_month,
-        content: Center(
-            child: Text('Formato de datos incorrecto o datos faltantes')),
-        expanded: false,
+        icon: Icons.calendar_month_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 400,
       );
     }
@@ -1183,23 +1190,25 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildVisitedCategories() {
     if (_dashboardData == null ||
         !_dashboardData!.containsKey('visitedCategories')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Categorías visitadas',
-        icon: Icons.category,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
+        icon: Icons.category_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 300,
       );
     }
 
     final data = _dashboardData!['visitedCategories'];
-
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
-      return const StatisticCard(
+    if (data is Map &&
+        (data['empty'] == true ||
+            data['data'] == null ||
+            (data['data'] is Map && (data['data'] as Map).isEmpty))) {
+      return _buildEmptyStateCard(
         title: 'Categorías visitadas',
-        icon: Icons.category,
-        content: Center(child: Text('Formato de datos incorrecto')),
-        expanded: false,
+        icon: Icons.category_outlined,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 300,
       );
     }
@@ -1389,21 +1398,24 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildPreferredCategoriesByGender() {
     if (_dashboardData == null ||
         !_dashboardData!.containsKey('preferredCategoriesByGender')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Categorías preferidas por género',
         icon: Icons.category_outlined,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 300,
       );
     }
     final data = _dashboardData!['preferredCategoriesByGender'];
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
-      return const StatisticCard(
+    if (data is Map &&
+        (data['empty'] == true ||
+            data['data'] == null ||
+            (data['data'] is Map && (data['data'] as Map).isEmpty))) {
+      return _buildEmptyStateCard(
         title: 'Categorías preferidas por género',
         icon: Icons.category_outlined,
-        content: Center(child: Text('Formato de datos incorrecto')),
-        expanded: false,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 300,
       );
     }
@@ -1502,23 +1514,25 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildTopCategories() {
     if (_dashboardData == null ||
         !_dashboardData!.containsKey('topCategories')) {
-      return const StatisticCard(
+      return _buildEmptyStateCard(
         title: 'Top Categorías Mejor Evaluadas',
-        icon: Icons.star,
-        content: Center(child: Text('No hay datos disponibles')),
-        expanded: false,
+        icon: Icons.star_outline,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 300,
       );
     }
 
     final data = _dashboardData!['topCategories'];
-
-    if (data is! Map || !data.containsKey('data') || data['data'] == null) {
-      return const StatisticCard(
+    if (data is Map &&
+        (data['empty'] == true ||
+            data['data'] == null ||
+            (data['data'] is List && (data['data'] as List).isEmpty))) {
+      return _buildEmptyStateCard(
         title: 'Top Categorías Mejor Evaluadas',
-        icon: Icons.star,
-        content: Center(child: Text('Formato de datos incorrecto')),
-        expanded: false,
+        icon: Icons.star_outline,
+        message:
+            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
         height: 300,
       );
     }
@@ -1777,6 +1791,38 @@ class _DashboardViewState extends State<DashboardView> {
       ),
       expanded: false,
       height: 300,
+    );
+  }
+
+  Widget _buildEmptyStateCard({
+    required String title,
+    required IconData icon,
+    required String message,
+    double height = 300,
+  }) {
+    return StatisticCard(
+      title: title,
+      icon: icon,
+      content: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      expanded: false,
+      height: height,
     );
   }
 }
