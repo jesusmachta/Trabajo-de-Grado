@@ -39,6 +39,10 @@ class _UsersViewState extends State<UsersView> {
   bool _isEditMode = false;
   String? _editingUserId;
 
+  // --- NUEVO: Para el ojito y validación de contraseña ---
+  bool _obscurePassword = true;
+  String? _passwordValidationMessage;
+
   @override
   void initState() {
     super.initState();
@@ -126,137 +130,175 @@ class _UsersViewState extends State<UsersView> {
     }
   }
 
+  // --- NUEVO: Validación de contraseña ---
+  String? _validatePassword(String? value) {
+    if (_isEditMode && (value == null || value.isEmpty))
+      return null; // No obligatorio en edición
+    if (value == null || value.isEmpty)
+      return 'Por favor ingresa una contraseña';
+    if (value.length < 6) return 'Debe tener al menos 6 caracteres';
+    if (!RegExp(r'[A-Z]').hasMatch(value))
+      return 'Debe tener al menos una mayúscula';
+    if (!RegExp(r'[a-z]').hasMatch(value))
+      return 'Debe tener al menos una minúscula';
+    if (!RegExp(r'[0-9]').hasMatch(value))
+      return 'Debe tener al menos un número';
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(value))
+      return 'Debe tener al menos un carácter especial';
+    return null;
+  }
+
   Widget _buildUserDialog() {
     return StatefulBuilder(builder: (context, setDialogState) {
       return AlertDialog(
         title: Text(_isEditMode ? 'Editar Usuario' : 'Agregar Usuario'),
-        content: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'Ingresa el correo electrónico',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa un email';
-                    }
-                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                        .hasMatch(value)) {
-                      return 'Por favor ingresa un email válido';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    hintText: _isEditMode
-                        ? 'Dejar en blanco para no cambiar'
-                        : 'Ingresa la contraseña',
-                    border: const OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (!_isEditMode && (value == null || value.isEmpty)) {
-                      return 'Por favor ingresa una contraseña';
-                    }
-                    if (value != null && value.isNotEmpty && value.length < 6) {
-                      return 'La contraseña debe tener al menos 6 caracteres';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _fullNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre Completo',
-                    hintText: 'Ingresa el nombre completo',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa un nombre';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _profilePictureController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL de la Foto de Perfil',
-                    hintText: 'Ingresa la URL de la foto de perfil',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      final uri = Uri.tryParse(value);
-                      if (uri == null || !uri.isAbsolute) {
-                        return 'Por favor ingresa una URL válida';
+        content: SizedBox(
+          width: 400, // Más ancho
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'Ingresa el correo electrónico',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor ingresa un email';
                       }
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(
-                    labelText: 'Rol',
-                    border: OutlineInputBorder(),
+                      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                          .hasMatch(value)) {
+                        return 'Por favor ingresa un email válido';
+                      }
+                      return null;
+                    },
                   ),
-                  items: ['admin', 'user'].map((String role) {
-                    return DropdownMenuItem<String>(
-                      value: role,
-                      child:
-                          Text(role == 'admin' ? 'Administrador' : 'Usuario'),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
+                  const SizedBox(height: 16),
+                  // --- CAMPO DE CONTRASEÑA CON OJITO Y VALIDACIÓN ---
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      hintText: _isEditMode
+                          ? 'Dejar en blanco para no cambiar'
+                          : 'Ingresa la contraseña',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () {
+                          setDialogState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      helperText:
+                          'Mín. 6 caracteres, mayúscula, minúscula, número y especial',
+                      errorText: _passwordValidationMessage,
+                    ),
+                    obscureText: _obscurePassword,
+                    validator: (value) {
+                      final msg = _validatePassword(value);
                       setDialogState(() {
-                        _selectedRole = value;
+                        _passwordValidationMessage = msg;
                       });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<bool>(
-                  value: _selectedIsActive,
-                  decoration: const InputDecoration(
-                    labelText: 'Estado',
-                    border: OutlineInputBorder(),
+                      return msg;
+                    },
+                    onChanged: (value) {
+                      setDialogState(() {
+                        _passwordValidationMessage = _validatePassword(value);
+                      });
+                    },
                   ),
-                  items: const [
-                    DropdownMenuItem<bool>(
-                      value: true,
-                      child: Text('Activo'),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _fullNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre Completo',
+                      hintText: 'Ingresa el nombre completo',
+                      border: OutlineInputBorder(),
                     ),
-                    DropdownMenuItem<bool>(
-                      value: false,
-                      child: Text('Inactivo'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor ingresa un nombre';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _profilePictureController,
+                    decoration: const InputDecoration(
+                      labelText: 'URL de la Foto de Perfil',
+                      hintText: 'Ingresa la URL de la foto de perfil',
+                      border: OutlineInputBorder(),
                     ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() {
-                        _selectedIsActive = value;
-                      });
-                    }
-                  },
-                ),
-              ],
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        final uri = Uri.tryParse(value);
+                        if (uri == null || !uri.isAbsolute) {
+                          return 'Por favor ingresa una URL válida';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Rol',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['admin', 'user'].map((String role) {
+                      return DropdownMenuItem<String>(
+                        value: role,
+                        child:
+                            Text(role == 'admin' ? 'Administrador' : 'Usuario'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          _selectedRole = value;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<bool>(
+                    value: _selectedIsActive,
+                    decoration: const InputDecoration(
+                      labelText: 'Estado',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem<bool>(
+                        value: true,
+                        child: Text('Activo'),
+                      ),
+                      DropdownMenuItem<bool>(
+                        value: false,
+                        child: Text('Inactivo'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          _selectedIsActive = value;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
