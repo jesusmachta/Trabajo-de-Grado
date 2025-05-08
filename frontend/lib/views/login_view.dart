@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'home_view.dart';
 import 'register_company_view.dart';
 import '../controllers/auth_controller.dart';
+import 'forgot_password_view.dart';
 
 class LoginView extends StatefulWidget {
   final Function toggleTheme;
@@ -137,6 +138,37 @@ class _LoginViewState extends State<LoginView> {
                       ),
                     ),
                     const SizedBox(height: 24),
+
+                    // Add "Forgot Password" button here
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          // Navigate to the forgot password screen
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ForgotPasswordView(
+                                toggleTheme: widget.toggleTheme,
+                              ),
+                            ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          '¿Olvidaste tu contraseña?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
 
                     // Password field
                     const Text(

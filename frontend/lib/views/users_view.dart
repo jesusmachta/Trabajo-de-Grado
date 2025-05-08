@@ -7,6 +7,10 @@ import '../models/user_model.dart'; // Use this User model
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/toast_notification.dart'; // Import the new ToastService
+import 'package:intl/intl.dart'; // For date formatting
+import 'package:image_picker/image_picker.dart';
+import '../utils/image_picker_helper.dart';
+import 'dart:typed_data';
 
 class UsersView extends StatefulWidget {
   final Function toggleTheme;
@@ -29,12 +33,26 @@ class _UsersViewState extends State<UsersView> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _fullNameController = TextEditingController();
-  final TextEditingController _profilePictureController =
+  final TextEditingController _securityAnswerController =
       TextEditingController();
   String _selectedRole = 'user';
   bool _selectedIsActive = true;
-  // TODO: Implement profile picture selection/upload
+  DateTime _selectedDate = DateTime.now();
+  String _selectedSecurityQuestion = securityQuestions.first;
+
+  // Variables para manejar la imagen de perfil
+  Uint8List? _profileImageBytes;
+  String? _profileImageBase64;
   String? _selectedProfilePicture;
+
+  // Security questions list
+  static const List<String> securityQuestions = [
+    "¿Cuál es el nombre de tu primera mascota?",
+    "¿En qué ciudad naciste?",
+    "¿Cuál fue el nombre de tu escuela primaria?",
+    "¿Cuál es el segundo nombre de tu madre?",
+    "¿Cuál fue tu primer trabajo?",
+  ];
 
   bool _isEditMode = false;
   String? _editingUserId;
@@ -63,7 +81,7 @@ class _UsersViewState extends State<UsersView> {
     _emailController.dispose();
     _passwordController.dispose();
     _fullNameController.dispose();
-    _profilePictureController.dispose();
+    _securityAnswerController.dispose();
     super.dispose();
   }
 
@@ -107,7 +125,28 @@ class _UsersViewState extends State<UsersView> {
     _selectedRole = user.role;
     _selectedIsActive = user.isActive;
     _selectedProfilePicture = user.profilePicture;
-    _profilePictureController.text = user.profilePicture ?? '';
+
+    // Reset profile image variables
+    _profileImageBytes = null;
+    _profileImageBase64 = null;
+
+    // Set date of birth if available
+    if (user.dateOfBirth != null && user.dateOfBirth!.isNotEmpty) {
+      try {
+        _selectedDate = DateTime.parse(user.dateOfBirth!);
+      } catch (e) {
+        // Use default date if parsing fails
+        _selectedDate = DateTime.now();
+      }
+    }
+
+    // Set security question if available
+    if (user.securityQuestion != null && user.securityQuestion!.isNotEmpty) {
+      if (securityQuestions.contains(user.securityQuestion)) {
+        _selectedSecurityQuestion = user.securityQuestion!;
+      }
+    }
+
     _isEditMode = true;
     _editingUserId = user.id;
 
@@ -121,10 +160,14 @@ class _UsersViewState extends State<UsersView> {
     _emailController.clear();
     _passwordController.clear();
     _fullNameController.clear();
-    _profilePictureController.clear();
+    _securityAnswerController.clear();
     _selectedRole = 'user';
     _selectedIsActive = true;
     _selectedProfilePicture = null;
+    _profileImageBytes = null;
+    _profileImageBase64 = null;
+    _selectedDate = DateTime.now();
+    _selectedSecurityQuestion = securityQuestions.first;
     if (_formKey.currentState != null) {
       _formKey.currentState!.reset();
     }
@@ -146,6 +189,55 @@ class _UsersViewState extends State<UsersView> {
     if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(value))
       return 'Debe tener al menos un carácter especial';
     return null;
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: const Color(0xFF0277BD), // Header background color
+              onPrimary: Colors.white, // Header text color
+              onSurface: Theme.of(context)
+                  .textTheme
+                  .bodyLarge!
+                  .color!, // Calendar text color
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // Método para seleccionar una imagen
+  Future<void> _pickImage(StateSetter setDialogState) async {
+    try {
+      final result = await ImagePickerHelper.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+
+      if (result != null) {
+        setDialogState(() {
+          _profileImageBytes = result.bytes;
+          _profileImageBase64 = result.base64String;
+        });
+      }
+    } catch (e) {
+      ToastService.showError(context, 'Error al seleccionar imagen: $e');
+    }
   }
 
   Widget _buildUserDialog() {
@@ -233,24 +325,179 @@ class _UsersViewState extends State<UsersView> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _profilePictureController,
+
+                  // Date of birth field
+                  InkWell(
+                    onTap: () => _selectDate(context),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha de nacimiento',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.calendar_today),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            DateFormat('dd/MM/yyyy').format(_selectedDate),
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Security question dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedSecurityQuestion,
                     decoration: const InputDecoration(
-                      labelText: 'URL de la Foto de Perfil',
-                      hintText: 'Ingresa la URL de la foto de perfil',
+                      labelText: 'Pregunta de seguridad',
                       border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.security),
+                    ),
+                    items: securityQuestions.map((String question) {
+                      return DropdownMenuItem<String>(
+                        value: question,
+                        child: Text(
+                          question,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setDialogState(() {
+                          _selectedSecurityQuestion = newValue;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Security answer field
+                  TextFormField(
+                    controller: _securityAnswerController,
+                    decoration: const InputDecoration(
+                      labelText: 'Respuesta de seguridad',
+                      hintText: 'Ingresa tu respuesta',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.question_answer),
                     ),
                     validator: (value) {
-                      if (value != null && value.isNotEmpty) {
-                        final uri = Uri.tryParse(value);
-                        if (uri == null || !uri.isAbsolute) {
-                          return 'Por favor ingresa una URL válida';
-                        }
+                      if (!_isEditMode && (value == null || value.isEmpty)) {
+                        return 'Por favor ingresa una respuesta de seguridad';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // Profile picture section
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Imagen de perfil',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      Center(
+                        child: Stack(
+                          children: [
+                            // Profile Image Preview
+                            Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.grey[400]!,
+                                  width: 1,
+                                ),
+                                image: _profileImageBytes != null
+                                    ? DecorationImage(
+                                        image: MemoryImage(_profileImageBytes!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : (_selectedProfilePicture != null &&
+                                            _selectedProfilePicture!.isNotEmpty
+                                        ? DecorationImage(
+                                            image: NetworkImage(
+                                                _selectedProfilePicture!),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null),
+                              ),
+                              child: _profileImageBytes == null &&
+                                      (_selectedProfilePicture == null ||
+                                          _selectedProfilePicture!.isEmpty)
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 60,
+                                      color: Colors.grey,
+                                    )
+                                  : null,
+                            ),
+
+                            // Edit button overlay
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF0277BD),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.white, size: 20),
+                                  onPressed: () => _pickImage(setDialogState),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 36,
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Clear button
+                      if (_profileImageBytes != null ||
+                          (_selectedProfilePicture != null &&
+                              _selectedProfilePicture!.isNotEmpty))
+                        Center(
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: const Text('Quitar imagen'),
+                            onPressed: () {
+                              setDialogState(() {
+                                _profileImageBytes = null;
+                                _profileImageBase64 = null;
+                                _selectedProfilePicture = null;
+                              });
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
                   DropdownButtonFormField<String>(
                     value: _selectedRole,
                     decoration: const InputDecoration(
@@ -322,9 +569,47 @@ class _UsersViewState extends State<UsersView> {
                 final fullName = _fullNameController.text;
                 final role = _selectedRole;
                 final isActive = _selectedIsActive;
-                final profilePicture = _profilePictureController.text;
+                final dateOfBirth =
+                    DateFormat('yyyy-MM-dd').format(_selectedDate);
+                final securityQuestion = _selectedSecurityQuestion;
+                final securityAnswer = _securityAnswerController.text;
 
                 bool success = false;
+
+                // Primero subir la imagen si se seleccionó una nueva
+                String? profilePictureUrl = _selectedProfilePicture;
+
+                if (_profileImageBase64 != null) {
+                  try {
+                    // Mostrar indicador de carga
+                    ToastService.showInfo(context, 'Subiendo imagen...');
+
+                    // Subir la imagen al servidor
+                    final response = await http.post(
+                      Uri.parse(
+                          'http://localhost:8000/api/users/profile/picture/upload/web'),
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ${authController.token}',
+                      },
+                      body: jsonEncode({
+                        'image_base64': _profileImageBase64,
+                      }),
+                    );
+
+                    if (response.statusCode == 200) {
+                      final responseData = jsonDecode(response.body);
+                      profilePictureUrl = responseData['profile_picture_url'];
+                    } else {
+                      ToastService.showError(
+                          context, 'Error al subir la imagen');
+                    }
+                  } catch (e) {
+                    ToastService.showError(
+                        context, 'Error de conexión al subir imagen: $e');
+                  }
+                }
+
                 if (_isEditMode && _editingUserId != null) {
                   final originalUser = userController.users
                       .firstWhere((u) => u.id == _editingUserId);
@@ -334,15 +619,17 @@ class _UsersViewState extends State<UsersView> {
                     fullName: fullName,
                     role: role,
                     isActive: isActive,
-                    profilePicture: profilePicture.isNotEmpty
-                        ? profilePicture
-                        : originalUser.profilePicture,
+                    dateOfBirth: dateOfBirth,
+                    securityQuestion: securityQuestion,
+                    profilePicture: profilePictureUrl,
                   );
 
                   success = await userController.updateUser(
                     authController.token!,
                     updatedUser,
                     password: password.isNotEmpty ? password : null,
+                    securityAnswer:
+                        securityAnswer.isNotEmpty ? securityAnswer : null,
                   );
                 } else {
                   success = await userController.addUser(
@@ -352,8 +639,10 @@ class _UsersViewState extends State<UsersView> {
                     fullName: fullName,
                     role: role,
                     isActive: isActive,
-                    profilePicture:
-                        profilePicture.isNotEmpty ? profilePicture : null,
+                    dateOfBirth: dateOfBirth,
+                    securityQuestion: securityQuestion,
+                    securityAnswer: securityAnswer,
+                    profilePicture: profilePictureUrl,
                   );
                 }
 

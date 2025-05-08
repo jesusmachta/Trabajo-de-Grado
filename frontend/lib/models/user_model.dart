@@ -6,6 +6,8 @@ class User {
   final DateTime createdAt;
   final String? profilePicture;
   final bool isActive;
+  final String? dateOfBirth;
+  final String? securityQuestion;
 
   User({
     required this.id,
@@ -15,6 +17,8 @@ class User {
     required this.createdAt,
     this.profilePicture,
     this.isActive = true,
+    this.dateOfBirth,
+    this.securityQuestion,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -46,6 +50,8 @@ class User {
       profilePicture: json['profile_picture'],
       isActive: json['is_active'] ?? true,
       createdAt: createdDate,
+      dateOfBirth: json['date_of_birth'],
+      securityQuestion: json['security_question'],
     );
   }
 
@@ -58,6 +64,8 @@ class User {
       'profile_picture': profilePicture,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
+      'date_of_birth': dateOfBirth,
+      'security_question': securityQuestion,
     };
   }
 
@@ -69,6 +77,8 @@ class User {
     String? profilePicture,
     bool? isActive,
     DateTime? createdAt,
+    String? dateOfBirth,
+    String? securityQuestion,
   }) {
     return User(
       id: id ?? this.id,
@@ -78,6 +88,8 @@ class User {
       profilePicture: profilePicture ?? this.profilePicture,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      securityQuestion: securityQuestion ?? this.securityQuestion,
     );
   }
 }

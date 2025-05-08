@@ -54,6 +54,9 @@ class UserController with ChangeNotifier {
     String role = 'user',
     String? profilePicture,
     bool isActive = true,
+    required String dateOfBirth,
+    required String securityQuestion,
+    required String securityAnswer,
   }) async {
     _isLoading = true;
     _error = null;
@@ -73,6 +76,9 @@ class UserController with ChangeNotifier {
           'role': role,
           'profile_picture': profilePicture,
           'is_active': isActive,
+          'date_of_birth': dateOfBirth,
+          'security_question': securityQuestion,
+          'security_answer': securityAnswer,
         }),
       );
 
@@ -98,7 +104,12 @@ class UserController with ChangeNotifier {
   }
 
   // Update user
-  Future<bool> updateUser(String token, User user, {String? password}) async {
+  Future<bool> updateUser(
+    String token,
+    User user, {
+    String? password,
+    String? securityAnswer,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -109,12 +120,19 @@ class UserController with ChangeNotifier {
         'full_name': user.fullName,
         'role': user.role,
         'is_active': user.isActive,
-        'profile_picture': user.profilePicture, // Incluir el campo aquí
+        'profile_picture': user.profilePicture,
+        'date_of_birth': user.dateOfBirth,
+        'security_question': user.securityQuestion,
       };
 
       // Solo incluir la contraseña si se proporciona
       if (password != null && password.isNotEmpty) {
         body['password'] = password;
+      }
+
+      // Include security answer if provided
+      if (securityAnswer != null && securityAnswer.isNotEmpty) {
+        body['security_answer'] = securityAnswer;
       }
 
       final response = await http.put(

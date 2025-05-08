@@ -82,6 +82,9 @@ class UserCreate(BaseModel):
     password: str
     full_name: str
     role: str = "user"  # default role
+    date_of_birth: str  # Add date of birth field
+    security_question: str  # Add security question field
+    security_answer: str  # Add security answer field
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -691,6 +694,15 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         id_camara = payload.id_camara
         empresa = payload.empresa  # Get the empresa parameter
 
+        # --- VALIDACIÓN DE CÁMARA ACTIVA ---
+        camera = collections['Tipo_Producto_Zona_Camara'].find_one({
+            "Id_Camara": id_camara,
+            "empresa": empresa
+        })
+        if not camera or not camera.get("isActive", False):
+            raise HTTPException(status_code=403, detail="La cámara no está habilitada o está apagada (isActive = False)")
+        # --- FIN VALIDACIÓN ---
+
         if not image_base64:
             raise HTTPException(status_code=400, detail="Empty image file provided")
 
@@ -1020,6 +1032,8 @@ async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
     # Create new user
     user_id = get_next_sequence_value("user_id")
     hashed_password = hash_password(user_data.password)
+    # Hash security answer
+    hashed_security_answer = hash_password(user_data.security_answer)
     
     # Create user document
     user = {
@@ -1029,7 +1043,10 @@ async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
         "full_name": user_data.full_name,
         "role": user_data.role,
         "empresa": empresa,  # Agregar la empresa al documento
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.utcnow().isoformat(),
+        "date_of_birth": user_data.date_of_birth,
+        "security_question": user_data.security_question,
+        "security_answer": hashed_security_answer
     }
     
     # Insert user into database
@@ -1971,20 +1988,13 @@ async def register_company(
 ):
     """
     Endpoint para registrar una nueva empresa y su usuario administrador.
-    
-    Requiere:
-    - nombre_empresa: Nombre de la empresa
-    - rif: RIF de la empresa (solo números)
-    - nombre_responsable: Nombre del responsable
-    - apellido_responsable: Apellido del responsable
-    - email: Email del responsable
-    - password: Contraseña (debe cumplir los requisitos de seguridad)
     """
     try:
         # Validar datos requeridos
         required_fields = [
             "nombre_empresa", "rif", "nombre_responsable", 
-            "apellido_responsable", "email", "password"
+            "apellido_responsable", "email", "password",
+            "date_of_birth", "security_question", "security_answer"  # Add new required fields
         ]
         
         for field in required_fields:
@@ -1998,6 +2008,9 @@ async def register_company(
         rif = company_data["rif"]
         email = company_data["email"]
         password = company_data["password"]
+        date_of_birth = company_data["date_of_birth"]
+        security_question = company_data["security_question"]
+        security_answer = company_data["security_answer"]
         
         # Validar formato del RIF (solo números)
         if not rif.isdigit():
@@ -2044,6 +2057,7 @@ async def register_company(
         # Crear usuario administrador
         user_id = get_next_sequence_value("user_id")
         hashed_password = hash_password(password)
+        hashed_security_answer = hash_password(security_answer)
         
         full_name = f"{company_data['nombre_responsable']} {company_data['apellido_responsable']}"
         
@@ -2057,7 +2071,10 @@ async def register_company(
             "empresa": nombre_empresa,
             "rif": rif,
             "is_active": True,  # Agregar campo is_active como True por defecto
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
+            "date_of_birth": date_of_birth,
+            "security_question": security_question,
+            "security_answer": hashed_security_answer
         }
         
         # Insertar usuario en la base de datos
@@ -2137,4 +2154,143 @@ async def regenerate_statistics_for_company(empresa: str):
         raise HTTPException(
             status_code=500, 
             detail=f"Error al regenerar estadísticas: {str(e)}"
+        )
+
+# Add password recovery endpoints
+@router.post("/forgot-password/verify", status_code=200)
+async def verify_security_info(
+    data: dict = Body(...)
+):
+    """
+    Endpoint para verificar el email, fecha de nacimiento y pregunta de seguridad
+    para recuperar contraseña.
+    """
+    try:
+        required_fields = ["email", "date_of_birth", "security_question", "security_answer"]
+        for field in required_fields:
+            if field not in data:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El campo '{field}' es requerido"
+                )
+        
+        email = data["email"]
+        date_of_birth = data["date_of_birth"]
+        security_question = data["security_question"]
+        security_answer = data["security_answer"]
+        
+        # Buscar el usuario por email
+        user = collections['Users'].find_one({"email": email})
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado con este correo electrónico"
+            )
+        
+        # Verificar fecha de nacimiento
+        if user.get("date_of_birth") != date_of_birth:
+            raise HTTPException(
+                status_code=400,
+                detail="La fecha de nacimiento no coincide"
+            )
+        
+        # Verificar pregunta de seguridad
+        if user.get("security_question") != security_question:
+            raise HTTPException(
+                status_code=400,
+                detail="La pregunta de seguridad no coincide"
+            )
+        
+        # Verificar respuesta de seguridad
+        if not verify_password(security_answer, user.get("security_answer", "")):
+            raise HTTPException(
+                status_code=400,
+                detail="La respuesta de seguridad no es correcta"
+            )
+        
+        # Generar token temporal para restablecimiento de contraseña
+        reset_token = create_access_token(
+            data={"sub": str(user["_id"]), "purpose": "password_reset"},
+            expires_delta=timedelta(minutes=15)
+        )
+        
+        return {
+            "message": "Verificación exitosa",
+            "reset_token": reset_token,
+            "user_id": str(user["_id"])
+        }
+    
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error al verificar información de seguridad: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al verificar información: {str(e)}"
+        )
+
+@router.post("/reset-password", status_code=200)
+async def reset_password(
+    data: dict = Body(...)
+):
+    """
+    Endpoint para cambiar la contraseña después de la verificación
+    de seguridad.
+    """
+    try:
+        if "reset_token" not in data or "new_password" not in data:
+            raise HTTPException(
+                status_code=400,
+                detail="Se requieren 'reset_token' y 'new_password'"
+            )
+        
+        reset_token = data["reset_token"]
+        new_password = data["new_password"]
+        
+        # Validar la nueva contraseña
+        is_valid, error_message = validate_password(new_password)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_message)
+        
+        try:
+            # Verificar el token
+            payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            purpose = payload.get("purpose")
+            
+            if not user_id or purpose != "password_reset":
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token de restablecimiento inválido"
+                )
+        except jwt.PyJWTError:
+            raise HTTPException(
+                status_code=401,
+                detail="Token de restablecimiento inválido o expirado"
+            )
+        
+        # Actualizar la contraseña
+        hashed_password = hash_password(new_password)
+        update_result = collections['Users'].update_one(
+            {"_id": int(user_id)},
+            {"$set": {"password": hashed_password}}
+        )
+        
+        if update_result.modified_count == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+        
+        return {
+            "message": "Contraseña actualizada exitosamente"
+        }
+    
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error al restablecer contraseña: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al restablecer contraseña: {str(e)}"
         )

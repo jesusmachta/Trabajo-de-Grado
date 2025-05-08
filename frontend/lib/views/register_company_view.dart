@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../controllers/auth_controller.dart';
 import 'home_view.dart';
+import 'package:intl/intl.dart'; // For date formatting
 
 class RegisterCompanyView extends StatefulWidget {
   final Function toggleTheme;
@@ -14,7 +15,8 @@ class RegisterCompanyView extends StatefulWidget {
   State<RegisterCompanyView> createState() => _RegisterCompanyViewState();
 }
 
-class _RegisterCompanyViewState extends State<RegisterCompanyView> {
+class _RegisterCompanyViewState extends State<RegisterCompanyView>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _errorMessage;
@@ -27,6 +29,40 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _securityAnswerController = TextEditingController();
+
+  // Tab control
+  late TabController _tabController;
+  int _currentTab = 0;
+  final List<String> _tabs = [
+    'Información del Administrador',
+    'Información de la Empresa',
+    'Información de Seguridad'
+  ];
+
+  // New fields for security
+  DateTime _selectedDate = DateTime.now();
+  String _selectedSecurityQuestion = securityQuestions.first;
+
+  // Security questions list
+  static const List<String> securityQuestions = [
+    "¿Cuál es el nombre de tu primera mascota?",
+    "¿En qué ciudad naciste?",
+    "¿Cuál fue el nombre de tu escuela primaria?",
+    "¿Cuál es el segundo nombre de tu madre?",
+    "¿Cuál fue tu primer trabajo?",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _currentTab = _tabController.index;
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -36,6 +72,8 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _securityAnswerController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -97,8 +135,75 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
     return null;
   }
 
+  String? _validateSecurityAnswer(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Por favor ingresa tu respuesta de seguridad';
+    }
+    return null;
+  }
+
+  // Validate current tab before proceeding
+  bool _validateCurrentTab() {
+    switch (_currentTab) {
+      case 0: // Admin information
+        return _firstNameController.text.isNotEmpty &&
+            _lastNameController.text.isNotEmpty &&
+            _validateEmail(_emailController.text) == null &&
+            _validatePassword(_passwordController.text) == null;
+      case 1: // Company information
+        return _validateCompanyName(_companyNameController.text) == null &&
+            _validateRif(_rifController.text) == null;
+      case 2: // Security information
+        return _validateSecurityAnswer(_securityAnswerController.text) == null;
+      default:
+        return false;
+    }
+  }
+
+  void _nextTab() {
+    if (_validateCurrentTab()) {
+      _tabController.animateTo(_currentTab + 1);
+    } else {
+      // Form validation will show errors
+      _formKey.currentState?.validate();
+    }
+  }
+
+  void _previousTab() {
+    _tabController.animateTo(_currentTab - 1);
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: const Color(0xFF0277BD), // Header background color
+              onPrimary: Colors.white, // Header text color
+              onSurface: Theme.of(context)
+                  .textTheme
+                  .bodyLarge!
+                  .color!, // Calendar text color
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
   Future<void> _registerCompany() async {
-    // Validate form
+    // Validate all tabs
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -120,6 +225,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
           'apellido_responsable': _lastNameController.text,
           'email': _emailController.text,
           'password': _passwordController.text,
+          'date_of_birth': DateFormat('yyyy-MM-dd').format(_selectedDate),
+          'security_question': _selectedSecurityQuestion,
+          'security_answer': _securityAnswerController.text,
         }),
       );
 
@@ -249,526 +357,136 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
                     const Text(
                       'Registra tu empresa',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 40),
-
-                    // Two columns layout for desktop/tablet, single column for mobile
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth > 500) {
-                          // Two columns layout
-                          return Column(
-                            children: [
-                              // Row 1: Company details
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Company name field
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Nombre de la empresa',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          controller: _companyNameController,
-                                          decoration: InputDecoration(
-                                            hintText: 'Introduce el nombre',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                              horizontal: 16,
-                                            ),
-                                          ),
-                                          validator: _validateCompanyName,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  // RIF field
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'RIF de la empresa',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          controller: _rifController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: InputDecoration(
-                                            hintText: 'Introduce el rif',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                              horizontal: 16,
-                                            ),
-                                          ),
-                                          validator: _validateRif,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-
-                              // Row 2: Responsible person name
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // First name
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Nombre del responsable',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          controller: _firstNameController,
-                                          decoration: InputDecoration(
-                                            hintText: 'Introduce el nombre',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                              horizontal: 16,
-                                            ),
-                                          ),
-                                          validator: _validateName,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  // Last name
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Apellido del responsable',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          controller: _lastNameController,
-                                          decoration: InputDecoration(
-                                            hintText: 'Introduce el apellido',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                              horizontal: 16,
-                                            ),
-                                          ),
-                                          validator: _validateName,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-
-                              // Row 3: Email and password
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Email
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Correo del responsable',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          controller: _emailController,
-                                          keyboardType:
-                                              TextInputType.emailAddress,
-                                          decoration: InputDecoration(
-                                            hintText:
-                                                'Introduce el correo electrónico',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                              horizontal: 16,
-                                            ),
-                                          ),
-                                          validator: _validateEmail,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  // Password
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Contraseña',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          controller: _passwordController,
-                                          obscureText: _obscurePassword,
-                                          decoration: InputDecoration(
-                                            hintText: 'Introduce la contraseña',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                              horizontal: 16,
-                                            ),
-                                            suffixIcon: IconButton(
-                                              icon: Icon(
-                                                _obscurePassword
-                                                    ? Icons.visibility_outlined
-                                                    : Icons
-                                                        .visibility_off_outlined,
-                                              ),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _obscurePassword =
-                                                      !_obscurePassword;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          validator: _validatePassword,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          'La contraseña debe tener al menos 6 caracteres, una mayúscula, una minúscula, un número y un carácter especial.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          );
-                        } else {
-                          // Single column layout for mobile
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Company name
-                              const Text(
-                                'Nombre de la empresa',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _companyNameController,
-                                decoration: InputDecoration(
-                                  hintText: 'Introduce el nombre',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                validator: _validateCompanyName,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // RIF
-                              const Text(
-                                'RIF de la empresa',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _rifController,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  hintText: 'Introduce el rif',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                validator: _validateRif,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // First name
-                              const Text(
-                                'Nombre del responsable',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _firstNameController,
-                                decoration: InputDecoration(
-                                  hintText: 'Introduce el nombre',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                validator: _validateName,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Last name
-                              const Text(
-                                'Apellido del responsable',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _lastNameController,
-                                decoration: InputDecoration(
-                                  hintText: 'Introduce el apellido',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                validator: _validateName,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Email
-                              const Text(
-                                'Correo del responsable',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: InputDecoration(
-                                  hintText: 'Introduce el correo electrónico',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                validator: _validateEmail,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Password
-                              const Text(
-                                'Contraseña',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscurePassword,
-                                decoration: InputDecoration(
-                                  hintText: 'Introduce la contraseña',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                validator: _validatePassword,
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'La contraseña debe tener al menos 6 caracteres, una mayúscula, una minúscula, un número y un carácter especial.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-                      },
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Completa la información para crear tu cuenta empresarial',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-
                     const SizedBox(height: 32),
 
-                    // Error message
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Material(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .errorContainer
-                              .withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 16),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onErrorContainer,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                    // Progress indicator
+                    LinearProgressIndicator(
+                      value: (_currentTab + 1) / 3,
+                      backgroundColor: Colors.grey[300],
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        const Color(0xFF0277BD),
                       ),
+                    ),
+                    const SizedBox(height: 16),
 
-                    // Register button
+                    // Step Tabs
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Anterior'),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _registerCompany,
+                        for (int i = 0; i < 3; i++)
+                          _buildStepIndicator(
+                              i + 1, i == _currentTab, i < _currentTab),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Tab title
+                    Text(
+                      _tabs[_currentTab],
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Tab content
+                    SizedBox(
+                      height: 400, // Fixed height for the tab content
+                      child: TabBarView(
+                        controller: _tabController,
+                        physics:
+                            const NeverScrollableScrollPhysics(), // Disable swiping
+                        children: [
+                          // Tab 1: Admin Information
+                          _buildAdminInfoTab(),
+
+                          // Tab 2: Company Information
+                          _buildCompanyInfoTab(),
+
+                          // Tab 3: Security Information
+                          _buildSecurityInfoTab(),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Navigation buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Back button (hidden on first tab)
+                        if (_currentTab > 0)
+                          ElevatedButton(
+                            onPressed: _previousTab,
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              backgroundColor: Colors.grey[300],
+                              foregroundColor: Colors.black87,
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 3,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Registrar',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
+                            child: const Text('Atrás'),
+                          )
+                        else
+                          const SizedBox(
+                              width: 100), // Placeholder for alignment
+
+                        // Next/Submit button
+                        ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : (_currentTab < 2 ? _nextTab : _registerCompany),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            backgroundColor: const Color(0xFF0277BD),
+                            foregroundColor: Colors.white,
                           ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(_currentTab < 2
+                                  ? 'Siguiente'
+                                  : 'Registrar Empresa'),
                         ),
                       ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Back to Login Text Button
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text(
+                        'Volver al inicio de sesión',
+                        style: TextStyle(
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -776,6 +494,223 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Step indicator widget
+  Widget _buildStepIndicator(int step, bool isActive, bool isCompleted) {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color(0xFF0277BD)
+                : (isCompleted ? Colors.green : Colors.grey[300]),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(Icons.check, color: Colors.white)
+                : Text(
+                    step.toString(),
+                    style: TextStyle(
+                      color: isActive ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _tabs[step - 1].split(' ').last,
+          style: TextStyle(
+            color: isActive ? const Color(0xFF0277BD) : Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Tab 1: Admin Information
+  Widget _buildAdminInfoTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Admin Information Fields
+          TextFormField(
+            controller: _firstNameController,
+            decoration: const InputDecoration(
+              labelText: 'Nombre',
+              hintText: 'Tu nombre',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            validator: _validateName,
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _lastNameController,
+            decoration: const InputDecoration(
+              labelText: 'Apellido',
+              hintText: 'Tu apellido',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            validator: _validateName,
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _emailController,
+            decoration: const InputDecoration(
+              labelText: 'Correo Electrónico',
+              hintText: 'tu.correo@ejemplo.com',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.email_outlined),
+            ),
+            keyboardType: TextInputType.emailAddress,
+            validator: _validateEmail,
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            decoration: InputDecoration(
+              labelText: 'Contraseña',
+              hintText: 'Ingresa tu contraseña',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(_obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+              helperText:
+                  'Debe tener al menos 6 caracteres, incluyendo mayúscula, minúscula, número y carácter especial',
+              helperMaxLines: 2,
+            ),
+            validator: _validatePassword,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tab 2: Company Information
+  Widget _buildCompanyInfoTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Company Information Fields
+          TextFormField(
+            controller: _companyNameController,
+            decoration: const InputDecoration(
+              labelText: 'Nombre de la Empresa',
+              hintText: 'Ingresa el nombre completo de la empresa',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.business),
+            ),
+            validator: _validateCompanyName,
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _rifController,
+            decoration: const InputDecoration(
+              labelText: 'RIF',
+              hintText: 'Ingresa el RIF (solo números)',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.numbers),
+            ),
+            keyboardType: TextInputType.number,
+            validator: _validateRif,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tab 3: Security Information
+  Widget _buildSecurityInfoTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Security Information Fields
+          InkWell(
+            onTap: () => _selectDate(context),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Fecha de nacimiento',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(_selectedDate),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Security question dropdown
+          DropdownButtonFormField<String>(
+            value: _selectedSecurityQuestion,
+            decoration: const InputDecoration(
+              labelText: 'Pregunta de seguridad',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.security),
+            ),
+            items: securityQuestions.map((String question) {
+              return DropdownMenuItem<String>(
+                value: question,
+                child: Text(
+                  question,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  _selectedSecurityQuestion = newValue;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Security answer field
+          TextFormField(
+            controller: _securityAnswerController,
+            decoration: const InputDecoration(
+              labelText: 'Respuesta de seguridad',
+              hintText: 'Ingresa tu respuesta',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.question_answer),
+            ),
+            validator: _validateSecurityAnswer,
+          ),
+        ],
       ),
     );
   }
