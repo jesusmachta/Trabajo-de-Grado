@@ -144,18 +144,30 @@ class _CategoriesViewState extends State<CategoriesView> {
           throw Exception('No se encontró el token de autenticación.');
         }
 
+        // Optimistic update - remove from UI first
+        if (mounted) {
+          setState(() {
+            categories.removeWhere((cat) => cat["_id"] == categoriaId);
+            _applyFilters(); // Update filtered list
+            isLoading = true; // Show loading state
+          });
+        }
+
         // Llamar al controlador para eliminar la categoría
         await _controller.deleteCategory(categoriaId, token);
 
-        // Recargar la lista de categorías
-        await _loadCategories();
-
-        // Mostrar mensaje de éxito
-        ToastService.showSuccess(
-            context, 'Categoría eliminada: $categoriaNombre');
+        // Recargar la lista de categorías para asegurar consistencia
+        if (mounted) {
+          await _loadCategories();
+          ToastService.showSuccess(
+              context, 'Categoría eliminada: $categoriaNombre');
+        }
       } catch (e) {
-        // Mostrar mensaje de error
-        ToastService.showError(context, 'Error al eliminar categoría: $e');
+        // On error, refresh the list to get the correct state
+        if (mounted) {
+          await _loadCategories();
+          ToastService.showError(context, 'Error al eliminar categoría: $e');
+        }
       }
     }
   }
@@ -265,25 +277,51 @@ class _CategoriesViewState extends State<CategoriesView> {
                             'No se encontró el token de autenticación.');
                       }
 
+                      // Optimistic update - update UI before API call
+                      final String categoryId = category["_id"];
+                      final String newName = nameController.text.trim();
+
+                      // Update the local list
+                      if (mounted) {
+                        setState(() {
+                          final index = categories
+                              .indexWhere((c) => c["_id"] == categoryId);
+                          if (index != -1) {
+                            categories[index]["Categoria_Producto"] = newName;
+                            categories[index]["isActive"] = isActive;
+                          }
+                          // Update filtered list
+                          _applyFilters();
+                        });
+                      }
+
+                      // Cerrar el modal
+                      Navigator.of(context).pop();
+
                       // Llamar al controlador para actualizar la categoría
                       await _controller.updateCategory(
-                        category["_id"],
-                        nameController.text.trim(),
+                        categoryId,
+                        newName,
                         isActive,
                         token, // Pasar el token aquí
                       );
 
                       // Recargar la lista de categorías
-                      await _loadCategories();
+                      if (mounted) {
+                        await _loadCategories();
+                      }
 
-                      // Cerrar el modal
-                      if (mounted) Navigator.of(context).pop();
-
-                      ToastService.showSuccess(
-                          context, 'Categoría actualizada exitosamente');
+                      if (mounted) {
+                        ToastService.showSuccess(
+                            context, 'Categoría actualizada exitosamente');
+                      }
                     } catch (e) {
-                      ToastService.showError(
-                          context, 'Error al actualizar categoría: $e');
+                      // If error occurs, reload to get correct state
+                      if (mounted) {
+                        await _loadCategories();
+                        ToastService.showError(
+                            context, 'Error al actualizar categoría: $e');
+                      }
                     }
                   },
                   child: const Text('Guardar'),
@@ -399,6 +437,16 @@ class _CategoriesViewState extends State<CategoriesView> {
                             'No se encontró el token de autenticación.');
                       }
 
+                      // Cerrar el modal antes de la operación API
+                      Navigator.of(context).pop();
+
+                      // Show loading indicator
+                      if (mounted) {
+                        setState(() {
+                          isLoading = true;
+                        });
+                      }
+
                       // Llamar al controlador para crear la categoría
                       await _controller.createCategory(
                         int.parse(tipoProductoController.text.trim()),
@@ -408,16 +456,20 @@ class _CategoriesViewState extends State<CategoriesView> {
                       );
 
                       // Recargar la lista de categorías
-                      await _loadCategories();
-
-                      // Cerrar el modal
-                      if (mounted) Navigator.of(context).pop();
-
-                      ToastService.showSuccess(
-                          context, 'Categoría creada exitosamente');
+                      if (mounted) {
+                        await _loadCategories();
+                        ToastService.showSuccess(
+                            context, 'Categoría creada exitosamente');
+                      }
                     } catch (e) {
-                      ToastService.showError(
-                          context, 'Error al crear categoría: $e');
+                      // Hide loading and show error
+                      if (mounted) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ToastService.showError(
+                            context, 'Error al crear categoría: $e');
+                      }
                     }
                   },
                   child: const Text('Crear'),
@@ -434,6 +486,7 @@ class _CategoriesViewState extends State<CategoriesView> {
     final bool currentStatus = category["isActive"] as bool? ?? false;
     final String categoryId = category["_id"] as String;
     final String categoryName = category["Categoria_Producto"] ?? "Categoría";
+    final bool newStatus = !currentStatus;
 
     try {
       // Obtén el token JWT desde el AuthController
@@ -450,7 +503,7 @@ class _CategoriesViewState extends State<CategoriesView> {
         // Find the category in our list and update its status
         final index = categories.indexWhere((c) => c["_id"] == categoryId);
         if (index != -1) {
-          categories[index]["isActive"] = !currentStatus;
+          categories[index]["isActive"] = newStatus;
         }
 
         // Update the filtered list through our filter method
@@ -461,14 +514,17 @@ class _CategoriesViewState extends State<CategoriesView> {
       await _controller.updateCategory(
         categoryId,
         category["Categoria_Producto"],
-        !currentStatus,
-        token, // Pasar el token como cuarto argumento
+        newStatus,
+        token,
       );
+
+      // Don't reload the full list after toggle - just keep our optimistic update
+      // This avoids the flicker effect where the switch appears to revert
 
       // Show success message
       if (mounted) {
         ToastService.showSuccess(context,
-            'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}');
+            'Estado de "$categoryName" actualizado a ${newStatus ? 'activo' : 'inactivo'}');
       }
     } catch (e) {
       // If there was an error, revert the optimistic update

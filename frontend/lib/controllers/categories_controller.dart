@@ -92,6 +92,9 @@ class CategoriesController {
       if (response.statusCode != 200) {
         throw Exception('Error al crear categoría: ${response.body}');
       }
+
+      // Clear cache after creating a category
+      clearCache();
     } catch (e) {
       print('Error en createCategory: $e');
       rethrow; // Re-throw para manejar en la UI
@@ -118,6 +121,9 @@ class CategoriesController {
       if (response.statusCode != 200) {
         throw Exception('Error al actualizar categoría: ${response.body}');
       }
+
+      // Clear cache after updating a category
+      clearCache();
     } catch (e) {
       print('Error en updateCategory: $e');
       rethrow; // Re-throw para manejar en la UI
@@ -138,6 +144,9 @@ class CategoriesController {
       if (response.statusCode != 200) {
         throw Exception('Error al eliminar categoría: ${response.body}');
       }
+
+      // Clear cache after deleting a category
+      clearCache();
     } catch (e) {
       print('Error en deleteCategory: $e');
       rethrow; // Re-throw para manejar en la UI

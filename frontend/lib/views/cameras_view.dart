@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import '../controllers/auth_controller.dart'; // To get the base URL potentially
-import '../widgets/toast_notification.dart'; // Import the new ToastService
+import '../controllers/auth_controller.dart';
+import '../widgets/toast_notification.dart';
+import '../controllers/cameras_controller.dart'; // Importar el nuevo controller
+import 'categories_view.dart'; // Importar directamente la vista de categorías
 
 // Define the base URL for the API
 const String _apiBaseUrl =
@@ -22,6 +24,8 @@ class CamerasView extends StatefulWidget {
 }
 
 class _CamerasViewState extends State<CamerasView> {
+  final CamerasController _controller =
+      CamerasController(); // Instanciar el controller
   List<Map<String, dynamic>> _cameras = [];
   List<Map<String, dynamic>> _filteredCameras = []; // New filtered list
   List<Map<String, dynamic>> _activeCategories = [];
@@ -68,29 +72,18 @@ class _CamerasViewState extends State<CamerasView> {
         throw Exception('No se encontró el token de autenticación.');
       }
 
-      // Realiza la solicitud a la API
-      final response = await http.get(
-        Uri.parse('$_apiBaseUrl/cameras'),
-        headers: {
-          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
-        },
-      );
+      // Usar el controller para obtener las cámaras
+      final cameras = await _controller.getCameras(token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        setState(() {
-          _cameras = List<Map<String, dynamic>>.from(data)
-            ..sort((a, b) =>
-                (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
-          _isLoadingCameras = false;
-          _filterCameras(); // Aplicar filtros después de cargar los datos
-        });
-      } else {
-        throw Exception(
-            'Error al cargar cámaras: ${response.statusCode} ${response.body}');
-      }
+      setState(() {
+        _cameras = cameras
+          ..sort((a, b) =>
+              (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
+        _isLoadingCameras = false;
+        _filterCameras(); // Aplicar filtros después de cargar los datos
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -100,7 +93,7 @@ class _CamerasViewState extends State<CamerasView> {
     }
   }
 
-  // Función para cargar categorías - corregida para coincidir con la estructura de la base de datos
+  // Función para cargar categorías activas
   Future<void> _fetchActiveCategories() async {
     if (!mounted) return;
     setState(() {
@@ -109,66 +102,26 @@ class _CamerasViewState extends State<CamerasView> {
     });
 
     try {
-      // Imprimir para depurar
-      print('Fetching categories from: $_apiBaseUrl/categories');
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
 
-      final response = await http.get(Uri.parse('$_apiBaseUrl/categories'));
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Usar el controller para obtener las categorías activas
+      final activeCategories = await _controller.getActiveCategories(token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final List<dynamic> categoriesData =
-            json.decode(utf8.decode(response.bodyBytes));
-
-        print('Received ${categoriesData.length} categories from API');
-
-        // Lista para almacenar las categorías activas
-        final List<Map<String, dynamic>> activeCategories = [];
-
-        // Recorrer todas las categorías y verificar la estructura de datos
-        for (var category in categoriesData) {
-          if (category is Map<String, dynamic>) {
-            // Depurar cada categoría para ver su estructura
-            print('Category data: ${category.toString()}');
-
-            // Verificar si isActive es true (puede estar en varios formatos)
-            bool isActive = false;
-            if (category.containsKey('isActive')) {
-              final activeVal = category['isActive'];
-              isActive =
-                  activeVal == true || activeVal == 'true' || activeVal == 1;
-            }
-
-            // Solo procesar categorías activas
-            if (isActive) {
-              // Normalizar los campos para que funcionen con nuestro código
-              // Usamos la estructura real de la BD según el ejemplo proporcionado
-              final normalizedCategory = {
-                'Id_Tipo_Producto': category['Tipo_Producto'],
-                'Nombre': category['Categoria_Producto'],
-                'isActive': true,
-                // Conservar datos originales también
-                ...category,
-              };
-
-              activeCategories.add(normalizedCategory);
-              print(
-                  'Added active category: ${normalizedCategory['Nombre']} (${normalizedCategory['Id_Tipo_Producto']})');
-            }
-          }
-        }
-
-        if (!mounted) return;
-
-        setState(() {
-          _activeCategories = activeCategories;
-          _isLoadingCategories = false;
-          print(
-              'Successfully loaded ${_activeCategories.length} active categories');
-        });
-      } else {
-        throw Exception('Failed to load categories: ${response.statusCode}');
-      }
+      setState(() {
+        _activeCategories = activeCategories;
+        _isLoadingCategories = false;
+        print(
+            'Successfully loaded ${_activeCategories.length} active categories');
+      });
     } catch (e) {
       print('Error during category loading: $e');
       if (!mounted) return;
@@ -177,61 +130,7 @@ class _CamerasViewState extends State<CamerasView> {
         _categoriesError = 'Error: $e';
         _isLoadingCategories = false;
       });
-
-      // Intento directo a la API sin usar http para depurar
-      print('Attempting direct call via run_terminal_cmd...');
-      try {
-        // Mostrar categorías directamente desde la base de datos
-        _loadCategoriesDirectly();
-      } catch (directError) {
-        print('Direct loading failed: $directError');
-      }
     }
-  }
-
-  // Método de emergencia para cargar categorías directamente
-  Future<void> _loadCategoriesDirectly() async {
-    if (!mounted) return;
-
-    // Lista de categorías predefinidas basadas en las que vimos en la BD
-    final hardcodedCategories = [
-      {
-        'Id_Tipo_Producto': 1,
-        'Nombre': 'Alcohol',
-        'isActive': true,
-        'Tipo_Producto': 1,
-        'Categoria_Producto': 'Alcohol'
-      },
-      {
-        'Id_Tipo_Producto': 2,
-        'Nombre': 'Frutas',
-        'isActive': true,
-        'Tipo_Producto': 2,
-        'Categoria_Producto': 'Frutas'
-      },
-      {
-        'Id_Tipo_Producto': 3,
-        'Nombre': 'Vegetales',
-        'isActive': true,
-        'Tipo_Producto': 3,
-        'Categoria_Producto': 'Vegetales'
-      },
-      {
-        'Id_Tipo_Producto': 4,
-        'Nombre': 'Snacks',
-        'isActive': true,
-        'Tipo_Producto': 4,
-        'Categoria_Producto': 'Snacks'
-      }
-    ];
-
-    setState(() {
-      _activeCategories = hardcodedCategories;
-      _isLoadingCategories = false;
-      _categoriesError = null;
-      print(
-          'Loaded ${_activeCategories.length} hardcoded categories as emergency measure');
-    });
   }
 
   // Helper to find type/product ID given various possible field names
@@ -295,40 +194,12 @@ class _CamerasViewState extends State<CamerasView> {
         throw Exception('No se encontró el token de autenticación.');
       }
 
-      // Realiza la solicitud a la API
-      final response = await http.post(
-        Uri.parse('$_apiBaseUrl/cameras'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
-        },
-        body: json.encode({
-          'Id_Camara': idCamara,
-          'Tipo_Producto': categoryId,
-          'isActive': true,
-        }),
-      );
+      // Usar el controller para añadir la cámara
+      await _controller.addCamera(idCamara, categoryId, token);
 
-      if (!mounted) return;
-
-      if (response.statusCode == 201) {
-        await _fetchCameras(); // Recargar la lista de cámaras
-        Navigator.of(currentContext).pop();
-        ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
-      } else {
-        String errorMessage = 'Error al añadir cámara';
-        try {
-          final errorBody = json.decode(response.body);
-          if (errorBody is Map && errorBody.containsKey('detail')) {
-            errorMessage = errorBody['detail'];
-          } else {
-            errorMessage = 'Error al añadir cámara: ${response.statusCode}';
-          }
-        } catch (_) {
-          errorMessage = 'Error al añadir cámara: ${response.statusCode}';
-        }
-        throw Exception(errorMessage);
-      }
+      await _fetchCameras(); // Recargar la lista de cámaras
+      Navigator.of(currentContext).pop();
+      ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
     } catch (e) {
       if (mounted) {
         if (Navigator.of(currentContext).canPop()) {
@@ -342,7 +213,7 @@ class _CamerasViewState extends State<CamerasView> {
   Future<void> _toggleCameraStatus(String mongoId, bool currentStatus) async {
     if (!mounted) return;
     final currentContext = context;
-    final newStatus = !currentStatus;
+    final bool newStatus = !currentStatus;
 
     // Encuentra la cámara en la lista y actualiza su estado de manera optimista
     final index = _cameras.indexWhere((cam) => cam['_id'] == mongoId);
@@ -363,39 +234,23 @@ class _CamerasViewState extends State<CamerasView> {
         throw Exception('No se encontró el token de autenticación.');
       }
 
-      // Realiza la solicitud a la API
-      final response = await http.put(
-        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
-        },
-        body: json.encode({'isActive': newStatus}),
-      );
+      // Usar el controller para actualizar el estado
+      await _controller.toggleCameraStatus(mongoId, newStatus, token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        // Éxito, el estado ya se actualizó de manera optimista
-        ToastService.showSuccess(currentContext,
-            'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
-      } else {
-        // Revertir el cambio optimista si falla la solicitud
-        if (index != -1) {
-          setState(() {
-            _cameras[index]['isActive'] = currentStatus;
-            _filterCameras(); // Aplicar filtros después de revertir el estado
-          });
-        }
-        throw Exception(
-            'Error al actualizar estado de la cámara: ${response.statusCode} ${response.body}');
-      }
+      // No reload full camera list to avoid switch flickering
+      // The optimistic update already took care of the UI
+
+      // Éxito, el estado ya se actualizó de manera optimista
+      ToastService.showSuccess(currentContext,
+          'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
     } catch (e) {
-      // Revertir el cambio optimista si ocurre un error
-      if (index != -1 && _cameras[index]['isActive'] != currentStatus) {
+      // Revertir el cambio optimista si falla la solicitud
+      if (index != -1 && mounted) {
         setState(() {
           _cameras[index]['isActive'] = currentStatus;
-          _filterCameras(); // Aplicar filtros después de manejar el error
+          _filterCameras(); // Aplicar filtros después de revertir el estado
         });
       }
       if (mounted) {
@@ -419,25 +274,13 @@ class _CamerasViewState extends State<CamerasView> {
         throw Exception('No se encontró el token de autenticación.');
       }
 
-      // Realiza la solicitud a la API
-      final response = await http.delete(
-        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {
-          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
-        },
-      );
+      // Usar el controller para eliminar la cámara
+      await _controller.deleteCamera(mongoId, token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 204) {
-        await _fetchCameras(); // Recargar la lista de cámaras
-        ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
-      } else if (response.statusCode == 404) {
-        throw Exception('Cámara no encontrada o ya eliminada.');
-      } else {
-        throw Exception(
-            'Error al eliminar cámara: ${response.statusCode} ${response.body}');
-      }
+      await _fetchCameras(); // Recargar la lista de cámaras
+      ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
     } catch (e) {
       if (mounted) {
         ToastService.showError(currentContext, 'Error al eliminar cámara: $e');
@@ -460,40 +303,14 @@ class _CamerasViewState extends State<CamerasView> {
         throw Exception('No se encontró el token de autenticación.');
       }
 
-      // Realiza la solicitud a la API
-      final response = await http.put(
-        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
-        },
-        body: json.encode({
-          'Id_Camara': idCamara,
-          'Tipo_Producto': categoryId,
-        }),
-      );
+      // Usar el controller para editar la cámara
+      await _controller.editCamera(mongoId, idCamara, categoryId, token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        await _fetchCameras(); // Recargar la lista de cámaras
-        Navigator.of(currentContext).pop();
-        ToastService.showSuccess(
-            currentContext, 'Cámara actualizada con éxito.');
-      } else {
-        String errorMessage = 'Error al actualizar cámara';
-        try {
-          final errorBody = json.decode(response.body);
-          if (errorBody is Map && errorBody.containsKey('detail')) {
-            errorMessage = errorBody['detail'];
-          } else {
-            errorMessage = 'Error al actualizar cámara: ${response.statusCode}';
-          }
-        } catch (_) {
-          errorMessage = 'Error al actualizar cámara: ${response.statusCode}';
-        }
-        throw Exception(errorMessage);
-      }
+      await _fetchCameras(); // Recargar la lista de cámaras
+      Navigator.of(currentContext).pop();
+      ToastService.showSuccess(currentContext, 'Cámara actualizada con éxito.');
     } catch (e) {
       if (mounted) {
         if (Navigator.of(currentContext).canPop()) {
@@ -508,10 +325,23 @@ class _CamerasViewState extends State<CamerasView> {
   // --- Dialogs ---
 
   void _showAddCameraDialog() {
-    if (_isLoadingCategories || _activeCategories.isEmpty) {
-      _loadCategoriesDirectly();
+    if (_isLoadingCategories) {
+      // Esperar a que las categorías se carguen antes de mostrar el diálogo
+      ToastService.showInfo(
+          context, 'Cargando categorías, por favor espere...');
+      _fetchActiveCategories().then((_) {
+        if (mounted) {
+          // Mostrar el diálogo solo cuando termina de cargar
+          _showAddCameraDialogContent();
+        }
+      });
+    } else {
+      // Ya cargaron categorías, mostrar el diálogo
+      _showAddCameraDialogContent();
     }
+  }
 
+  void _showAddCameraDialogContent() {
     final formKey = GlobalKey<FormState>();
     final idCamaraController = TextEditingController();
     int? selectedCategoryId;
@@ -525,14 +355,17 @@ class _CamerasViewState extends State<CamerasView> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            // Crear un mapa de ID a nombre para las categorías
             final Map<int, String> categoryMap = {};
             for (var category in _activeCategories) {
+              // Extraer ID de categoría de forma segura
               final id = category['Tipo_Producto'] as int? ??
                   (category['Id_Tipo_Producto'] is int
                       ? category['Id_Tipo_Producto'] as int
                       : int.tryParse(category['Id_Tipo_Producto'].toString()) ??
                           0);
 
+              // Extraer nombre de categoría
               final name = category['Categoria_Producto'] as String? ??
                   category['Nombre'] as String? ??
                   'Sin nombre';
@@ -579,17 +412,73 @@ class _CamerasViewState extends State<CamerasView> {
 
                       const SizedBox(height: 24),
 
-                      // Dropdown para seleccionar categoría
+                      // Si hay categorías activas, mostrar el dropdown
                       if (_isLoadingCategories)
                         const Center(
                           child: CircularProgressIndicator(),
                         )
                       else if (_activeCategories.isEmpty)
-                        Center(
-                          child: ElevatedButton(
-                            onPressed: () => _loadCategoriesDirectly(),
-                            child: const Text('Cargar Categorías Predefinidas'),
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Mensaje de aviso cuando no hay categorías
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.amber.shade300),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded,
+                                          color: Colors.amber.shade800),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'No existen categorías activas',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Necesitas crear al menos una categoría activa para poder asociarla a la cámara.',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Botón para ir a la vista de categorías
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.category),
+                                    label: const Text('Ir a Categorías'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber.shade700,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () {
+                                      // Cerrar diálogo actual
+                                      Navigator.of(context).pop();
+
+                                      // Navegar a la vista de categorías usando la clase importada
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CategoriesView(
+                                              toggleTheme: widget.toggleTheme),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         )
                       else
                         DropdownButtonFormField<int>(
@@ -682,11 +571,6 @@ class _CamerasViewState extends State<CamerasView> {
   void _showEditCameraDialog(Map<String, dynamic> camera) {
     print('Opening Edit Camera Dialog');
 
-    // Si hay un problema cargando categorías, intentamos cargarlas directamente con datos predefinidos
-    if (_isLoadingCategories || _activeCategories.isEmpty) {
-      _loadCategoriesDirectly();
-    }
-
     final formKey = GlobalKey<FormState>();
     final idCamaraController =
         TextEditingController(text: camera['Id_Camara'].toString());
@@ -738,7 +622,6 @@ class _CamerasViewState extends State<CamerasView> {
                         await _fetchActiveCategories();
                       } catch (e) {
                         print('Error refreshing categories: $e');
-                        _loadCategoriesDirectly();
                       }
 
                       setDialogState(() {});
@@ -790,7 +673,7 @@ class _CamerasViewState extends State<CamerasView> {
 
                       const SizedBox(height: 24),
 
-                      // Dropdown simplificado
+                      // Verificar si hay categorías disponibles
                       if (_isLoadingCategories)
                         const Center(
                           child: Padding(
@@ -799,11 +682,67 @@ class _CamerasViewState extends State<CamerasView> {
                           ),
                         )
                       else if (_activeCategories.isEmpty)
-                        Center(
-                          child: ElevatedButton(
-                            onPressed: () => _loadCategoriesDirectly(),
-                            child: const Text('Cargar Categorías Predefinidas'),
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Mensaje de aviso cuando no hay categorías
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.amber.shade300),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded,
+                                          color: Colors.amber.shade800),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'No existen categorías activas',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Necesitas crear al menos una categoría activa para poder asociarla a la cámara.',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Botón para ir a la vista de categorías
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.category),
+                                    label: const Text('Ir a Categorías'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber.shade700,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () {
+                                      // Cerrar diálogo actual
+                                      Navigator.of(context).pop();
+
+                                      // Navegar a la vista de categorías usando la clase importada
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CategoriesView(
+                                              toggleTheme: widget.toggleTheme),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         )
                       else
                         Column(
