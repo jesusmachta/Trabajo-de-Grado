@@ -29,6 +29,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _securityAnswerController = TextEditingController();
 
   // Tab control
@@ -72,6 +73,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _securityAnswerController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -135,6 +137,16 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
     return null;
   }
 
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Por favor confirma tu contraseña';
+    }
+    if (value != _passwordController.text) {
+      return 'Las contraseñas no coinciden';
+    }
+    return null;
+  }
+
   String? _validateSecurityAnswer(String? value) {
     if (value == null || value.isEmpty) {
       return 'Por favor ingresa tu respuesta de seguridad';
@@ -149,7 +161,8 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
         return _firstNameController.text.isNotEmpty &&
             _lastNameController.text.isNotEmpty &&
             _validateEmail(_emailController.text) == null &&
-            _validatePassword(_passwordController.text) == null;
+            _validatePassword(_passwordController.text) == null &&
+            _validateConfirmPassword(_confirmPasswordController.text) == null;
       case 1: // Company information
         return _validateCompanyName(_companyNameController.text) == null &&
             _validateRif(_rifController.text) == null;
@@ -425,29 +438,21 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                       ),
                     ),
 
-                    const SizedBox(height: 24),
-
-                    // Navigation buttons
+                    const SizedBox(height: 16),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Back button (hidden on first tab)
-                        if (_currentTab > 0)
-                          ElevatedButton(
-                            onPressed: _previousTab,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 12),
-                              backgroundColor: Colors.grey[300],
-                              foregroundColor: Colors.black87,
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text(
+                              'Volver al inicio de sesión',
+                              style: TextStyle(fontSize: 16),
                             ),
-                            child: const Text('Atrás'),
-                          )
-                        else
-                          const SizedBox(
-                              width: 100), // Placeholder for alignment
-
-                        // Next/Submit button
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: _isLoading
                               ? null
@@ -472,21 +477,6 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                                   : 'Registrar Empresa'),
                         ),
                       ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Back to Login Text Button
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text(
-                        'Volver al inicio de sesión',
-                        style: TextStyle(
-                          fontSize: 16,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -551,6 +541,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
               prefixIcon: Icon(Icons.person_outline),
             ),
             validator: _validateName,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
 
@@ -563,6 +554,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
               prefixIcon: Icon(Icons.person_outline),
             ),
             validator: _validateName,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
 
@@ -570,12 +562,13 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
             controller: _emailController,
             decoration: const InputDecoration(
               labelText: 'Correo Electrónico',
-              hintText: 'tu.correo@ejemplo.com',
+              hintText: 'Ingresa tu correo electrónico',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.email_outlined),
             ),
             keyboardType: TextInputType.emailAddress,
             validator: _validateEmail,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
 
@@ -602,6 +595,21 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
               helperMaxLines: 2,
             ),
             validator: _validatePassword,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: _obscurePassword,
+            decoration: const InputDecoration(
+              labelText: 'Confirmar contraseña',
+              hintText: 'Vuelve a ingresar tu contraseña',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.lock_outline),
+            ),
+            validator: _validateConfirmPassword,
+            onChanged: (_) => setState(() {}),
           ),
         ],
       ),
@@ -624,6 +632,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
               prefixIcon: Icon(Icons.business),
             ),
             validator: _validateCompanyName,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
 
@@ -637,6 +646,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
             ),
             keyboardType: TextInputType.number,
             validator: _validateRif,
+            onChanged: (_) => setState(() {}),
           ),
         ],
       ),
@@ -709,6 +719,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
               prefixIcon: Icon(Icons.question_answer),
             ),
             validator: _validateSecurityAnswer,
+            onChanged: (_) => setState(() {}),
           ),
         ],
       ),

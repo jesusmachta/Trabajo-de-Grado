@@ -128,7 +128,7 @@ class _LoginViewState extends State<LoginView> {
                       style: const TextStyle(fontSize: 17),
                       validator: _validateEmail,
                       decoration: InputDecoration(
-                        hintText: 'correo@ejemplo.com',
+                        hintText: 'Ingresa tu correo electrónico',
                         prefixIcon: const Icon(Icons.email_outlined, size: 24),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
