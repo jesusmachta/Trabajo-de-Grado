@@ -50,6 +50,7 @@ dependencies:
   file_selector: ^1.0.3
   image_picker_macos: ^0.2.1+2
   month_picker_dialog: ^6.0.3
+  go_router: ^15.1.2
 
 dev_dependencies:
   flutter_test:

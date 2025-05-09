@@ -9,9 +9,84 @@ import 'controllers/user_controller.dart';
 import 'controllers/chat_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:go_router/go_router.dart';
 
 // Create a global theme controller
 final themeController = StreamController<ThemeMode>.broadcast();
+
+// Global GoRouter instance for routing
+final GoRouter router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => AuthWrapper(toggleTheme: () {
+        // Toggle theme globally through the stream controller
+        final currentMode = Theme.of(context).brightness == Brightness.light
+            ? ThemeMode.dark
+            : ThemeMode.light;
+        themeController.add(currentMode);
+      }),
+    ),
+    GoRoute(
+      path: '/dashboard',
+      builder: (context, state) => AuthWrapper(toggleTheme: () {
+        final currentMode = Theme.of(context).brightness == Brightness.light
+            ? ThemeMode.dark
+            : ThemeMode.light;
+        themeController.add(currentMode);
+      }),
+    ),
+    GoRoute(
+      path: '/statistics',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'statistics',
+      ),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'categories',
+      ),
+    ),
+    GoRoute(
+      path: '/users',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'users',
+      ),
+    ),
+    GoRoute(
+      path: '/chat',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'chat',
+      ),
+    ),
+  ],
+);
 
 void main() {
   // Ensure Flutter bindings are initialized
@@ -75,15 +150,10 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  void toggleThemeMode() {
-    final newMode =
-        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    themeController.add(newMode);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
+      routerConfig: router,
       title: 'StoreSense',
       debugShowCheckedModeBanner: false,
       // Add a builder to allow overlays for toast notifications
@@ -286,8 +356,6 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
-      // Use AuthWrapper as the home widget
-      home: AuthWrapper(toggleTheme: toggleThemeMode),
     );
   }
 }
@@ -296,8 +364,13 @@ class _MyAppState extends State<MyApp> {
 // This widget checks the authentication state and displays the appropriate view.
 class AuthWrapper extends StatelessWidget {
   final Function toggleTheme;
+  final String? initialView;
 
-  const AuthWrapper({super.key, required this.toggleTheme});
+  const AuthWrapper({
+    super.key,
+    required this.toggleTheme,
+    this.initialView,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -331,8 +404,11 @@ class AuthWrapper extends StatelessWidget {
 
         // After initialization, decide which view to show
         if (authController.isAuthenticated) {
-          // User is authenticated -> Show HomeView
-          return HomeView(toggleTheme: toggleTheme);
+          // User is authenticated -> Show HomeView with initialView parameter
+          return HomeView(
+            toggleTheme: toggleTheme,
+            initialView: initialView,
+          );
         } else {
           // User is not authenticated -> Show LoginView
           return LoginView(toggleTheme: toggleTheme);

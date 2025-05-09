@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
 import 'users_view.dart';
@@ -14,8 +15,13 @@ import '../controllers/chat_controller.dart'; // Import ChatController
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
+  final String? initialView;
 
-  const HomeView({super.key, required this.toggleTheme});
+  const HomeView({
+    super.key,
+    required this.toggleTheme,
+    this.initialView,
+  });
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -44,7 +50,44 @@ class _HomeViewState extends State<HomeView> {
       if (!authController.isAuthenticated) {
         authController.checkAuthAndRedirect(context);
       }
+
+      // Set the initial view if specified via the URL route
+      if (widget.initialView != null) {
+        // Set initial view based on route parameter
+        switch (widget.initialView) {
+          case 'statistics':
+            setState(() {
+              _currentIndex = 1;
+              _showStatisticsSubmenu = true; // Show the statistics submenu
+            });
+            break;
+          case 'users':
+            setState(() {
+              _currentIndex = 2;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          case 'categories':
+            setState(() {
+              _currentIndex = 3;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          case 'cameras':
+            setState(() {
+              _currentIndex = 4;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          default:
+            setState(() {
+              _currentIndex = 0;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+        }
+      }
     });
+
     // Inicializar _pages y _titles en didChangeDependencies para tener acceso al usuario
   }
 
@@ -121,6 +164,41 @@ class _HomeViewState extends State<HomeView> {
       print('Error encoding URL in HomeView: $e');
       return url.replaceAll(' ', '%20');
     }
+  }
+
+  // Navigate to a specific view and update URL
+  void _navigateToView(int index) {
+    setState(() {
+      _currentIndex = index;
+
+      // Hide statistics submenu if we're navigating to anything other than statistics
+      if (index != 1) {
+        _showStatisticsSubmenu = false;
+      }
+    });
+
+    // Update the URL based on the selected view
+    String path = '/';
+    switch (index) {
+      case 0:
+        path = '/dashboard';
+        break;
+      case 1:
+        path = '/statistics';
+        break;
+      case 2:
+        path = '/users';
+        break;
+      case 3:
+        path = '/categories';
+        break;
+      case 4:
+        path = '/cameras';
+        break;
+    }
+
+    // Update URL without triggering a full page reload
+    GoRouter.of(context).go(path);
   }
 
   @override
@@ -233,9 +311,7 @@ class _HomeViewState extends State<HomeView> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               selected: _currentIndex == 0,
               onTap: () {
-                setState(() {
-                  _currentIndex = 0;
-                });
+                _navigateToView(0);
                 Navigator.pop(context);
               },
             ),
@@ -248,6 +324,8 @@ class _HomeViewState extends State<HomeView> {
               onExpansionChanged: (expanded) {
                 setState(() {
                   _showStatisticsSubmenu = expanded;
+                  // Remove the automatic navigation when expanding
+                  // Just toggle the visibility of the submenu
                 });
               },
               children:
@@ -304,6 +382,9 @@ class _HomeViewState extends State<HomeView> {
                     _statisticsViewKey.currentState
                         ?.updateSelectedStat(option['value']!);
                     Navigator.pop(context);
+
+                    // Update URL to statistics
+                    GoRouter.of(context).go('/statistics');
                   },
                 );
               }).toList(),
@@ -318,9 +399,7 @@ class _HomeViewState extends State<HomeView> {
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                 selected: _currentIndex == 2,
                 onTap: () {
-                  setState(() {
-                    _currentIndex = 2;
-                  });
+                  _navigateToView(2);
                   Navigator.pop(context);
                 },
               ),
@@ -331,9 +410,7 @@ class _HomeViewState extends State<HomeView> {
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                 selected: _currentIndex == 3,
                 onTap: () {
-                  setState(() {
-                    _currentIndex = 3;
-                  });
+                  _navigateToView(3);
                   Navigator.pop(context);
                 },
               ),
@@ -344,9 +421,7 @@ class _HomeViewState extends State<HomeView> {
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                 selected: _currentIndex == 4,
                 onTap: () {
-                  setState(() {
-                    _currentIndex = 4;
-                  });
+                  _navigateToView(4);
                   Navigator.pop(context);
                 },
               ),
