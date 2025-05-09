@@ -92,11 +92,19 @@ class StatisticsController {
             defaultParams['year'] = now.year.toString();
           }
         } else {
-          defaultParams['period'] = 'week';
-          if (params == null || !params.containsKey('date')) {
-            final now = DateTime.now();
-            final formatter = DateFormat('yyyy-MM-dd');
-            defaultParams['date'] = formatter.format(now);
+          // Period is 'historic' for gender/age stats when requesting overall data
+          if (params != null &&
+              params['period'] == 'historic' &&
+              (endpoint == 'gender-distribution' ||
+                  endpoint == 'age-distribution')) {
+            defaultParams['period'] = 'historic';
+          } else {
+            defaultParams['period'] = 'week';
+            if (params == null || !params.containsKey('date')) {
+              final now = DateTime.now();
+              final formatter = DateFormat('yyyy-MM-dd');
+              defaultParams['date'] = formatter.format(now);
+            }
           }
         }
       }
@@ -551,31 +559,23 @@ class StatisticsController {
   }
 
   // --- NUEVO: Obtener semanas y meses disponibles para gender/age ---
-  Future<List<String>> getAvailableWeeks() async {
-    final genderResp = await getStatistics('gender-distribution', token: '');
-    final ageResp = await getStatistics('age-distribution', token: '');
+  Future<List<String>> getAvailableWeeks({required String token}) async {
+    final genderResp = await getStatistics('gender-distribution', token: token);
     final Set<String> weeks = {};
     if (genderResp['data'] != null && genderResp['data']['weekly'] != null) {
       weeks.addAll((genderResp['data']['weekly'] as Map<String, dynamic>).keys);
-    }
-    if (ageResp['data'] != null && ageResp['data']['weekly'] != null) {
-      weeks.addAll((ageResp['data']['weekly'] as Map<String, dynamic>).keys);
     }
     final sorted = weeks.toList()
       ..sort((a, b) => b.compareTo(a)); // Más reciente primero
     return sorted;
   }
 
-  Future<List<String>> getAvailableMonths() async {
-    final genderResp = await getStatistics('gender-distribution', token: '');
-    final ageResp = await getStatistics('age-distribution', token: '');
+  Future<List<String>> getAvailableMonths({required String token}) async {
+    final genderResp = await getStatistics('gender-distribution', token: token);
     final Set<String> months = {};
     if (genderResp['data'] != null && genderResp['data']['monthly'] != null) {
       months
           .addAll((genderResp['data']['monthly'] as Map<String, dynamic>).keys);
-    }
-    if (ageResp['data'] != null && ageResp['data']['monthly'] != null) {
-      months.addAll((ageResp['data']['monthly'] as Map<String, dynamic>).keys);
     }
     final sorted = months.toList()
       ..sort((a, b) => b.compareTo(a)); // Más reciente primero

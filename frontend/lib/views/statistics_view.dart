@@ -48,7 +48,8 @@ class StatisticsViewState extends State<StatisticsView> {
   int? _selectedYear; // Default for other stats
 
   // State specific for visited-categories-combined
-  String _selectedCategoryPeriodType = 'overall'; // 'overall', 'week', 'month'
+  String _selectedCategoryPeriodType =
+      'historic'; // Cambiado a 'historic' para iniciar en histórico
   DateTime? _selectedCategoryWeek; // Start date of the selected week
   DateTime? _selectedCategoryMonth; // First day of the selected month
 
@@ -61,7 +62,13 @@ class StatisticsViewState extends State<StatisticsView> {
     if (_selectedStat != stat) {
       setState(() {
         _selectedStat = stat;
+        if (stat == 'gender-age-combined') {
+          _selectedCategoryPeriodType = 'historic'; // Reinicia a histórico
+        }
       });
+      if (stat == 'gender-age-combined') {
+        _initAvailablePeriods();
+      }
       _loadStatistics();
     }
   }
@@ -93,7 +100,7 @@ class StatisticsViewState extends State<StatisticsView> {
     _selectedPeriod = 'month';
     _selectedMonth = now.month;
     _selectedYear = now.year;
-    _selectedCategoryPeriodType = 'overall'; // Mostrar overall por defecto
+    _selectedCategoryPeriodType = 'historic'; // Inicia en histórico
     _initAvailablePeriods();
     _loadStatistics();
   }
@@ -101,8 +108,12 @@ class StatisticsViewState extends State<StatisticsView> {
   // NUEVO: Inicializar semanas y meses disponibles
   Future<void> _initAvailablePeriods() async {
     if (_selectedStat == 'gender-age-combined') {
-      final weeks = await _controller.getAvailableWeeks();
-      final months = await _controller.getAvailableMonths();
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+      if (token == null) return;
+      final weeks = await _controller.getAvailableWeeks(token: token);
+      final months = await _controller.getAvailableMonths(token: token);
       setState(() {
         _availableWeeks = weeks;
         _availableMonths = months;
@@ -180,7 +191,9 @@ class StatisticsViewState extends State<StatisticsView> {
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
-        params = {'period': _selectedCategoryPeriodType}; // 'week' or 'month'
+        params = {
+          'period': _selectedCategoryPeriodType
+        }; // 'week', 'month', or 'historic'
         if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
           params['date'] = _selectedWeekKey!;
         } else if (_selectedCategoryPeriodType == 'month' &&
@@ -189,6 +202,7 @@ class StatisticsViewState extends State<StatisticsView> {
           params['year'] = parts[0];
           params['month'] = parts[1];
         }
+        // For historic period, no additional parameters needed
         data = await _controller.getGenderAgeDistributionStatistics(
             params: params, token: token);
       } else if (_selectedStat == 'top-successful-categories') {
@@ -703,6 +717,11 @@ class StatisticsViewState extends State<StatisticsView> {
                     value: 'month',
                     label: Text('Mes'),
                     icon: Icon(Icons.calendar_month),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'historic',
+                    label: Text('Histórico'),
+                    icon: Icon(Icons.history),
                   ),
                 ],
                 selected: {_selectedCategoryPeriodType},
@@ -5218,6 +5237,24 @@ class StatisticsViewState extends State<StatisticsView> {
           'No hay datos demográficos para el período seleccionado.');
     }
 
+    // Obtener el título del período
+    String periodTitle = '';
+    if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
+      DateTime weekDate = DateTime.parse(_selectedWeekKey!);
+      periodTitle =
+          'Semana del ${DateFormat('dd/MM/yyyy', 'es_ES').format(weekDate)}';
+    } else if (_selectedCategoryPeriodType == 'month' &&
+        _selectedMonthKey != null) {
+      final parts = _selectedMonthKey!.split('-');
+      if (parts.length == 2) {
+        final year = parts[0];
+        final month = int.tryParse(parts[1]) ?? 1;
+        periodTitle = '${_formatMonthName(month).capitalize()} $year';
+      }
+    } else if (_selectedCategoryPeriodType == 'historic') {
+      periodTitle = 'Datos históricos acumulados';
+    }
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -5238,13 +5275,7 @@ class StatisticsViewState extends State<StatisticsView> {
             const SizedBox(height: 8),
             Center(
               child: Text(
-                _selectedCategoryPeriodType == 'week' &&
-                        _selectedCategoryWeek != null
-                    ? 'Semana del ${DateFormat('dd/MM/yyyy', 'es_ES').format(_selectedCategoryWeek!)}'
-                    : _selectedCategoryPeriodType == 'month' &&
-                            _selectedCategoryMonth != null
-                        ? 'Mes de ${DateFormat('MMMM yyyy', 'es_ES').format(_selectedCategoryMonth!).capitalize()}'
-                        : 'Datos históricos',
+                periodTitle,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontStyle: FontStyle.italic,
                       color: Theme.of(context).colorScheme.secondary,
@@ -5255,187 +5286,368 @@ class StatisticsViewState extends State<StatisticsView> {
             const SizedBox(height: 24),
 
             // -- SECCIÓN DE GÉNERO --
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Título de sección
-                  Center(
-                    child: Text(
-                      'Distribución por género',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE3EEFF),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Masculino',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${genderData['male']}',
-                                    style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_calculatePercentage(genderData['male'], genderData)}%',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+            if (hasGenderData) ...[
+              // Usar un estilo similar al de "Categorías preferidas por género"
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // Use row for wider screens, column for narrower screens
+                  bool useRow = constraints.maxWidth > 700;
+
+                  if (useRow) {
+                    // Side by side layout for wider screens
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildGenderDemographicCard(
+                            gender: 'Male',
+                            count: genderData['male'],
+                            total: genderData['male'] + genderData['female'],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEE6EC),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Femenino',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${genderData['female']}',
-                                    style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.pink.shade400,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_calculatePercentage(genderData['female'], genderData)}%',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.pink.shade400,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildGenderDemographicCard(
+                            gender: 'Female',
+                            count: genderData['female'],
+                            total: genderData['male'] + genderData['female'],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    );
+                  } else {
+                    // Stacked layout for narrower screens
+                    return Column(
+                      children: [
+                        _buildGenderDemographicCard(
+                          gender: 'Male',
+                          count: genderData['male'],
+                          total: genderData['male'] + genderData['female'],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildGenderDemographicCard(
+                          gender: 'Female',
+                          count: genderData['female'],
+                          total: genderData['male'] + genderData['female'],
+                        ),
+                      ],
+                    );
+                  }
+                },
               ),
-            ),
+            ],
 
             const SizedBox(height: 24),
 
             // -- SECCIÓN DE EDAD --
-            if (hasAgeData)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+            if (hasAgeData) ...[
+              Text(
+                'Distribución por Rangos de Edad',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Título de sección
-                    Center(
-                      child: Text(
-                        'Distribución por edad',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount:
-                          MediaQuery.of(context).size.width > 600 ? 5 : 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        _buildAgeRangeCardWithGender(
-                            '0-18', _getAgeCount(ageData, '0-18')),
-                        _buildAgeRangeCardWithGender(
-                            '19-30', _getAgeCount(ageData, '19-30')),
-                        _buildAgeRangeCardWithGender(
-                            '31-45', _getAgeCount(ageData, '31-45')),
-                        _buildAgeRangeCardWithGender(
-                            '46-60', _getAgeCount(ageData, '46-60')),
-                        _buildAgeRangeCardWithGender(
-                            '60+', _getAgeCount(ageData, '60+')),
-                      ],
-                    ),
-                  ],
-                ),
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: MediaQuery.of(context).size.width > 600 ? 5 : 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.5, // Hacerlo más corto en altura
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildAgeRangeCard('0-18', _getAgeCount(ageData, '0-18')),
+                  _buildAgeRangeCard('19-30', _getAgeCount(ageData, '19-30')),
+                  _buildAgeRangeCard('31-45', _getAgeCount(ageData, '31-45')),
+                  _buildAgeRangeCard('46-60', _getAgeCount(ageData, '46-60')),
+                  _buildAgeRangeCard('60+', _getAgeCount(ageData, '60+')),
+                ],
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  // Add this new method to build the gender demographic card
+  Widget _buildGenderDemographicCard(
+      {required String gender, required int count, required int total}) {
+    final bool isMale = gender.toLowerCase() == 'male';
+    final String title = isMale ? 'Hombres' : 'Mujeres';
+    final Color cardColor = isMale
+        ? Theme.of(context).brightness == Brightness.dark
+            ? Colors.blue.shade900
+            : Colors.blue.shade50
+        : Theme.of(context).brightness == Brightness.dark
+            ? Colors.pink.shade900
+            : Colors.pink.shade50;
+    final Color accentColor = isMale ? Colors.blue : Colors.pink;
+    final IconData genderIcon = isMale ? Icons.man : Icons.woman;
+
+    // Calculate percentage
+    double percentage = total > 0 ? (count / total * 100) : 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(
+          color: accentColor.withOpacity(0.5),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Gender title
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.2),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  genderIcon,
+                  color: accentColor,
+                  size: 28,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+
+          // Gender count and percentage
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                Text(
+                  '$count',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'personas',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.percent,
+                        size: 20,
+                        color: accentColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${percentage.toStringAsFixed(1)}%',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: accentColor,
+                                ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Replace the _buildAgeRangeCard method with this improved version
+  Widget _buildAgeRangeCard(String ageRange, int count) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.all(2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Age range label
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                ageRange,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Count
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.primary,
+              ),
+            ),
+            // Label
+            Text(
+              'personas',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Replace the _buildNewWeekSelector method with this improved version
+  Widget _buildNewWeekSelector() {
+    if (_availableWeeks.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'No hay semanas disponibles',
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value: _selectedWeekKey,
+      decoration: InputDecoration(
+        labelText: 'Seleccionar semana',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        prefixIcon: const Icon(Icons.calendar_view_week),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      ),
+      items: _availableWeeks.map((weekKey) {
+        return DropdownMenuItem(
+          value: weekKey,
+          child: Text(_formatWeekLabel(weekKey)),
+        );
+      }).toList(),
+      onChanged: (newValue) {
+        if (newValue != null && newValue != _selectedWeekKey) {
+          setState(() {
+            _selectedWeekKey = newValue;
+            _statisticsData = null; // Clear data to force reload
+          });
+          _loadStatistics(); // Load new data immediately
+        }
+      },
+    );
+  }
+
+  // Replace the _buildNewMonthSelector method with this improved version
+  Widget _buildNewMonthSelector() {
+    if (_availableMonths.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'No hay meses disponibles',
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value: _selectedMonthKey,
+      decoration: InputDecoration(
+        labelText: 'Seleccionar mes',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        prefixIcon: const Icon(Icons.calendar_month),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      ),
+      items: _availableMonths.map((monthKey) {
+        // monthKey es tipo '2025-04'
+        final parts = monthKey.split('-');
+        String label = monthKey;
+        if (parts.length == 2) {
+          final year = parts[0];
+          final month = int.tryParse(parts[1]) ?? 1;
+          label = '${_formatMonthName(month).capitalize()} $year';
+        }
+        return DropdownMenuItem(
+          value: monthKey,
+          child: Text(label),
+        );
+      }).toList(),
+      onChanged: (newValue) {
+        if (newValue != null && newValue != _selectedMonthKey) {
+          setState(() {
+            _selectedMonthKey = newValue;
+            _statisticsData = null; // Clear data to force reload
+          });
+          _loadStatistics(); // Load new data immediately
+        }
+      },
     );
   }
 
@@ -5741,61 +5953,6 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Construir tarjeta para rango de edad (Material Design actualizado)
-  Widget _buildAgeRangeCard(String ageRange, int count) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Use Material Design 3 Card
-    return Card(
-      elevation: 1,
-      margin: const EdgeInsets.all(2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Age range label
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                ageRange,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            // Count
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.primary,
-              ),
-            ),
-            // Label
-            Text(
-              'personas',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Visualizador combinado para categorías más y menos visitadas
   Widget _buildHistoricalVisitedCategoriesView(dynamic data) {
     print('Building historical visited categories view with data: $data');
@@ -6005,61 +6162,30 @@ class StatisticsViewState extends State<StatisticsView> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  // NUEVO: Selectores dinámicos para semana y mes
-  Widget _buildNewWeekSelector() {
-    return DropdownButtonFormField<String>(
-      value: _selectedWeekKey,
-      items: _availableWeeks
-          .map((w) => DropdownMenuItem(
-                value: w,
-                child: Text(_formatWeekLabel(w)),
-              ))
-          .toList(),
-      onChanged: (val) {
-        setState(() {
-          _selectedWeekKey = val;
-          _selectedCategoryWeek = val != null ? DateTime.parse(val) : null;
-          _statisticsData = null; // Ensure data is reloaded
-        });
-        _loadStatistics(); // Trigger data load immediately
-      },
-      decoration: InputDecoration(
-        labelText: 'Semana',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.calendar_view_week),
-      ),
-    );
+  // Método para calcular el porcentaje
+  double _calculatePercentage(dynamic value, Map<String, dynamic> genderData) {
+    final int valueInt =
+        value is int ? value : int.tryParse(value.toString()) ?? 0;
+    final int maleCount = genderData['male'] is int
+        ? genderData['male']
+        : int.tryParse(genderData['male'].toString()) ?? 0;
+    final int femaleCount = genderData['female'] is int
+        ? genderData['female']
+        : int.tryParse(genderData['female'].toString()) ?? 0;
+    final int totalCount = maleCount + femaleCount;
+
+    if (totalCount == 0) return 0.0;
+    return double.parse((valueInt / totalCount * 100).toStringAsFixed(1));
   }
 
-  Widget _buildNewMonthSelector() {
-    return DropdownButtonFormField<String>(
-      value: _selectedMonthKey,
-      items: _availableMonths
-          .map((m) => DropdownMenuItem(
-                value: m,
-                child: Text(_formatMonthLabel(m)),
-              ))
-          .toList(),
-      onChanged: (val) {
-        setState(() {
-          _selectedMonthKey = val;
-          if (val != null) {
-            final parts = val.split('-');
-            _selectedCategoryMonth =
-                DateTime(int.parse(parts[0]), int.parse(parts[1]), 1);
-          } else {
-            _selectedCategoryMonth = null;
-          }
-          _statisticsData = null; // Ensure data is reloaded
-        });
-        _loadStatistics(); // Trigger data load immediately
-      },
-      decoration: InputDecoration(
-        labelText: 'Mes',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.calendar_month),
-      ),
-    );
+  // Método para obtener cuenta de edad según el rango
+  int _getAgeCount(Map<String, dynamic> ageData, String range) {
+    if (ageData.containsKey(range)) {
+      var count = ageData[range];
+      if (count is int) return count;
+      return int.tryParse(count.toString()) ?? 0;
+    }
+    return 0;
   }
 
   // Obtener nombre del mes
@@ -6094,31 +6220,5 @@ class StatisticsViewState extends State<StatisticsView> {
       default:
         return '';
     }
-  }
-
-  // Método para calcular el porcentaje
-  double _calculatePercentage(dynamic value, Map<String, dynamic> genderData) {
-    final int valueInt =
-        value is int ? value : int.tryParse(value.toString()) ?? 0;
-    final int maleCount = genderData['male'] is int
-        ? genderData['male']
-        : int.tryParse(genderData['male'].toString()) ?? 0;
-    final int femaleCount = genderData['female'] is int
-        ? genderData['female']
-        : int.tryParse(genderData['female'].toString()) ?? 0;
-    final int totalCount = maleCount + femaleCount;
-
-    if (totalCount == 0) return 0.0;
-    return double.parse((valueInt / totalCount * 100).toStringAsFixed(1));
-  }
-
-  // Método para obtener cuenta de edad según el rango
-  int _getAgeCount(Map<String, dynamic> ageData, String range) {
-    if (ageData.containsKey(range)) {
-      var count = ageData[range];
-      if (count is int) return count;
-      return int.tryParse(count.toString()) ?? 0;
-    }
-    return 0;
   }
 }
