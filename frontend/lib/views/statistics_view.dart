@@ -3238,7 +3238,7 @@ class StatisticsViewState extends State<StatisticsView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Selecciona una gráfica para ver detalles o navega entre categorías.',
+            'Emociones por categorías.',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -3264,23 +3264,44 @@ class StatisticsViewState extends State<StatisticsView> {
   Color _getEmotionColorForChart(String emotion) {
     switch (emotion.toLowerCase()) {
       case 'happy':
-        return Theme.of(context)
-            .colorScheme
-            .primary; // Use app's blue theme color for "Feliz"
+        return Colors.green; // Feliz
       case 'sad':
-        return Colors.green; // Green for "Triste"
+        return Colors.blue; // Triste
       case 'surprise':
-        return Colors.amber; // Yellow/Amber for "Sorprendido"
+      case 'surprised':
+        return Colors.amber; // Sorprendido
       case 'neutral':
-        return Colors.grey;
+        return Colors.grey; // Neutral
       case 'angry':
-        return Colors.red;
+        return Colors.red; // Enojado
       case 'fear':
-        return Colors.purple;
+        return Colors.purple; // Miedo
       case 'disgust':
-        return Colors.brown;
+        return Colors.brown; // Disgusto
       case 'calm':
-        return Colors.lightBlue;
+        return Colors.lightBlue; // Calmado
+      case 'confused':
+        return Colors.blueGrey; // Confundido
+      case 'anxious':
+        return Colors.orange; // Ansioso
+      case 'bored':
+        return Colors.grey.shade700; // Aburrido
+      case 'excited':
+        return Colors.pink; // Emocionado
+      case 'stressed':
+        return Colors.deepOrange; // Estresado
+      case 'tired':
+        return Colors.indigo; // Cansado
+      case 'content':
+        return Colors.lightGreen; // Contento
+      case 'disappointed':
+        return Colors.redAccent; // Decepcionado
+      case 'annoyed':
+        return Colors.deepPurple; // Irritado
+      case 'hopeful':
+        return Colors.cyan; // Esperanzado
+      case 'frustrated':
+        return Colors.amber.shade900; // Frustrado
       default:
         return Colors.grey;
     }
@@ -3318,6 +3339,7 @@ class StatisticsViewState extends State<StatisticsView> {
       case 'SAD':
         return 'Triste';
       case 'SURPRISE':
+      case 'SURPRISED':
         return 'Sorprendido';
       case 'ANGRY':
         return 'Enojado';
@@ -3329,6 +3351,26 @@ class StatisticsViewState extends State<StatisticsView> {
         return 'Calmado';
       case 'CONFUSED':
         return 'Confundido';
+      case 'ANXIOUS':
+        return 'Ansioso';
+      case 'BORED':
+        return 'Aburrido';
+      case 'EXCITED':
+        return 'Emocionado';
+      case 'STRESSED':
+        return 'Estresado';
+      case 'TIRED':
+        return 'Cansado';
+      case 'CONTENT':
+        return 'Contento';
+      case 'DISAPPOINTED':
+        return 'Decepcionado';
+      case 'ANNOYED':
+        return 'Irritado';
+      case 'HOPEFUL':
+        return 'Esperanzado';
+      case 'FRUSTRATED':
+        return 'Frustrado';
       default:
         return emotion;
     }
@@ -3463,6 +3505,7 @@ class StatisticsViewState extends State<StatisticsView> {
       case 'calm':
         return Colors.teal;
       case 'surprise':
+      case 'surprised':
         return Colors.amber;
       case 'angry':
         return Colors.red;
@@ -3472,6 +3515,28 @@ class StatisticsViewState extends State<StatisticsView> {
         return Colors.brown;
       case 'neutral':
         return Colors.grey;
+      case 'confused':
+        return Colors.blueGrey;
+      case 'anxious':
+        return Colors.orange;
+      case 'bored':
+        return Colors.grey.shade700;
+      case 'excited':
+        return Colors.pink;
+      case 'stressed':
+        return Colors.deepOrange;
+      case 'tired':
+        return Colors.indigo;
+      case 'content':
+        return Colors.lightGreen;
+      case 'disappointed':
+        return Colors.redAccent;
+      case 'annoyed':
+        return Colors.deepPurple;
+      case 'hopeful':
+        return Colors.cyan;
+      case 'frustrated':
+        return Colors.amber.shade900;
       default:
         return Theme.of(context).colorScheme.primary; // Color por defecto
     }
@@ -3979,6 +4044,11 @@ class StatisticsViewState extends State<StatisticsView> {
         'color': Colors.amber,
         'label': 'Sorprendido'
       },
+      'SURPRISE': {
+        'icon': Icons.sentiment_satisfied_alt,
+        'color': Colors.amber,
+        'label': 'Sorprendido'
+      },
       'ANGRY': {
         'icon': Icons.mood_bad,
         'color': Colors.deepOrange,
@@ -3987,17 +4057,72 @@ class StatisticsViewState extends State<StatisticsView> {
       'FEAR': {
         'icon': Icons.face_retouching_natural,
         'color': Colors.purple,
-        'label': 'Asustado'
+        'label': 'Miedo'
       },
       'DISGUST': {
         'icon': Icons.sick,
         'color': Colors.brown,
-        'label': 'Disgustado'
+        'label': 'Disgusto'
       },
       'NEUTRAL': {
         'icon': Icons.sentiment_neutral,
         'color': Colors.grey,
         'label': 'Neutral'
+      },
+      'CONFUSED': {
+        'icon': Icons.psychology,
+        'color': Colors.blueGrey,
+        'label': 'Confundido'
+      },
+      'ANXIOUS': {
+        'icon': Icons.running_with_errors,
+        'color': Colors.orange,
+        'label': 'Ansioso'
+      },
+      'BORED': {
+        'icon': Icons.bedtime,
+        'color': Colors.grey.shade700,
+        'label': 'Aburrido'
+      },
+      'EXCITED': {
+        'icon': Icons.emoji_emotions,
+        'color': Colors.pink,
+        'label': 'Emocionado'
+      },
+      'STRESSED': {
+        'icon': Icons.warning_amber,
+        'color': Colors.deepOrange,
+        'label': 'Estresado'
+      },
+      'TIRED': {
+        'icon': Icons.hotel,
+        'color': Colors.indigo,
+        'label': 'Cansado'
+      },
+      'CONTENT': {
+        'icon': Icons.sentiment_satisfied_alt,
+        'color': Colors.lightGreen,
+        'label': 'Contento'
+      },
+      'DISAPPOINTED': {
+        'icon': Icons.thumb_down_alt,
+        'color': Colors.redAccent,
+        'label': 'Decepcionado'
+      },
+      'ANNOYED': {
+        'icon': Icons.highlight_off,
+        'color': Colors.deepPurple,
+        'label': 'Irritado'
+      },
+      'HOPEFUL': {
+        'icon': Icons.emoji_nature,
+        'color': Colors.cyan,
+        'label': 'Esperanzado'
+      },
+      'FRUSTRATED': {
+        'icon': Icons.do_not_disturb,
+        'color': Colors.amber.shade900,
+        'label': 'Frustrado'
       }
     };
 
@@ -5823,13 +5948,36 @@ class StatisticsViewState extends State<StatisticsView> {
       case 'NEUTRAL':
         return Icons.sentiment_neutral;
       case 'FEAR':
-        return Icons.sentiment_very_dissatisfied;
+        return Icons.face_retouching_natural;
       case 'DISGUST':
-        return Icons.mood_bad;
+        return Icons.sick;
       case 'CONFUSED':
-        return Icons.sentiment_neutral;
+        return Icons.psychology;
+      case 'SURPRISE':
+      case 'SURPRISED':
+        return Icons.sentiment_satisfied_alt;
+      case 'ANXIOUS':
+        return Icons.running_with_errors;
+      case 'BORED':
+        return Icons.bedtime;
+      case 'EXCITED':
+        return Icons.emoji_emotions;
+      case 'STRESSED':
+        return Icons.warning_amber;
+      case 'TIRED':
+        return Icons.hotel;
+      case 'CONTENT':
+        return Icons.sentiment_satisfied_alt;
+      case 'DISAPPOINTED':
+        return Icons.thumb_down_alt;
+      case 'ANNOYED':
+        return Icons.highlight_off;
+      case 'HOPEFUL':
+        return Icons.emoji_nature;
+      case 'FRUSTRATED':
+        return Icons.do_not_disturb;
       default:
-        return Icons.sentiment_neutral;
+        return Icons.emoji_emotions;
     }
   }
 
