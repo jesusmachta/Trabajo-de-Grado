@@ -29,6 +29,11 @@ class _UsersViewState extends State<UsersView> {
   String _searchTerm = '';
   UserStatusFilter _selectedStatus = UserStatusFilter.todos;
 
+  // Pagination variables
+  int _currentPage = 1;
+  final int _itemsPerPage = 10; // Fixed at 10 rows per page
+  int _totalPages = 1;
+
   // Text controllers for input fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -67,6 +72,7 @@ class _UsersViewState extends State<UsersView> {
     _searchController.addListener(() {
       setState(() {
         _searchTerm = _searchController.text;
+        _currentPage = 1; // Reset to first page on search
       });
     });
     // Load users when the view is first loaded
@@ -728,7 +734,32 @@ class _UsersViewState extends State<UsersView> {
       }).toList();
     }
 
-    return filtered;
+    // Store total filtered results for display
+    int totalFilteredCount = filtered.length;
+
+    // Update total pages based on filtered list
+    _updateTotalPages(totalFilteredCount);
+
+    // Apply pagination
+    int startIndex = (_currentPage - 1) * _itemsPerPage;
+    int endIndex = startIndex + _itemsPerPage;
+    if (startIndex >= filtered.length) {
+      // If current page is now invalid (e.g., after filtering), reset to page 1
+      _currentPage = 1;
+      startIndex = 0;
+      endIndex = _itemsPerPage;
+    }
+
+    if (endIndex > filtered.length) {
+      endIndex = filtered.length;
+    }
+
+    return filtered.sublist(startIndex, endIndex);
+  }
+
+  void _updateTotalPages(int totalItems) {
+    _totalPages = (totalItems / _itemsPerPage).ceil();
+    if (_totalPages < 1) _totalPages = 1;
   }
 
   Future<bool> _toggleUserStatus(String userId, bool currentStatus) async {
@@ -810,6 +841,11 @@ class _UsersViewState extends State<UsersView> {
     final authController = Provider.of<AuthController>(context, listen: false);
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+
+    // Get all filtered users before pagination
+    List<User> allFilteredUsers =
+        _getFilteredUsersWithoutPagination(userController.users);
+    // Get paginated users for display
     final filteredUsers = _getFilteredUsers(userController.users);
 
     return Scaffold(
@@ -846,19 +882,6 @@ class _UsersViewState extends State<UsersView> {
                             fontSize: 22,
                           ),
                         ),
-                        TextButton.icon(
-                          onPressed: () {
-                            // Navigate back or to home - adjust as needed
-                            // This button might not be necessary if using the Drawer navigation
-                            // Navigator.of(context).pop();
-                            print("Volver al inicio pressed");
-                          },
-                          icon: Icon(Icons.arrow_back,
-                              color: theme.colorScheme.secondary),
-                          label: Text('Volver al inicio',
-                              style: TextStyle(
-                                  color: theme.colorScheme.secondary)),
-                        )
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -913,6 +936,8 @@ class _UsersViewState extends State<UsersView> {
                                 if (value != null) {
                                   setState(() {
                                     _selectedStatus = value;
+                                    _currentPage =
+                                        1; // Reset to first page on filter change
                                   });
                                 }
                               },
@@ -979,8 +1004,17 @@ class _UsersViewState extends State<UsersView> {
                                   : 'No se encontraron usuarios que coincidan.',
                               style: theme.textTheme.titleMedium,
                             ))
-                          : _buildUserTable(
-                              filteredUsers, theme, authController),
+                          : Column(
+                              children: [
+                                Expanded(
+                                  child: _buildUserTable(
+                                      filteredUsers, theme, authController),
+                                ),
+                                // Pagination controls
+                                _buildPaginationControls(
+                                    theme, allFilteredUsers.length),
+                              ],
+                            ),
             ),
             // Footer Text (optional)
             Padding(
@@ -1183,4 +1217,132 @@ class _UsersViewState extends State<UsersView> {
      }
    }
    */
+
+  Widget _buildPaginationControls(ThemeData theme, int totalItems) {
+    final Color primaryColor = const Color(0xFF0277BD);
+
+    // Calculate current range being displayed
+    int startItem = (_currentPage - 1) * _itemsPerPage + 1;
+    int endItem = _currentPage * _itemsPerPage;
+    if (endItem > totalItems) endItem = totalItems;
+    if (totalItems == 0) startItem = 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Record count text
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              'Mostrando ${startItem}-${endItem} de ${totalItems} registros',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                fontSize: 13,
+              ),
+            ),
+          ),
+          // Pagination buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.keyboard_double_arrow_left),
+                onPressed: _currentPage > 1
+                    ? () {
+                        setState(() {
+                          _currentPage = 1;
+                        });
+                      }
+                    : null,
+                tooltip: 'Primera página',
+                color: _currentPage > 1 ? primaryColor : Colors.grey,
+              ),
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_left),
+                onPressed: _currentPage > 1
+                    ? () {
+                        setState(() {
+                          _currentPage--;
+                        });
+                      }
+                    : null,
+                tooltip: 'Página anterior',
+                color: _currentPage > 1 ? primaryColor : Colors.grey,
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'Página $_currentPage de $_totalPages',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_right),
+                onPressed: _currentPage < _totalPages
+                    ? () {
+                        setState(() {
+                          _currentPage++;
+                        });
+                      }
+                    : null,
+                tooltip: 'Página siguiente',
+                color: _currentPage < _totalPages ? primaryColor : Colors.grey,
+              ),
+              IconButton(
+                icon: const Icon(Icons.keyboard_double_arrow_right),
+                onPressed: _currentPage < _totalPages
+                    ? () {
+                        setState(() {
+                          _currentPage = _totalPages;
+                        });
+                      }
+                    : null,
+                tooltip: 'Última página',
+                color: _currentPage < _totalPages ? primaryColor : Colors.grey,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to get all filtered users without pagination
+  List<User> _getFilteredUsersWithoutPagination(List<User> users) {
+    List<User> filtered = users;
+
+    // Filter by status
+    if (_selectedStatus != UserStatusFilter.todos) {
+      bool isActiveFilter = _selectedStatus == UserStatusFilter.activo;
+      filtered =
+          filtered.where((user) => user.isActive == isActiveFilter).toList();
+    }
+
+    // Filter by search term
+    if (_searchTerm.isNotEmpty) {
+      String lowerSearchTerm = _searchTerm.toLowerCase();
+      filtered = filtered.where((user) {
+        return user.fullName.toLowerCase().contains(lowerSearchTerm) ||
+            user.email.toLowerCase().contains(lowerSearchTerm);
+      }).toList();
+    }
+
+    return filtered;
+  }
 }

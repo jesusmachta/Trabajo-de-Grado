@@ -38,8 +38,7 @@ class _CamerasViewState extends State<CamerasView> {
   String _searchTerm = ''; // For search functionality
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 0;
-  int _rowsPerPage = 10;
-  final List<int> _rowsPerPageOptions = [10, 20, 50];
+  final int _rowsPerPage = 10; // Fixed at 10 rows per page
 
   @override
   void initState() {
@@ -907,6 +906,7 @@ class _CamerasViewState extends State<CamerasView> {
     final int totalPages = (_filteredCameras.length / _rowsPerPage).ceil();
     final Color azulOscuro = const Color(0xFF223A5E);
     final Color grisClaro = const Color(0xFFE0E0E0);
+    final theme = Theme.of(context);
 
     return Column(
       children: [
@@ -1020,57 +1020,106 @@ class _CamerasViewState extends State<CamerasView> {
             );
           }),
         ),
-        // Controles de paginación
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+        // Pagination controls
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+          ),
+          child: Column(
             children: [
-              Text('Filas por página:', style: TextStyle(fontSize: 15)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _rowsPerPage,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-                items: _rowsPerPageOptions.map((value) {
-                  return DropdownMenuItem<int>(
-                    value: value,
-                    child: Text(value.toString()),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _rowsPerPage = value;
-                      _currentPage = 0;
-                    });
-                  }
-                },
-                underline: Container(),
+              // Record count text
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  'Mostrando ${_filteredCameras.isEmpty ? 0 : startIndex + 1}-${endIndex > _filteredCameras.length ? _filteredCameras.length : endIndex} de ${_filteredCameras.length} registros',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                ),
               ),
-              const SizedBox(width: 32),
-              Text(
-                  'Página ${_filteredCameras.isEmpty ? 0 : _currentPage + 1} de $totalPages',
-                  style: TextStyle(fontSize: 15)),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                color: Colors.black.withOpacity(_currentPage > 0 ? 0.87 : 0.2),
-                onPressed: _currentPage > 0
-                    ? () => setState(() => _currentPage--)
-                    : null,
-                splashRadius: 18,
-                iconSize: 24,
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                color: Colors.black.withOpacity(
-                    endIndex < _filteredCameras.length ? 0.87 : 0.2),
-                onPressed: endIndex < _filteredCameras.length
-                    ? () => setState(() => _currentPage++)
-                    : null,
-                splashRadius: 18,
-                iconSize: 24,
+              // Pagination buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_double_arrow_left),
+                    onPressed: _currentPage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage = 0;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Primera página',
+                    color: _currentPage > 0
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_left),
+                    onPressed: _currentPage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage--;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Página anterior',
+                    color: _currentPage > 0
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color:
+                          theme.colorScheme.primaryContainer.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Página ${_filteredCameras.isEmpty ? 0 : _currentPage + 1} de $totalPages',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_right),
+                    onPressed: endIndex < _filteredCameras.length
+                        ? () {
+                            setState(() {
+                              _currentPage++;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Página siguiente',
+                    color: endIndex < _filteredCameras.length
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_double_arrow_right),
+                    onPressed: _currentPage < totalPages - 1
+                        ? () {
+                            setState(() {
+                              _currentPage = totalPages - 1;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Última página',
+                    color: _currentPage < totalPages - 1
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                ],
               ),
             ],
           ),

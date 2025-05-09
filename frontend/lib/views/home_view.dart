@@ -305,179 +305,478 @@ class _HomeViewState extends State<HomeView> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            ListTile(
-              leading: const Icon(Icons.dashboard, size: 32),
-              title: const Text('Dashboard',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              selected: _currentIndex == 0,
-              onTap: () {
-                _navigateToView(0);
-                Navigator.pop(context);
-              },
+            // Custom header for the drawer
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+              color: Theme.of(context).colorScheme.surfaceVariant,
+              child: const Text(
+                'StoreSense',
+                style: TextStyle(
+                  color: Color(0xFF223A5E),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24,
+                ),
+              ),
             ),
-            // Statistics ExpansionTile for vertical expansion
-            ExpansionTile(
-              leading: const Icon(Icons.bar_chart, size: 32),
-              title: const Text('Estadísticas',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              initiallyExpanded: _showStatisticsSubmenu,
-              onExpansionChanged: (expanded) {
-                setState(() {
-                  _showStatisticsSubmenu = expanded;
-                  // Remove the automatic navigation when expanding
-                  // Just toggle the visibility of the submenu
-                });
-              },
-              children:
-                  _statisticsController.getStatisticsOptions().map((option) {
-                // Map de valores de estadísticas a iconos apropiados
-                IconData getStatIcon(String value) {
-                  switch (value) {
-                    case 'peak-hours':
-                      return Icons.access_time;
-                    case 'least-hours':
-                      return Icons.hourglass_empty;
-                    case 'busy-days-combined':
-                      return Icons.calendar_today;
-                    case 'visited-categories-combined':
-                      return Icons.category;
-                    case 'most-frequent-emotions':
-                      return Icons.emoji_emotions;
-                    case 'emotion-percentage':
-                      return Icons.pie_chart;
-                    case 'gender-age-combined':
-                      return Icons.people;
-                    case 'emotion-comparison': // Kept for compatibility
-                      return Icons.compare_arrows;
-                    case 'visited-categories-historical':
-                      return Icons.history;
-                    case 'preferred-category-by-gender':
-                      return Icons.wc;
-                    case 'top-successful-categories':
-                      return Icons.trending_up;
-                    case 'emotional-differences-by-category':
-                      return Icons.mood;
-                    case 'age-gender-distribution-by-category':
-                      return Icons.group;
-                    default:
-                      return Icons.analytics;
-                  }
-                }
+            const SizedBox(height: 8),
 
-                return ListTile(
-                  contentPadding: const EdgeInsets.only(left: 70),
-                  dense: true,
-                  leading: Icon(
-                    getStatIcon(option['value']!),
-                    color: Colors.grey,
-                    size: 20,
+            // Dashboard menu item with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  _navigateToView(0);
+                  Navigator.pop(context);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _currentIndex == 0
+                        ? const Color(
+                            0xFFE1F5FF) // Light blue background for selected item
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  title: Text(option['label']!,
-                      style: const TextStyle(fontSize: 14)),
-                  onTap: () {
-                    setState(() {
-                      _currentIndex = 1;
-                    });
-                    // Update statistics view with selected stat type
-                    _statisticsViewKey.currentState
-                        ?.updateSelectedStat(option['value']!);
-                    Navigator.pop(context);
-
-                    // Update URL to statistics
-                    GoRouter.of(context).go('/statistics');
-                  },
-                );
-              }).toList(),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.dashboard,
+                        size: 28,
+                        color: _currentIndex == 0
+                            ? const Color(0xFF223A5E)
+                            : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: _currentIndex == 0
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            // Solo mostrar estos botones si es admin
+
+            // Statistics ExpansionTile with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _currentIndex == 1
+                      ? const Color(
+                          0xFFE1F5FF) // Light blue background for selected item
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
+                  ),
+                  child: ExpansionTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    leading: Icon(
+                      Icons.bar_chart,
+                      size: 28,
+                      color: _currentIndex == 1
+                          ? const Color(0xFF223A5E)
+                          : Colors.grey[600],
+                    ),
+                    title: Text(
+                      'Estadísticas',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: _currentIndex == 1
+                            ? const Color(0xFF223A5E)
+                            : Colors.grey[800],
+                      ),
+                    ),
+                    initiallyExpanded: _showStatisticsSubmenu,
+                    onExpansionChanged: (expanded) {
+                      setState(() {
+                        _showStatisticsSubmenu = expanded;
+                        // Remove the automatic navigation when expanding
+                        // Just toggle the visibility of the submenu
+                      });
+                    },
+                    children: _statisticsController
+                        .getStatisticsOptions()
+                        .map((option) {
+                      // Map de valores de estadísticas a iconos apropiados
+                      IconData getStatIcon(String value) {
+                        switch (value) {
+                          case 'peak-hours':
+                            return Icons.access_time;
+                          case 'least-hours':
+                            return Icons.hourglass_empty;
+                          case 'busy-days-combined':
+                            return Icons.calendar_today;
+                          case 'visited-categories-combined':
+                            return Icons.category;
+                          case 'most-frequent-emotions':
+                            return Icons.emoji_emotions;
+                          case 'emotion-percentage':
+                            return Icons.pie_chart;
+                          case 'gender-age-combined':
+                            return Icons.people;
+                          case 'emotion-comparison': // Kept for compatibility
+                            return Icons.compare_arrows;
+                          case 'visited-categories-historical':
+                            return Icons.history;
+                          case 'preferred-category-by-gender':
+                            return Icons.wc;
+                          case 'top-successful-categories':
+                            return Icons.trending_up;
+                          case 'emotional-differences-by-category':
+                            return Icons.mood;
+                          case 'age-gender-distribution-by-category':
+                            return Icons.group;
+                          default:
+                            return Icons.analytics;
+                        }
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.only(left: 40),
+                          dense: true,
+                          leading: Icon(
+                            getStatIcon(option['value']!),
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                          title: Text(option['label']!,
+                              style: const TextStyle(fontSize: 14)),
+                          onTap: () {
+                            setState(() {
+                              _currentIndex = 1;
+                            });
+                            // Update statistics view with selected stat type
+                            _statisticsViewKey.currentState
+                                ?.updateSelectedStat(option['value']!);
+                            Navigator.pop(context);
+
+                            // Update URL to statistics
+                            GoRouter.of(context).go('/statistics');
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+
+            // Admin menu items with custom styling
             if (Provider.of<AuthController>(context).currentUser?.role ==
                 'admin') ...[
-              ListTile(
-                leading: const Icon(Icons.admin_panel_settings, size: 32),
-                title: const Text('Roles y Privilegios',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                selected: _currentIndex == 2,
-                onTap: () {
-                  _navigateToView(2);
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(2);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 2
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings,
+                          size: 28,
+                          color: _currentIndex == 2
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Roles y Privilegios',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 2
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.category, size: 32),
-                title: const Text('Categorías',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                selected: _currentIndex == 3,
-                onTap: () {
-                  _navigateToView(3);
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(3);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 3
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.category,
+                          size: 28,
+                          color: _currentIndex == 3
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Categorías',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 3
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, size: 32),
-                title: const Text('Cámaras',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                selected: _currentIndex == 4,
-                onTap: () {
-                  _navigateToView(4);
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(4);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 4
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.camera_alt,
+                          size: 28,
+                          color: _currentIndex == 4
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Cámaras',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 4
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
-            const Divider(),
-            ListTile(
-              leading: Icon(
-                  isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round,
-                  size: 32),
-              title: Text(isDarkMode ? 'Modo claro' : 'Modo oscuro',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                // Cerrar el drawer inmediatamente
-                Navigator.pop(context);
 
-                // Comunicar directamente con el controlador de tema global
-                // para cambiar el tema inmediatamente
-                final newMode = Theme.of(context).brightness == Brightness.dark
-                    ? ThemeMode.light
-                    : ThemeMode.dark;
-                themeController.add(newMode);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline, size: 32),
-              title: const Text('Ayuda',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, size: 32),
-              title: const Text('Acerca de',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout, size: 32),
-              title: const Text('Log out',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () async {
-                // Cerrar el drawer primero
-                Navigator.pop(context);
+            const Divider(height: 32),
 
-                // Ejecutar logout
-                await Provider.of<AuthController>(context, listen: false)
-                    .logout();
+            // Theme switch with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  // Cerrar el drawer inmediatamente
+                  Navigator.pop(context);
 
-                // No necesitamos hacer navegación manual aquí.
-                // El AuthWrapper detectará el cambio en isAuthenticated y mostrará LoginView automáticamente
-              },
+                  // Comunicar directamente con el controlador de tema global
+                  // para cambiar el tema inmediatamente
+                  final newMode =
+                      Theme.of(context).brightness == Brightness.dark
+                          ? ThemeMode.light
+                          : ThemeMode.dark;
+                  themeController.add(newMode);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isDarkMode
+                            ? Icons.wb_sunny_outlined
+                            : Icons.nightlight_round,
+                        size: 28,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        isDarkMode ? 'Modo claro' : 'Modo oscuro',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Help button with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.help_outline,
+                        size: 28,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Ayuda',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // About button with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 28,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Acerca de',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const Divider(height: 32),
+
+            // Logout button with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () async {
+                  // Cerrar el drawer primero
+                  Navigator.pop(context);
+
+                  // Ejecutar logout
+                  await Provider.of<AuthController>(context, listen: false)
+                      .logout();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.logout,
+                        size: 28,
+                        color: Colors.red[400],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Log out',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
