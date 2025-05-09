@@ -2120,19 +2120,51 @@ class StatisticsViewState extends State<StatisticsView> {
     // Convertir datos para el gráfico
     final List<HourData> chartData = [];
 
+    // Traducir días de inglés a español
+    final Map<String, String> dayTranslations = {
+      'Monday': 'Lunes',
+      'Tuesday': 'Martes',
+      'Wednesday': 'Miércoles',
+      'Thursday': 'Jueves',
+      'Friday': 'Viernes',
+      'Saturday': 'Sábado',
+      'Sunday': 'Domingo'
+    };
+
     // Ordenar las horas para mostrarlas cronológicamente
     final sortedEntries = data.entries.toList();
     sortedEntries.sort((a, b) {
-      final int timeA = int.tryParse(a.key.toString().split(':')[0]) ?? 0;
-      final int timeB = int.tryParse(b.key.toString().split(':')[0]) ?? 0;
-      return timeA.compareTo(timeB);
+      final String dayA = a.key.toString();
+      final String dayB = b.key.toString();
+
+      // Orden de los días de la semana
+      final dayOrder = {
+        'Monday': 1,
+        'Tuesday': 2,
+        'Wednesday': 3,
+        'Thursday': 4,
+        'Friday': 5,
+        'Saturday': 6,
+        'Sunday': 7
+      };
+
+      return dayOrder[dayA]!.compareTo(dayOrder[dayB]!);
     });
 
     for (var entry in sortedEntries) {
+      final String dayEn = entry.key.toString();
+      final String dayEs = dayTranslations[dayEn] ?? dayEn;
+      final int hourValue = (entry.value is int)
+          ? entry.value
+          : int.tryParse(entry.value.toString()) ?? 0;
+
       chartData.add(HourData(
-        hour: entry.key.toString(),
-        count: (entry.value as num).toDouble(),
-      ));
+          hour: dayEs, // Solo el día para el eje X
+          count:
+              hourValue.toDouble(), // La hora como valor numérico para el eje Y
+          fullLabel:
+              "$dayEs a las ${hourValue.toString().padLeft(2, '0')}:00" // Etiqueta completa para las tarjetas
+          ));
     }
 
     // Titulo del gráfico según el tipo de estadística
@@ -2157,12 +2189,6 @@ class StatisticsViewState extends State<StatisticsView> {
                   ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Cantidad de visitantes por hora del día',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
             const SizedBox(height: 16),
             SizedBox(
               height: chartHeight,
@@ -2170,17 +2196,23 @@ class StatisticsViewState extends State<StatisticsView> {
               child: SfCartesianChart(
                 margin: const EdgeInsets.all(0),
                 primaryXAxis: CategoryAxis(
-                  title: AxisTitle(text: 'Hora del día'),
+                  title: AxisTitle(text: 'Día de la semana'),
                   labelIntersectAction: AxisLabelIntersectAction.rotate45,
                   labelRotation: constraints.maxWidth < 400 ? 45 : 0,
                   maximumLabels: constraints.maxWidth < 400 ? 6 : 12,
                 ),
                 primaryYAxis: NumericAxis(
-                  title: AxisTitle(text: 'Cantidad de visitantes'),
-                  labelFormat: '{value}',
+                  title: AxisTitle(text: 'Hora del día'),
+                  labelFormat: '{value}:00',
+                  minimum: 0,
+                  maximum: 24,
+                  interval: 4,
                 ),
                 legend: Legend(isVisible: false),
-                tooltipBehavior: TooltipBehavior(enable: true),
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  format: 'punto: {point.fullLabel}',
+                ),
                 zoomPanBehavior: ZoomPanBehavior(
                   enablePanning: true,
                   enablePinching: true,
@@ -2193,7 +2225,7 @@ class StatisticsViewState extends State<StatisticsView> {
                     dataSource: chartData,
                     xValueMapper: (HourData data, _) => data.hour,
                     yValueMapper: (HourData data, _) => data.count,
-                    name: 'Visitantes',
+                    name: 'Horas',
                     color: Theme.of(context).colorScheme.primary,
                     markerSettings: const MarkerSettings(
                       isVisible: true,
@@ -2206,44 +2238,43 @@ class StatisticsViewState extends State<StatisticsView> {
               ),
             ),
             const SizedBox(height: 16),
-            // Leyenda de datos - now wrapped to stay within container width
-            constraints.maxWidth > 500
-                ? Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _buildLegendItems(sortedEntries),
-                  )
-                : SizedBox(
-                    height: 100,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: _buildLegendItems(sortedEntries),
+
+            // Leyenda alineada exactamente con los días de la semana del eje X
+            Container(
+              width: constraints.maxWidth,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: chartData.map((data) {
+                  // Cada tarjeta tiene el mismo ancho relativo para alinearse con su punto en el gráfico
+                  return Container(
+                    width: (constraints.maxWidth / chartData.length) - 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
+                    child: Text(
+                      data.fullLabel,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: constraints.maxWidth > 600 ? 12 : 10,
+                          ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ],
         );
       }),
     );
-  }
-
-  List<Widget> _buildLegendItems(List<MapEntry> entries) {
-    return entries.map((entry) {
-      return Container(
-        margin: const EdgeInsets.only(right: 8, bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          '${entry.key}: ${entry.value} visitantes',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-      );
-    }).toList();
   }
 
   // Visualizador para días más y menos concurridos

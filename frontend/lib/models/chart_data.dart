@@ -4,8 +4,9 @@
 class HourData {
   final String hour;
   final double count;
+  final String fullLabel;
 
-  HourData({required this.hour, required this.count});
+  HourData({required this.hour, required this.count, this.fullLabel = ''});
 }
 
 // Datos para gráfico de días
