@@ -2461,10 +2461,19 @@ class StatisticsViewState extends State<StatisticsView> {
               // Tarjeta día más concurrido (verde claro)
               Expanded(
                 child: Container(
+                  height:
+                      300, // Establecer altura fija para igualar las tarjetas de categorías
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F5E9), // Verde claro
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2488,7 +2497,29 @@ class StatisticsViewState extends State<StatisticsView> {
                           ),
                         ],
                       ),
+                      // Añadir espacio para que el contenido sea más alto
+                      const SizedBox(height: 48),
+
+                      // Círculo con icono (similar a la tarjeta de categoría)
+                      Center(
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.calendar_today,
+                              size: 40,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 24),
+
                       // Día de la semana centrado en grande
                       Center(
                         child: Text(
@@ -2503,6 +2534,38 @@ class StatisticsViewState extends State<StatisticsView> {
                           textAlign: TextAlign.center,
                         ),
                       ),
+
+                      const Spacer(), // Espacio flexible para empujar el siguiente elemento hacia abajo
+
+                      // Indicador de afluencia en la parte inferior
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.trending_up,
+                                size: 20,
+                                color: Colors.green[700],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Mayor afluencia',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2513,10 +2576,19 @@ class StatisticsViewState extends State<StatisticsView> {
               // Tarjeta día menos concurrido (naranja claro)
               Expanded(
                 child: Container(
+                  height:
+                      300, // Establecer altura fija para igualar las tarjetas de categorías
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3E0), // Naranja claro
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2540,7 +2612,29 @@ class StatisticsViewState extends State<StatisticsView> {
                           ),
                         ],
                       ),
+                      // Añadir espacio para que el contenido sea más alto
+                      const SizedBox(height: 48),
+
+                      // Círculo con icono (similar a la tarjeta de categoría)
+                      Center(
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.calendar_today,
+                              size: 40,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 24),
+
                       // Día de la semana centrado en grande
                       Center(
                         child: Text(
@@ -2553,6 +2647,38 @@ class StatisticsViewState extends State<StatisticsView> {
                                 fontWeight: FontWeight.bold,
                               ),
                           textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                      const Spacer(), // Espacio flexible para empujar el siguiente elemento hacia abajo
+
+                      // Indicador de afluencia en la parte inferior
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.trending_down,
+                                size: 20,
+                                color: Colors.orange[700],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Menor afluencia',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[700],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
