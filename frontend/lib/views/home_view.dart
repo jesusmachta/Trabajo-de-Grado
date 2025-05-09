@@ -139,7 +139,7 @@ class _HomeViewState extends State<HomeView> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _titles[_currentIndex],
+          'StoreSense',
           style: const TextStyle(
             color: Color(0xFF223A5E),
             fontWeight: FontWeight.bold,

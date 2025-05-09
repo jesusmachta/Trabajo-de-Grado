@@ -809,7 +809,7 @@ class _DashboardViewState extends State<DashboardView> {
         materialColors[index % materialColors.length];
 
     return StatisticCard(
-      title: 'Porcentaje de clientes FELICES por categoría',
+      title: 'Porcentaje de clientes felices por categoría',
       icon: Icons.emoji_emotions,
       content: Column(
         children: [
@@ -1769,19 +1769,25 @@ class _DashboardViewState extends State<DashboardView> {
                 if (topCategories.length > 1 &&
                     topCategories[1]['happy_count'] != null)
                   Text(
-                    '${topCategories[1]['happy_count']} clientes felices',
+                    topCategories[1]['happy_count'] == 1
+                        ? '1 cliente feliz'
+                        : '${topCategories[1]['happy_count']} clientes felices',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 if (topCategories.isNotEmpty &&
                     topCategories[0]['happy_count'] != null)
                   Text(
-                    '${topCategories[0]['happy_count']} clientes felices',
+                    topCategories[0]['happy_count'] == 1
+                        ? '1 cliente feliz'
+                        : '${topCategories[0]['happy_count']} clientes felices',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 if (topCategories.length > 2 &&
                     topCategories[2]['happy_count'] != null)
                   Text(
-                    '${topCategories[2]['happy_count']} clientes felices',
+                    topCategories[2]['happy_count'] == 1
+                        ? '1 cliente feliz'
+                        : '${topCategories[2]['happy_count']} clientes felices',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
               ],

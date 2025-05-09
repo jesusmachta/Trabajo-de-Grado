@@ -514,7 +514,7 @@ class _ProfileViewState extends State<ProfileView>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Perfil del Usuario'),
+        title: const Text('StoreSense'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),

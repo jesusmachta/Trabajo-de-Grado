@@ -336,7 +336,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registrar Empresa'),
+        title: const Text('StoreSense'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),

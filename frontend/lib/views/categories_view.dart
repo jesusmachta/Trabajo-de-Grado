@@ -550,7 +550,7 @@ class _CategoriesViewState extends State<CategoriesView> {
     final isAdmin = authController.currentUser?.role == 'admin';
     if (!isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Acceso denegado')),
+        appBar: AppBar(title: const Text('StoreSense')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
