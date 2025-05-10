@@ -5,6 +5,7 @@ import 'home_view.dart';
 import 'register_company_view.dart';
 import '../controllers/auth_controller.dart';
 import 'forgot_password_view.dart';
+import 'onboarding_view.dart';
 
 class LoginView extends StatefulWidget {
   final Function toggleTheme;
@@ -244,8 +245,17 @@ class _LoginViewState extends State<LoginView> {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => RegisterCompanyView(
+                            builder: (context) => OnboardingView(
                               toggleTheme: widget.toggleTheme,
+                              onFinish: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) => RegisterCompanyView(
+                                      toggleTheme: widget.toggleTheme,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         );
