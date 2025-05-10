@@ -1125,6 +1125,7 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     password: Optional[str] = None
     profile_picture: Optional[str] = None
+    is_active: Optional[bool] = None  # <-- AGREGADO
 
 @router.get("/users", response_model=dict)
 async def get_users(current_user: dict = Depends(get_current_user)):
@@ -1281,6 +1282,10 @@ async def update_user(
         # Incluir el campo profile_picture si se proporciona
         if user_data.profile_picture is not None:
             update_data["profile_picture"] = user_data.profile_picture
+
+        # Incluir el campo is_active si se proporciona
+        if user_data.is_active is not None:
+            update_data["is_active"] = user_data.is_active
 
         # Realizar la actualización en la base de datos
         if update_data:

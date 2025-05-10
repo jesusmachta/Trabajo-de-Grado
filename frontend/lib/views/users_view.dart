@@ -66,6 +66,9 @@ class _UsersViewState extends State<UsersView> {
   bool _obscurePassword = true;
   String? _passwordValidationMessage;
 
+  // Estado de carga para switches individuales
+  Set<String> _loadingUserIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -762,75 +765,39 @@ class _UsersViewState extends State<UsersView> {
     if (_totalPages < 1) _totalPages = 1;
   }
 
-  Future<bool> _toggleUserStatus(String userId, bool currentStatus) async {
+  Future<void> _toggleUserStatus(String userId, bool currentStatus) async {
     final authController = Provider.of<AuthController>(context, listen: false);
     final userController = Provider.of<UserController>(context, listen: false);
 
-    // Check if token is available
     if (authController.token == null) {
       ToastService.showError(context, 'Error: No autenticado.');
-      return false;
+      return;
     }
 
-    // Calculate the new status (opposite of current)
-    final newStatus = !currentStatus;
-
-    // Find the index of the user in the list
-    final int userIndex =
-        userController.users.indexWhere((u) => u.id == userId);
-    if (userIndex == -1) {
-      // User not found
-      ToastService.showError(context, 'Error: Usuario no encontrado.');
-      return false;
-    }
-
-    // First update UI immediately (optimistic update)
     setState(() {
-      // Create a new user object with updated status
-      final updatedUser =
-          userController.users[userIndex].copyWith(isActive: newStatus);
-      // Replace the user in the list with the updated version
-      userController.users[userIndex] = updatedUser;
+      _loadingUserIds.add(userId);
     });
 
-    try {
-      // Call API to update status
-      final response = await http.put(
-        Uri.parse('http://127.0.0.1:8000/api/users/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authController.token!}',
-        },
-        body: jsonEncode({'is_active': newStatus}),
-      );
+    final user = userController.users.firstWhere((u) => u.id == userId);
+    final updatedUser = user.copyWith(isActive: !currentStatus);
 
-      if (response.statusCode == 200) {
-        // Success - UI already updated
-        ToastService.showSuccess(context,
-            'Estado de usuario actualizado a ${newStatus ? 'activo' : 'inactivo'}');
-        return true;
-      } else {
-        // API call failed, revert the UI change
-        setState(() {
-          final revertedUser =
-              userController.users[userIndex].copyWith(isActive: currentStatus);
-          userController.users[userIndex] = revertedUser;
-        });
+    final success = await userController.updateUser(
+      authController.token!,
+      updatedUser,
+    );
 
-        ToastService.showError(context,
-            'Error al actualizar estado. Código: ${response.statusCode}');
-        return false;
-      }
-    } catch (e) {
-      // Network or other error, revert the UI change
-      setState(() {
-        final revertedUser =
-            userController.users[userIndex].copyWith(isActive: currentStatus);
-        userController.users[userIndex] = revertedUser;
-      });
+    setState(() {
+      _loadingUserIds.remove(userId);
+    });
 
-      ToastService.showError(context, 'Error de red: ${e.toString()}');
-      return false;
+    if (success) {
+      ToastService.showSuccess(
+          context,
+          'Estado de usuario actualizado a ' +
+              (!currentStatus ? 'activo' : 'inactivo'));
+    } else {
+      ToastService.showError(
+          context, userController.error ?? 'Error al actualizar estado.');
     }
   }
 
@@ -1103,23 +1070,35 @@ class _UsersViewState extends State<UsersView> {
                           constraints: const BoxConstraints(minWidth: 140),
                           child: Row(
                             children: [
-                              Switch(
-                                value: user.isActive,
-                                onChanged: (authController.currentUser?.id ==
-                                        user.id)
-                                    ? null // Disable switch for current user
-                                    : (newValue) {
-                                        _toggleUserStatus(
-                                            user.id, user.isActive);
-                                      },
-                                activeColor: Colors.white,
-                                activeTrackColor: azulOscuro,
-                                inactiveThumbColor: Colors.white,
-                                inactiveTrackColor: grisClaro,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                splashRadius: 18,
-                              ),
+                              _loadingUserIds.contains(user.id)
+                                  ? const SizedBox(
+                                      width: 36,
+                                      height: 36,
+                                      child: Padding(
+                                        padding: EdgeInsets.all(8.0),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                    )
+                                  : Switch(
+                                      value: user.isActive,
+                                      onChanged: (authController
+                                                      .currentUser?.id ==
+                                                  user.id ||
+                                              _loadingUserIds.contains(user.id))
+                                          ? null // Disable switch for current user or while loading
+                                          : (newValue) {
+                                              _toggleUserStatus(
+                                                  user.id, user.isActive);
+                                            },
+                                      activeColor: Colors.white,
+                                      activeTrackColor: azulOscuro,
+                                      inactiveThumbColor: Colors.white,
+                                      inactiveTrackColor: grisClaro,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      splashRadius: 18,
+                                    ),
                               const SizedBox(width: 8),
                               Text(user.isActive ? 'Activo' : 'Inactivo',
                                   style: TextStyle(
@@ -1193,30 +1172,6 @@ class _UsersViewState extends State<UsersView> {
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
-
-  // Optional: Method to toggle status directly
-  /*
-   void _toggleUserStatus(User user, String token) async {
-     final userController = Provider.of<UserController>(context, listen: false);
-     // Check if token is available
-     if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(content: Text('Error: No autenticado.')),
-       );
-       return;
-     }
-     final success = await userController.toggleUserStatus(token, user);
-     if (success) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Estado de ${user.fullName} actualizado')),
-       );
-     } else {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text(userController.error ?? 'Error al cambiar estado')),
-       );
-     }
-   }
-   */
 
   Widget _buildPaginationControls(ThemeData theme, int totalItems) {
     final Color primaryColor = const Color(0xFF0277BD);
