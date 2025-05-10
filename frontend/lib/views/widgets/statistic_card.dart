@@ -26,8 +26,10 @@ class StatisticCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     final card = Card(
-      elevation: 2,
+      elevation: isDarkMode ? 4 : 2,
       margin: margin,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
@@ -40,10 +42,17 @@ class StatisticCard extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               color: backgroundColor ??
-                  Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                  (isDarkMode
+                      ? Theme.of(context).colorScheme.surface.withOpacity(0.5)
+                      : Theme.of(context)
+                          .colorScheme
+                          .surfaceVariant
+                          .withOpacity(0.3)),
               border: Border(
                 bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: isDarkMode
+                      ? Theme.of(context).dividerColor
+                      : Theme.of(context).colorScheme.outline.withOpacity(0.2),
                 ),
               ),
             ),
@@ -61,6 +70,7 @@ class StatisticCard extends StatelessWidget {
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : null,
                         ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -73,6 +83,7 @@ class StatisticCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(16.0),
                     width: double.infinity,
+                    color: isDarkMode ? Theme.of(context).cardColor : null,
                     child: content,
                   ),
                 )
@@ -80,6 +91,7 @@ class StatisticCard extends StatelessWidget {
                   padding: const EdgeInsets.all(16.0),
                   width: double.infinity,
                   height: height,
+                  color: isDarkMode ? Theme.of(context).cardColor : null,
                   child: content,
                 ),
         ],
@@ -119,11 +131,13 @@ class StatisticValueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final cardColor = color ?? Theme.of(context).colorScheme.primary;
-    final bgColor = backgroundColor ?? cardColor.withOpacity(0.1);
+    final bgColor = backgroundColor ??
+        (isDarkMode ? cardColor.withOpacity(0.15) : cardColor.withOpacity(0.1));
 
     final card = Card(
-      elevation: 2,
+      elevation: isDarkMode ? 4 : 2,
       margin: const EdgeInsets.all(8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -141,12 +155,12 @@ class StatisticValueCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: cardColor.withOpacity(0.2),
+                color: cardColor.withOpacity(isDarkMode ? 0.3 : 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
-                color: cardColor,
+                color: isDarkMode ? Colors.white : cardColor,
                 size: 24,
               ),
             ),
@@ -155,18 +169,20 @@ class StatisticValueCard extends StatelessWidget {
               value,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: cardColor,
+                    color: isDarkMode ? Colors.white : cardColor,
                   ),
             ),
             const SizedBox(height: 4),
             Text(
               title,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .textTheme
-                        .bodyLarge
-                        ?.color
-                        ?.withOpacity(0.7),
+                    color: isDarkMode
+                        ? Colors.white.withOpacity(0.9)
+                        : Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.color
+                            ?.withOpacity(0.7),
                   ),
             ),
           ],

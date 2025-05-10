@@ -23,6 +23,15 @@ class EmotionPercentageData {
   });
 }
 
+// Clase para datos de gráfico de horas
+class HourData {
+  final String hour;
+  final double count;
+  final String fullLabel;
+
+  HourData({required this.hour, required this.count, this.fullLabel = ''});
+}
+
 class DashboardView extends StatefulWidget {
   final Function toggleTheme;
 
@@ -358,212 +367,255 @@ class _DashboardViewState extends State<DashboardView> {
     final hourData = data['data'] as Map<String, dynamic>;
 
     // Convert data for the chart
-    final List<FlSpot> spots = [];
-    final List<String> hourLabels = [];
-    int maxCount = 0;
+    final List<HourData> chartData = [];
 
-    // Sort hours chronologically
-    final sortedHours = hourData.keys.toList()
-      ..sort((a, b) {
-        final int timeA = int.tryParse(a.toString().split(':')[0]) ?? 0;
-        final int timeB = int.tryParse(b.toString().split(':')[0]) ?? 0;
-        return timeA.compareTo(timeB);
-      });
+    // Traducir días de inglés a español
+    final Map<String, String> dayTranslations = {
+      'Monday': 'Lunes',
+      'Tuesday': 'Martes',
+      'Wednesday': 'Miércoles',
+      'Thursday': 'Jueves',
+      'Friday': 'Viernes',
+      'Saturday': 'Sábado',
+      'Sunday': 'Domingo'
+    };
 
-    // Create spots for each hour
-    for (int i = 0; i < sortedHours.length; i++) {
-      final hour = sortedHours[i];
-      final count = hourData[hour] as int;
-      spots.add(FlSpot(i.toDouble(), count.toDouble()));
-      hourLabels.add(hour.toString());
+    // Ordenar las horas para mostrarlas cronológicamente
+    final sortedEntries = hourData.entries.toList();
+    sortedEntries.sort((a, b) {
+      final String dayA = a.key.toString();
+      final String dayB = b.key.toString();
 
-      if (count > maxCount) {
-        maxCount = count;
-      }
+      // Orden de los días de la semana
+      final dayOrder = {
+        'Monday': 1,
+        'Tuesday': 2,
+        'Wednesday': 3,
+        'Thursday': 4,
+        'Friday': 5,
+        'Saturday': 6,
+        'Sunday': 7
+      };
+
+      return dayOrder[dayA]!.compareTo(dayOrder[dayB]!);
+    });
+
+    for (var entry in sortedEntries) {
+      final String dayEn = entry.key.toString();
+      final String dayEs = dayTranslations[dayEn] ?? dayEn;
+      final int hourValue = (entry.value is int)
+          ? entry.value
+          : int.tryParse(entry.value.toString()) ?? 0;
+
+      chartData.add(HourData(
+          hour: dayEs, // Solo el día para el eje X
+          count:
+              hourValue.toDouble(), // La hora como valor numérico para el eje Y
+          fullLabel:
+              "$dayEs a las ${hourValue.toString().padLeft(2, '0')}:00" // Etiqueta completa para las tarjetas
+          ));
     }
 
-    // Round up to nearest multiple of 5 for y-axis max
-    final yAxisMax = ((maxCount / 5).ceil() * 5).toDouble();
+    // Obtener colores para el gráfico
+    final Color primaryColor = Theme.of(context).colorScheme.primary;
+    final Color accentColor = primaryColor.withOpacity(0.7);
+    final Color surfaceColor = Theme.of(context).colorScheme.surface;
 
     return StatisticCard(
       title: 'Horas con mayor afluencia de clientes',
       icon: Icons.trending_up,
-      content: Column(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: true,
-                    horizontalInterval: 5,
-                    verticalInterval: 1,
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.2),
-                        strokeWidth: 1,
-                      );
-                    },
-                    getDrawingVerticalLine: (value) {
-                      return FlLine(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.2),
-                        strokeWidth: 1,
-                      );
-                    },
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          final int index = value.toInt();
-                          if (index < 0 || index >= hourLabels.length) {
-                            return const SizedBox();
-                          }
+      content: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: LayoutBuilder(builder: (context, constraints) {
+          // Adjust chart based on available width
+          double chartHeight = constraints.maxWidth > 600 ? 300 : 250;
 
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              hourLabels[index],
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.8),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          if (value % 5 != 0) return const SizedBox();
-
-                          return Text(
-                            value.toInt().toString(),
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.8),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                  ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.4),
-                        width: 1,
-                      ),
-                      left: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.4),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  minX: 0,
-                  maxX: spots.length - 1.0,
-                  minY: 0,
-                  maxY: yAxisMax,
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: spots,
-                      isCurved: true,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Horas con mayor afluencia de clientes',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 5.0,
-                            color: Theme.of(context).colorScheme.primary,
-                            strokeWidth: 1,
-                            strokeColor: Theme.of(context).colorScheme.surface,
-                          );
-                        },
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: chartHeight,
+                width: constraints.maxWidth,
+                child: SfCartesianChart(
+                  margin: const EdgeInsets.all(8),
+                  plotAreaBorderWidth: 0,
+                  primaryXAxis: CategoryAxis(
+                    title: AxisTitle(
+                      text: 'Día de la semana',
+                      textStyle: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withOpacity(0.2),
+                    ),
+                    majorGridLines: const MajorGridLines(width: 0),
+                    axisLine: AxisLine(
+                      width: 1,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.5),
+                    ),
+                    labelIntersectAction: AxisLabelIntersectAction.rotate45,
+                    labelRotation: constraints.maxWidth < 400 ? 45 : 0,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  primaryYAxis: NumericAxis(
+                    title: AxisTitle(
+                      text: 'Hora del día',
+                      textStyle: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
+                    ),
+                    labelFormat: '{value}:00',
+                    minimum: 0,
+                    maximum: 24,
+                    interval: 4,
+                    majorGridLines: MajorGridLines(
+                      width: 0.5,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.3),
+                      dashArray: const <double>[5, 5],
+                    ),
+                    axisLine: AxisLine(
+                      width: 1,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.5),
+                    ),
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.normal,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  legend: Legend(isVisible: false),
+                  tooltipBehavior: TooltipBehavior(
+                    enable: true,
+                    format: 'Día: {point.x}\nHora: {point.y}:00',
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    textStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                    duration: 2500,
+                    animationDuration: 500,
+                  ),
+                  trackballBehavior: TrackballBehavior(
+                    enable: true,
+                    activationMode: ActivationMode.singleTap,
+                    tooltipSettings: InteractiveTooltip(
+                      enable: true,
+                      color: surfaceColor,
+                      borderColor: primaryColor,
+                      borderWidth: 1.5,
+                      textStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    lineType: TrackballLineType.vertical,
+                    lineColor: primaryColor.withOpacity(0.5),
+                    lineWidth: 1,
+                    markerSettings: const TrackballMarkerSettings(
+                      markerVisibility: TrackballVisibilityMode.visible,
+                      height: 10,
+                      width: 10,
+                      borderWidth: 1,
+                    ),
+                  ),
+                  series: <CartesianSeries>[
+                    // Línea brillante en primer plano
+                    SplineSeries<HourData, String>(
+                      dataSource: chartData,
+                      xValueMapper: (HourData data, _) => data.hour,
+                      yValueMapper: (HourData data, _) => data.count,
+                      name: 'Horas',
+                      color: primaryColor,
+                      width: 3,
+                      markerSettings: MarkerSettings(
+                        isVisible: true,
+                        height: 8,
+                        width: 8,
+                        shape: DataMarkerType.circle,
+                        borderWidth: 2,
+                        borderColor: primaryColor,
+                        color: surfaceColor,
+                      ),
+                      animationDuration: 1500,
+                      enableTooltip: true,
+                    ),
+                    // Área con gradiente para efecto de profundidad
+                    SplineAreaSeries<HourData, String>(
+                      dataSource: chartData,
+                      xValueMapper: (HourData data, _) => data.hour,
+                      yValueMapper: (HourData data, _) => data.count,
+                      name: 'Área',
+                      borderWidth: 0,
+                      animationDuration: 1800,
+                      borderDrawMode: BorderDrawMode.top,
+                      gradient: LinearGradient(
+                        colors: [
+                          primaryColor.withOpacity(0.7),
+                          primaryColor.withOpacity(0.5),
+                          primaryColor.withOpacity(0.2),
+                          primaryColor.withOpacity(0.05),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      enableTooltip: false,
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-          // Visitor counts
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(
-                min(7, sortedHours.length),
-                (index) {
-                  final hour = sortedHours[index];
-                  final count = hourData[hour] as int;
+              const SizedBox(height: 16),
+
+              // Leyenda para los puntos de datos
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: chartData.map((data) {
                   return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceVariant
-                          .withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(8),
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     child: Text(
-                      '$count visitantes',
+                      data.fullLabel,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: primaryColor,
                       ),
                     ),
                   );
-                },
+                }).toList(),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        }),
       ),
       expanded: false,
       height: 400,
@@ -598,210 +650,255 @@ class _DashboardViewState extends State<DashboardView> {
     final hourData = data['data'] as Map<String, dynamic>;
 
     // Convert data for the chart
-    final List<FlSpot> spots = [];
-    final List<String> hourLabels = [];
-    int maxCount = 0;
+    final List<HourData> chartData = [];
 
-    // Sort hours chronologically
-    final sortedHours = hourData.keys.toList()
-      ..sort((a, b) {
-        final int timeA = int.tryParse(a.toString().split(':')[0]) ?? 0;
-        final int timeB = int.tryParse(b.toString().split(':')[0]) ?? 0;
-        return timeA.compareTo(timeB);
-      });
+    // Traducir días de inglés a español
+    final Map<String, String> dayTranslations = {
+      'Monday': 'Lunes',
+      'Tuesday': 'Martes',
+      'Wednesday': 'Miércoles',
+      'Thursday': 'Jueves',
+      'Friday': 'Viernes',
+      'Saturday': 'Sábado',
+      'Sunday': 'Domingo'
+    };
 
-    // Create spots for each hour
-    for (int i = 0; i < sortedHours.length; i++) {
-      final hour = sortedHours[i];
-      final count = hourData[hour] as int;
-      spots.add(FlSpot(i.toDouble(), count.toDouble()));
-      hourLabels.add(hour.toString());
+    // Ordenar las horas para mostrarlas cronológicamente
+    final sortedEntries = hourData.entries.toList();
+    sortedEntries.sort((a, b) {
+      final String dayA = a.key.toString();
+      final String dayB = b.key.toString();
 
-      if (count > maxCount) {
-        maxCount = count;
-      }
+      // Orden de los días de la semana
+      final dayOrder = {
+        'Monday': 1,
+        'Tuesday': 2,
+        'Wednesday': 3,
+        'Thursday': 4,
+        'Friday': 5,
+        'Saturday': 6,
+        'Sunday': 7
+      };
+
+      return dayOrder[dayA]!.compareTo(dayOrder[dayB]!);
+    });
+
+    for (var entry in sortedEntries) {
+      final String dayEn = entry.key.toString();
+      final String dayEs = dayTranslations[dayEn] ?? dayEn;
+      final int hourValue = (entry.value is int)
+          ? entry.value
+          : int.tryParse(entry.value.toString()) ?? 0;
+
+      chartData.add(HourData(
+          hour: dayEs, // Solo el día para el eje X
+          count:
+              hourValue.toDouble(), // La hora como valor numérico para el eje Y
+          fullLabel:
+              "$dayEs a las ${hourValue.toString().padLeft(2, '0')}:00" // Etiqueta completa para las tarjetas
+          ));
     }
 
-    // Round up to nearest multiple of 5 for y-axis max
-    final yAxisMax = max(((maxCount / 5).ceil() * 5).toDouble(), 5.0);
+    // Color para menor afluencia
+    final Color tealColor = Colors.teal;
+    final Color surfaceColor = Theme.of(context).colorScheme.surface;
 
     return StatisticCard(
       title: 'Horas con menor afluencia de clientes',
       icon: Icons.trending_down,
-      content: Column(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: true,
-                    horizontalInterval: 2,
-                    verticalInterval: 1,
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.2),
-                        strokeWidth: 1,
-                      );
-                    },
-                    getDrawingVerticalLine: (value) {
-                      return FlLine(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.2),
-                        strokeWidth: 1,
-                      );
-                    },
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          final int index = value.toInt();
-                          if (index < 0 || index >= hourLabels.length) {
-                            return const SizedBox();
-                          }
+      content: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: LayoutBuilder(builder: (context, constraints) {
+          // Adjust chart based on available width
+          double chartHeight = constraints.maxWidth > 600 ? 300 : 250;
 
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              hourLabels[index],
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.8),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          );
-                        },
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Horas con menor afluencia de clientes',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: tealColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: chartHeight,
+                width: constraints.maxWidth,
+                child: SfCartesianChart(
+                  margin: const EdgeInsets.all(8),
+                  plotAreaBorderWidth: 0,
+                  primaryXAxis: CategoryAxis(
+                    title: AxisTitle(
+                      text: 'Día de la semana',
+                      textStyle: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          // Show every 2 values for least hours chart
-                          if (value % 2 != 0) return const SizedBox();
-
-                          return Text(
-                            value.toInt().toString(),
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.8),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          );
-                        },
-                      ),
+                    majorGridLines: const MajorGridLines(width: 0),
+                    axisLine: AxisLine(
+                      width: 1,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.5),
                     ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
+                    labelIntersectAction: AxisLabelIntersectAction.rotate45,
+                    labelRotation: constraints.maxWidth < 400 ? 45 : 0,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.4),
-                        width: 1,
-                      ),
-                      left: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.4),
-                        width: 1,
+                  primaryYAxis: NumericAxis(
+                    title: AxisTitle(
+                      text: 'Hora del día',
+                      textStyle: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
+                    labelFormat: '{value}:00',
+                    minimum: 0,
+                    maximum: 24,
+                    interval: 4,
+                    majorGridLines: MajorGridLines(
+                      width: 0.5,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.3),
+                      dashArray: const <double>[5, 5],
+                    ),
+                    axisLine: AxisLine(
+                      width: 1,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.5),
+                    ),
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.normal,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                  minX: 0,
-                  maxX: spots.length - 1.0,
-                  minY: 0,
-                  maxY: yAxisMax,
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: spots,
-                      isCurved: true,
-                      color: Colors.teal,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 5.0,
-                            color: Colors.teal,
-                            strokeWidth: 1,
-                            strokeColor: Theme.of(context).colorScheme.surface,
-                          );
-                        },
+                  legend: Legend(isVisible: false),
+                  tooltipBehavior: TooltipBehavior(
+                    enable: true,
+                    format: 'Día: {point.x}\nHora: {point.y}:00',
+                    color: Colors.teal.shade100,
+                    textStyle: TextStyle(
+                      color: Colors.teal.shade900,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    duration: 2500,
+                    animationDuration: 500,
+                  ),
+                  trackballBehavior: TrackballBehavior(
+                    enable: true,
+                    activationMode: ActivationMode.singleTap,
+                    tooltipSettings: InteractiveTooltip(
+                      enable: true,
+                      color: surfaceColor,
+                      borderColor: tealColor,
+                      borderWidth: 1.5,
+                      textStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: Colors.teal.withOpacity(0.2),
+                    ),
+                    lineType: TrackballLineType.vertical,
+                    lineColor: tealColor.withOpacity(0.5),
+                    lineWidth: 1,
+                    markerSettings: const TrackballMarkerSettings(
+                      markerVisibility: TrackballVisibilityMode.visible,
+                      height: 10,
+                      width: 10,
+                      borderWidth: 1,
+                    ),
+                  ),
+                  series: <CartesianSeries>[
+                    // Línea brillante en primer plano
+                    SplineSeries<HourData, String>(
+                      dataSource: chartData,
+                      xValueMapper: (HourData data, _) => data.hour,
+                      yValueMapper: (HourData data, _) => data.count,
+                      name: 'Horas',
+                      color: tealColor,
+                      width: 3,
+                      markerSettings: MarkerSettings(
+                        isVisible: true,
+                        height: 8,
+                        width: 8,
+                        shape: DataMarkerType.circle,
+                        borderWidth: 2,
+                        borderColor: tealColor,
+                        color: surfaceColor,
                       ),
+                      animationDuration: 1500,
+                      enableTooltip: true,
+                    ),
+                    // Área con gradiente para efecto de profundidad
+                    SplineAreaSeries<HourData, String>(
+                      dataSource: chartData,
+                      xValueMapper: (HourData data, _) => data.hour,
+                      yValueMapper: (HourData data, _) => data.count,
+                      name: 'Área',
+                      borderWidth: 0,
+                      animationDuration: 1800,
+                      borderDrawMode: BorderDrawMode.top,
+                      gradient: LinearGradient(
+                        colors: [
+                          tealColor.withOpacity(0.7),
+                          tealColor.withOpacity(0.5),
+                          tealColor.withOpacity(0.2),
+                          tealColor.withOpacity(0.05),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      enableTooltip: false,
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-          // Visitor counts
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(
-                min(7, sortedHours.length),
-                (index) {
-                  final hour = sortedHours[index];
-                  final count = hourData[hour] as int;
+              const SizedBox(height: 16),
+
+              // Leyenda para los puntos de datos
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: chartData.map((data) {
                   return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceVariant
-                          .withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(8),
+                      color: tealColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: tealColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     child: Text(
-                      '$count visitantes',
+                      data.fullLabel,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: tealColor,
                       ),
                     ),
                   );
-                },
+                }).toList(),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        }),
       ),
       expanded: false,
       height: 400,

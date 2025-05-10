@@ -218,13 +218,19 @@ class _HomeViewState extends State<HomeView> {
       appBar: AppBar(
         title: Text(
           'StoreSense',
-          style: const TextStyle(
-            color: Color(0xFF223A5E),
+          style: TextStyle(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : const Color(0xFF223A5E),
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF223A5E),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).appBarTheme.backgroundColor
+            : Colors.white,
+        foregroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : const Color(0xFF223A5E),
         elevation: 0,
         centerTitle: false,
         actions: [
@@ -232,10 +238,12 @@ class _HomeViewState extends State<HomeView> {
             children: [
               Text(
                 '¡Hola, $userName!',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
-                  color: Color(0xFF223A5E),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : const Color(0xFF223A5E),
                 ),
               ),
               const SizedBox(width: 12),

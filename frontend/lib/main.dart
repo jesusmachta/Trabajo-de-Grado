@@ -290,6 +290,10 @@ class _MyAppState extends State<MyApp> {
           surface: Color(0xFF121212),
           background: Color(0xFF121212),
           surfaceVariant: darkBlue.withOpacity(0.3),
+          onSurface: Colors.white,
+          onBackground: Colors.white,
+          secondary: Color(0xFF81D4FA),
+          onSecondary: Colors.white,
         ),
         scaffoldBackgroundColor: Color(0xFF121212),
         // Personalización de texto para Material 3
@@ -308,12 +312,21 @@ class _MyAppState extends State<MyApp> {
               TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
           bodyLarge: TextStyle(color: Colors.white),
           bodyMedium: TextStyle(color: Colors.white70),
+          bodySmall: TextStyle(color: Colors.white70),
+          labelLarge: TextStyle(color: Colors.white),
+          labelMedium: TextStyle(color: Colors.white),
+          labelSmall: TextStyle(color: Colors.white),
         ),
         // Configuración para los componentes
         appBarTheme: AppBarTheme(
           centerTitle: false,
-          backgroundColor: darkBlue,
+          backgroundColor: Color(0xFF0D2B4E),
           foregroundColor: Colors.white,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
           elevation: 0,
         ),
         cardTheme: CardTheme(
@@ -356,7 +369,7 @@ class _MyAppState extends State<MyApp> {
         // Configuración para los inputs
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: darkBlue.withOpacity(0.2),
+          fillColor: Color(0xFF2C3A47),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
@@ -371,10 +384,35 @@ class _MyAppState extends State<MyApp> {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Color(0xFF64B5F6), width: 2),
           ),
+          labelStyle: TextStyle(color: Colors.white70),
+          hintStyle: TextStyle(color: Colors.white54),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: darkBlue.withOpacity(0.2),
+          backgroundColor: Color(0xFF0D2B4E),
           indicatorColor: Color(0xFF64B5F6).withOpacity(0.3),
+          labelTextStyle: MaterialStateProperty.all(
+            TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          ),
+          iconTheme: MaterialStateProperty.all(
+            IconThemeData(color: Colors.white),
+          ),
+        ),
+        listTileTheme: ListTileThemeData(
+          textColor: Colors.white,
+          iconColor: Colors.white,
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: Color(0xFF2C3A47),
+          textStyle: TextStyle(color: Colors.white),
+        ),
+        dropdownMenuTheme: DropdownMenuThemeData(
+          textStyle: TextStyle(color: Colors.white),
+          menuStyle: MenuStyle(
+            backgroundColor: MaterialStateProperty.all(Color(0xFF2C3A47)),
+          ),
+        ),
+        dividerTheme: DividerThemeData(
+          color: Colors.white24,
         ),
       ),
       themeMode: _themeMode,

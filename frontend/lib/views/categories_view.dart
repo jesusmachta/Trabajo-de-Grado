@@ -455,7 +455,16 @@ class _CategoriesViewState extends State<CategoriesView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Activo'),
+                        Text(
+                          'Activo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : null,
+                          ),
+                        ),
                         Switch(
                           value: isActive,
                           onChanged: (value) {
@@ -634,7 +643,16 @@ class _CategoriesViewState extends State<CategoriesView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Activo'),
+                        Text(
+                          'Activo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : null,
+                          ),
+                        ),
                         Switch(
                           value: isActive,
                           onChanged: (value) {

@@ -536,14 +536,32 @@ class _UsersViewState extends State<UsersView> {
                       labelText: 'Estado',
                       border: OutlineInputBorder(),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem<bool>(
                         value: true,
-                        child: Text('Activo'),
+                        child: Text(
+                          'Activo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : null,
+                          ),
+                        ),
                       ),
                       DropdownMenuItem<bool>(
                         value: false,
-                        child: Text('Inactivo'),
+                        child: Text(
+                          'Inactivo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : null,
+                          ),
+                        ),
                       ),
                     ],
                     onChanged: (value) {
