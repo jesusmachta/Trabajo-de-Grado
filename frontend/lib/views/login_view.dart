@@ -94,6 +94,16 @@ class _LoginViewState extends State<LoginView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Logo
+                    Center(
+                      child: Image.asset(
+                        'assets/images/storesense_logo.png',
+                        height: 80,
+                        width: 80,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
                     // Title and subtitle
                     const Text(
                       'Bienvenido de nuevo',

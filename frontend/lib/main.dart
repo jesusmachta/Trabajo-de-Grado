@@ -184,7 +184,17 @@ class _MyAppState extends State<MyApp> {
         return Overlay(
           initialEntries: [
             OverlayEntry(
-              builder: (context) => child!,
+              builder: (context) {
+                // Apply app icon to top level
+                if (child != null) {
+                  final mediaQueryData = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: mediaQueryData,
+                    child: child,
+                  );
+                }
+                return Container();
+              },
             ),
           ],
         );

@@ -216,14 +216,24 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'StoreSense',
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : const Color(0xFF223A5E),
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/storesense_logo.png',
+              height: 40,
+              width: 40,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'StoreSense',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : const Color(0xFF223A5E),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Theme.of(context).brightness == Brightness.dark
             ? Theme.of(context).appBarTheme.backgroundColor
@@ -317,13 +327,23 @@ class _HomeViewState extends State<HomeView> {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
               color: Theme.of(context).colorScheme.surfaceVariant,
-              child: const Text(
-                'StoreSense',
-                style: TextStyle(
-                  color: Color(0xFF223A5E),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                ),
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/images/storesense_logo.png',
+                    height: 40,
+                    width: 40,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'StoreSense',
+                    style: TextStyle(
+                      color: Color(0xFF223A5E),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
