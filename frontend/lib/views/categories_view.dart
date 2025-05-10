@@ -591,6 +591,16 @@ class _CategoriesViewState extends State<CategoriesView> {
                         setModalState(() {
                           errorTextTipoProducto =
                               null; // Limpiar error al escribir
+
+                          // Validación para asegurar que sea un número entero
+                          if (value.isNotEmpty) {
+                            try {
+                              int.parse(value);
+                            } catch (e) {
+                              errorTextTipoProducto =
+                                  'Debe ser un número entero';
+                            }
+                          }
                         });
                       },
                     ),
@@ -654,6 +664,17 @@ class _CategoriesViewState extends State<CategoriesView> {
                       });
                       return;
                     }
+
+                    // Validar que Tipo_Producto sea un número entero
+                    try {
+                      int.parse(tipoProductoController.text.trim());
+                    } catch (e) {
+                      setModalState(() {
+                        errorTextTipoProducto = 'Debe ser un número entero';
+                      });
+                      return;
+                    }
+
                     if (categoriaProductoController.text.trim().isEmpty) {
                       setModalState(() {
                         errorTextCategoriaProducto =
