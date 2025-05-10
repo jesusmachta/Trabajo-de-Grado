@@ -669,7 +669,9 @@ class _HomeViewState extends State<HomeView> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: InkWell(
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Cerrar el drawer
+                  // Navegar a la vista de Ayuda
+                  GoRouter.of(context).push('/help');
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
@@ -705,7 +707,9 @@ class _HomeViewState extends State<HomeView> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: InkWell(
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Cerrar el drawer
+                  // Navegar a la vista de Acerca de
+                  GoRouter.of(context).push('/about');
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(

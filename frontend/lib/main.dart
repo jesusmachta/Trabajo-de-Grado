@@ -10,6 +10,8 @@ import 'controllers/chat_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:go_router/go_router.dart';
+import 'views/help_view.dart';
+import 'views/about_view.dart';
 
 // Create a global theme controller
 final themeController = StreamController<ThemeMode>.broadcast();
@@ -96,6 +98,14 @@ final GoRouter router = GoRouter(
         },
         initialView: 'chat',
       ),
+    ),
+    GoRoute(
+      path: '/help',
+      builder: (context, state) => const HelpView(),
+    ),
+    GoRoute(
+      path: '/about',
+      builder: (context, state) => const AboutView(),
     ),
   ],
 );

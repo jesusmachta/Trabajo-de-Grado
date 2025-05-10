@@ -50,6 +50,32 @@ class StatisticsViewState extends State<StatisticsView> {
   int? _selectedMonth; // Default for other stats
   int? _selectedYear; // Default for other stats
 
+  // Mapa con descripciones para cada tipo de estadística
+  final Map<String, String> _statisticsDescriptions = {
+    'peak-hours':
+        'Muestra las horas del día con mayor afluencia de clientes durante la semana o mes seleccionado. Esta información es útil para optimizar la asignación de personal y recursos.',
+    'least-hours':
+        'Presenta las horas del día con menor afluencia de clientes. Puede ser útil para programar tareas de mantenimiento o actividades que requieran menos interacción con clientes.',
+    'busy-days-combined':
+        'Comparativa entre los días de la semana con mayor y menor cantidad de visitantes. Ayuda a identificar patrones semanales de tráfico de clientes.',
+    'visited-categories-combined':
+        'Muestra las categorías de productos más y menos visitadas por los clientes. Esta información puede guiar decisiones sobre promociones, ubicación de productos y estrategias de marketing.',
+    'most-frequent-emotions':
+        'Presenta las emociones más comunes detectadas en los clientes. Útil para entender el estado emocional general de los visitantes.',
+    'emotion-percentage':
+        'Distribución porcentual de las diferentes emociones detectadas en los clientes por categoría. Ayuda a entender la respuesta emocional a distintos productos.',
+    'gender-age-combined':
+        'Datos demográficos de los clientes según género y grupos de edad. Permite conocer mejor el perfil de la clientela para adaptar estrategias de marketing y producto.',
+    'preferred-category-by-gender':
+        'Muestra las categorías de productos preferidas según el género de los clientes. Útil para estrategias de marketing segmentadas.',
+    'top-successful-categories':
+        'Ranking de las categorías mejor evaluadas o más exitosas entre los clientes. Ayuda a identificar productos estrella y tendencias.',
+    'emotional-differences-by-category':
+        'Analiza las diferencias en las respuestas emocionales de los clientes según género y categoría de producto. Útil para entender preferencias específicas.',
+    'age-gender-distribution-by-category':
+        'Detalla la distribución demográfica de los clientes por categoría de producto, mostrando patrones de interés según edad y género.',
+  };
+
   // State specific for visited-categories-combined
   String _selectedCategoryPeriodType =
       'historic'; // Cambiado a 'historic' para iniciar en histórico
@@ -560,6 +586,74 @@ class StatisticsViewState extends State<StatisticsView> {
     return months[month - 1];
   }
 
+  // Método para mostrar el diálogo de ayuda
+  void _showHelpDialog() {
+    String description = _statisticsDescriptions[_selectedStat] ??
+        'Información sobre esta estadística no disponible';
+
+    // Obtener título de la estadística seleccionada
+    String title = '';
+    for (var option in _controller.getStatisticsOptions()) {
+      if (option['value'] == _selectedStat) {
+        title = option['label'] ?? '';
+        break;
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                _getIconForStatistic(_selectedStat),
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Acerca de: $title',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '* Estas estadísticas se generan a partir del análisis en tiempo real de los clientes en la tienda.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Entendido'),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1007,10 +1101,36 @@ class StatisticsViewState extends State<StatisticsView> {
 
             const SizedBox(height: 16),
 
-            // Refresh button
+            // Refresh button and Help button
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // Help button (new)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    onPressed: _showHelpDialog,
+                    icon: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Icon(
+                          Icons.question_mark,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    tooltip: 'Ayuda sobre esta estadística',
+                  ),
+                ),
+                // Existing refresh button
                 OutlinedButton.icon(
                   onPressed: () {
                     setState(() {
