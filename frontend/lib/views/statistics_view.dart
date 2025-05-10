@@ -8,6 +8,7 @@ import '../models/chart_data.dart';
 import 'widgets/statistic_card.dart';
 import 'widgets/statistics_selector.dart';
 import 'package:month_picker_dialog/month_picker_dialog.dart'; // Import month picker
+import '../controllers/categories_controller.dart'; // Importar el controlador de categorías
 
 // String extension to add capitalize functionality
 extension StringExtension on String {
@@ -39,6 +40,8 @@ class StatisticsView extends StatefulWidget {
 // Make the state class public by removing the underscore
 class StatisticsViewState extends State<StatisticsView> {
   final StatisticsController _controller = StatisticsController();
+  final CategoriesController _categoriesController =
+      CategoriesController(); // Añadir controlador de categorías
   bool _isLoading = false;
   String _selectedStat = 'peak-hours';
   String _selectedPeriod = 'week'; // Default for other stats
@@ -56,6 +59,10 @@ class StatisticsViewState extends State<StatisticsView> {
   // Change to dynamic to accept both Map and List
   dynamic _statisticsData;
   String? _error;
+
+  // Para manejar categorías
+  List<Map<String, dynamic>> _categories = []; // Lista de categorías
+  Map<String, String> _categoryIconMap = {}; // Mapa de nombre a icono
 
   // Method to update the selected stat from outside
   void updateSelectedStat(String stat) {
@@ -103,6 +110,7 @@ class StatisticsViewState extends State<StatisticsView> {
     _selectedCategoryPeriodType = 'historic'; // Inicia en histórico
     _initAvailablePeriods();
     _loadStatistics();
+    _loadCategoryIcons(); // Cargar iconos de categorías
   }
 
   // NUEVO: Inicializar semanas y meses disponibles
@@ -1557,6 +1565,15 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Get icon for category
   IconData _getCategoryIcon(String category) {
+    // Primero buscar en nuestro mapa de iconos personalizados
+    final String iconName = _categoryIconMap[category.toLowerCase()] ?? '';
+
+    if (iconName.isNotEmpty) {
+      // Si encontramos un ícono personalizado, usarlo
+      return _getIconDataFromName(iconName);
+    }
+
+    // Fallback a la lógica original para compatibilidad
     switch (category.toLowerCase()) {
       case 'alcohol':
         return Icons.liquor;
@@ -6219,6 +6236,96 @@ class StatisticsViewState extends State<StatisticsView> {
         return 'diciembre';
       default:
         return '';
+    }
+  }
+
+  // Función auxiliar para convertir nombres de iconos en objetos IconData
+  IconData _getIconDataFromName(String name) {
+    // Mapa de iconos - mismos que en IconDataHelper
+    Map<String, IconData> iconMap = {
+      'category': Icons.category,
+      'shopping_basket': Icons.shopping_basket,
+      'fastfood': Icons.fastfood,
+      'local_drink': Icons.local_drink,
+      'bakery_dining': Icons.bakery_dining,
+      'restaurant': Icons.restaurant,
+      'liquor': Icons.liquor,
+      'local_mall': Icons.local_mall,
+      'checkroom': Icons.checkroom,
+      'diamond': Icons.diamond,
+      'watch': Icons.watch,
+      'devices': Icons.devices,
+      'phone_android': Icons.phone_android,
+      'tv': Icons.tv,
+      'laptop': Icons.laptop,
+      'headphones': Icons.headphones,
+      'camera_alt': Icons.camera_alt,
+      'sports_basketball': Icons.sports_basketball,
+      'sports_soccer': Icons.sports_soccer,
+      'sports_tennis': Icons.sports_tennis,
+      'fitness_center': Icons.fitness_center,
+      'home': Icons.home,
+      'bed': Icons.bed,
+      'chair': Icons.chair,
+      'kitchen': Icons.kitchen,
+      'format_paint': Icons.format_paint,
+      'toys': Icons.toys,
+      'pets': Icons.pets,
+      'child_friendly': Icons.child_friendly,
+      'book': Icons.book,
+      'auto_stories': Icons.auto_stories,
+      'medical_services': Icons.medical_services,
+      'spa': Icons.spa,
+      'shopping_bag': Icons.shopping_bag,
+      'cookie': Icons.cookie,
+      'wine_bar': Icons.wine_bar,
+      'egg': Icons.egg,
+      'cleaning_services': Icons.cleaning_services,
+      'breakfast_dining': Icons.breakfast_dining,
+      'ac_unit': Icons.ac_unit,
+      'star': Icons.star,
+      'restaurant_menu': Icons.restaurant_menu,
+      'eco': Icons.eco,
+      'face': Icons.face,
+    };
+
+    return iconMap[name] ?? Icons.category;
+  }
+
+  // Cargar datos de categorías para iconos personalizados
+  Future<void> _loadCategoryIcons() async {
+    try {
+      // Obtener el token desde AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación');
+      }
+
+      // Cargar categorías
+      final categories = await _categoriesController.getCategories(token);
+
+      // Crear mapa de categoría a icono
+      final Map<String, String> iconMap = {};
+      for (var category in categories) {
+        final String name = category['Categoria_Producto'] ?? '';
+        final String icon = category['icon'] ?? 'category';
+        if (name.isNotEmpty) {
+          iconMap[name.toLowerCase()] = icon;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _categories = categories;
+          _categoryIconMap = iconMap;
+        });
+      }
+    } catch (e) {
+      print('Error cargando iconos de categorías: $e');
+      // No mostramos error ya que esto es secundario a la funcionalidad principal
     }
   }
 }

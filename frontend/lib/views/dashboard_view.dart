@@ -10,6 +10,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import '../controllers/categories_controller.dart';
 
 // Clase para datos de porcentaje de emociones (igual que en statistics_view)
 class EmotionPercentageData {
@@ -33,9 +34,72 @@ class DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<DashboardView> {
   final DashboardController _controller = DashboardController();
+  final CategoriesController _categoriesController = CategoriesController();
   bool _isLoading = true;
   Map<String, dynamic>? _dashboardData;
   String? _error;
+  List<Map<String, dynamic>> _categories = [];
+  Map<String, String> _categoryIconMap = {};
+
+  // Función auxiliar para convertir nombres de iconos en objetos IconData
+  IconData _getIconDataFromName(String name) {
+    // Mapa de iconos - mismos que en IconDataHelper
+    Map<String, IconData> iconMap = {
+      'category': Icons.category,
+      'shopping_basket': Icons.shopping_basket,
+      'fastfood': Icons.fastfood,
+      'local_drink': Icons.local_drink,
+      'bakery_dining': Icons.bakery_dining,
+      'restaurant': Icons.restaurant,
+      'liquor': Icons.liquor,
+      'local_mall': Icons.local_mall,
+      'checkroom': Icons.checkroom,
+      'diamond': Icons.diamond,
+      'watch': Icons.watch,
+      'devices': Icons.devices,
+      'phone_android': Icons.phone_android,
+      'tv': Icons.tv,
+      'laptop': Icons.laptop,
+      'headphones': Icons.headphones,
+      'camera_alt': Icons.camera_alt,
+      'sports_basketball': Icons.sports_basketball,
+      'sports_soccer': Icons.sports_soccer,
+      'sports_tennis': Icons.sports_tennis,
+      'fitness_center': Icons.fitness_center,
+      'home': Icons.home,
+      'bed': Icons.bed,
+      'chair': Icons.chair,
+      'kitchen': Icons.kitchen,
+      'format_paint': Icons.format_paint,
+      'toys': Icons.toys,
+      'pets': Icons.pets,
+      'child_friendly': Icons.child_friendly,
+      'book': Icons.book,
+      'auto_stories': Icons.auto_stories,
+      'medical_services': Icons.medical_services,
+      'spa': Icons.spa,
+      'shopping_bag': Icons.shopping_bag,
+      'cookie': Icons.cookie,
+      'wine_bar': Icons.wine_bar,
+      'egg': Icons.egg,
+      'cleaning_services': Icons.cleaning_services,
+      'breakfast_dining': Icons.breakfast_dining,
+      'ac_unit': Icons.ac_unit,
+      'star': Icons.star,
+    };
+
+    return iconMap[name] ?? Icons.category;
+  }
+
+  // Helper function to get category icon
+  IconData getCategoryIcon(String category) {
+    // Primero buscar en nuestro mapa de iconos personalizados
+    final String iconName =
+        _categoryIconMap[category.toLowerCase()] ?? 'category';
+
+    // Usar el auxiliar para obtener el IconData
+    return _getIconDataFromName(iconName);
+  }
 
   @override
   void initState() {
@@ -67,9 +131,25 @@ class _DashboardViewState extends State<DashboardView> {
         throw Exception('No se encontró un token de autenticación.');
       }
 
+      // Cargar categorías primero
+      final categories = await _categoriesController.getCategories(token);
+
+      // Crear mapa de categoría a icono
+      final Map<String, String> iconMap = {};
+      for (var category in categories) {
+        final String name = category['Categoria_Producto'] ?? '';
+        final String icon = category['icon'] ?? 'category';
+        if (name.isNotEmpty) {
+          iconMap[name.toLowerCase()] = icon;
+        }
+      }
+
+      // Cargar datos del dashboard
       final data = await _controller.getAllDashboardStatistics(token);
 
       setState(() {
+        _categories = categories;
+        _categoryIconMap = iconMap;
         _dashboardData = data;
         _isLoading = false;
       });
@@ -1223,36 +1303,6 @@ class _DashboardViewState extends State<DashboardView> {
         categoriesData['least_visited_category'] ?? 'No disponible';
     final int leastVisitedCount = categoriesData['least_visited_count'] ?? 0;
 
-    // Helper function to get category icon
-    IconData getCategoryIcon(String category) {
-      switch (category.toLowerCase()) {
-        case 'snacks':
-          return Icons.cookie;
-        case 'frutas':
-          return Icons.shopping_basket;
-        case 'alcohol':
-          return Icons.wine_bar;
-        case 'bebidas':
-          return Icons.local_drink;
-        case 'carnes':
-          return Icons.restaurant;
-        case 'lácteos':
-        case 'lacteos':
-          return Icons.egg;
-        case 'panadería':
-        case 'panaderia':
-          return Icons.bakery_dining;
-        case 'limpieza':
-          return Icons.cleaning_services;
-        case 'cereales':
-          return Icons.breakfast_dining;
-        case 'congelados':
-          return Icons.ac_unit;
-        default:
-          return Icons.shopping_bag;
-      }
-    }
-
     return StatisticCard(
       title: 'Categorías visitadas',
       icon: Icons.category,
@@ -1423,35 +1473,6 @@ class _DashboardViewState extends State<DashboardView> {
     // Extraer correctamente los datos de 'Male' y 'Female'
     final malePreference = genderPreferencesData['Male'] ?? {};
     final femalePreference = genderPreferencesData['Female'] ?? {};
-    // Helper function to get category icon
-    IconData getCategoryIcon(String category) {
-      switch (category.toLowerCase()) {
-        case 'snacks':
-          return Icons.cookie;
-        case 'frutas':
-          return Icons.shopping_basket;
-        case 'alcohol':
-          return Icons.wine_bar;
-        case 'bebidas':
-          return Icons.local_drink;
-        case 'carnes':
-          return Icons.restaurant;
-        case 'lácteos':
-        case 'lacteos':
-          return Icons.egg;
-        case 'panadería':
-        case 'panaderia':
-          return Icons.bakery_dining;
-        case 'limpieza':
-          return Icons.cleaning_services;
-        case 'cereales':
-          return Icons.breakfast_dining;
-        case 'congelados':
-          return Icons.ac_unit;
-        default:
-          return Icons.shopping_bag;
-      }
-    }
 
     Widget buildGenderCard(
         String gender, Map data, Color color, IconData icon) {
@@ -1550,36 +1571,6 @@ class _DashboardViewState extends State<DashboardView> {
         expanded: false,
         height: 300,
       );
-    }
-
-    // Helper function to get category icon
-    IconData getCategoryIcon(String category) {
-      switch (category.toLowerCase()) {
-        case 'snacks':
-          return Icons.cookie;
-        case 'frutas':
-          return Icons.shopping_basket;
-        case 'alcohol':
-          return Icons.wine_bar;
-        case 'bebidas':
-          return Icons.local_drink;
-        case 'carnes':
-          return Icons.restaurant;
-        case 'lácteos':
-        case 'lacteos':
-          return Icons.egg;
-        case 'panadería':
-        case 'panaderia':
-          return Icons.bakery_dining;
-        case 'limpieza':
-          return Icons.cleaning_services;
-        case 'cereales':
-          return Icons.breakfast_dining;
-        case 'congelados':
-          return Icons.ac_unit;
-        default:
-          return Icons.shopping_bag;
-      }
     }
 
     return StatisticCard(

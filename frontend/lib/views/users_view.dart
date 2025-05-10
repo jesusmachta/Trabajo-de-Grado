@@ -254,7 +254,8 @@ class _UsersViewState extends State<UsersView> {
       return AlertDialog(
         title: Text(_isEditMode ? 'Editar Usuario' : 'Agregar Usuario'),
         content: SizedBox(
-          width: 400, // Más ancho
+          width: 650, // Más ancho aún
+          height: 650, // Más alto para que no se vea aplastado
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -588,6 +589,25 @@ class _UsersViewState extends State<UsersView> {
                 // Primero subir la imagen si se seleccionó una nueva
                 String? profilePictureUrl = _selectedProfilePicture;
 
+                // --- VALIDACIÓN: No permitir que el único admin se cambie a user o se inhabilite ---
+                if (_isEditMode) {
+                  final admins = userController.users
+                      .where((u) => u.role == 'admin' && u.isActive)
+                      .toList();
+                  final editingUser = userController.users
+                      .firstWhere((u) => u.id == _editingUserId);
+                  final isCurrentUserAdmin = editingUser.role == 'admin';
+                  final isChangingToUser = role == 'user';
+                  final isChangingToInactive = isCurrentUserAdmin && !isActive;
+                  if (isCurrentUserAdmin &&
+                      admins.length == 1 &&
+                      (isChangingToUser || isChangingToInactive)) {
+                    ToastService.showWarning(context,
+                        'Debe haber al menos un administrador activo en el sistema. Agregue otro administrador antes de cambiar este rol o desactivar este usuario.');
+                    return;
+                  }
+                }
+
                 if (_profileImageBase64 != null) {
                   try {
                     // Mostrar indicador de carga
@@ -641,6 +661,11 @@ class _UsersViewState extends State<UsersView> {
                         securityAnswer.isNotEmpty ? securityAnswer : null,
                   );
                 } else {
+                  int? rifInt;
+                  final rifStr = authController.currentUser?.rif;
+                  if (rifStr != null) {
+                    rifInt = int.tryParse(rifStr);
+                  }
                   success = await userController.addUser(
                     authController.token!,
                     email: email,
@@ -652,6 +677,7 @@ class _UsersViewState extends State<UsersView> {
                     securityQuestion: securityQuestion,
                     securityAnswer: securityAnswer,
                     profilePicture: profilePictureUrl,
+                    rif: rifInt,
                   );
                 }
 
@@ -774,11 +800,23 @@ class _UsersViewState extends State<UsersView> {
       return;
     }
 
+    // --- VALIDACIÓN: No permitir que el único admin se cambie a user o se inhabilite desde el switch ---
+    final user = userController.users.firstWhere((u) => u.id == userId);
+    if (user.role == 'admin' && user.isActive && !currentStatus) {
+      final admins = userController.users
+          .where((u) => u.role == 'admin' && u.isActive)
+          .toList();
+      if (admins.length == 1) {
+        ToastService.showWarning(context,
+            'Debe haber al menos un administrador activo en el sistema. Agregue otro administrador antes de desactivar este usuario.');
+        return;
+      }
+    }
+
     setState(() {
       _loadingUserIds.add(userId);
     });
 
-    final user = userController.users.firstWhere((u) => u.id == userId);
     final updatedUser = user.copyWith(isActive: !currentStatus);
 
     final success = await userController.updateUser(

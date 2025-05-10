@@ -6,8 +6,213 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart';
 
+// Helper class to convert icon names to IconData
+class IconDataHelper {
+  static IconData getIconByName(String name) {
+    // Map of icon names to IconData objects
+    Map<String, IconData> iconMap = {
+      'category': Icons.category,
+      'shopping_basket': Icons.shopping_basket,
+      'fastfood': Icons.fastfood,
+      'local_drink': Icons.local_drink,
+      'bakery_dining': Icons.bakery_dining,
+      'restaurant': Icons.restaurant,
+      'liquor': Icons.liquor,
+      'local_mall': Icons.local_mall,
+      'checkroom': Icons.checkroom,
+      'diamond': Icons.diamond,
+      'watch': Icons.watch,
+      'devices': Icons.devices,
+      'phone_android': Icons.phone_android,
+      'tv': Icons.tv,
+      'laptop': Icons.laptop,
+      'headphones': Icons.headphones,
+      'camera_alt': Icons.camera_alt,
+      'sports_basketball': Icons.sports_basketball,
+      'sports_soccer': Icons.sports_soccer,
+      'sports_tennis': Icons.sports_tennis,
+      'fitness_center': Icons.fitness_center,
+      'home': Icons.home,
+      'bed': Icons.bed,
+      'chair': Icons.chair,
+      'kitchen': Icons.kitchen,
+      'format_paint': Icons.format_paint,
+      'toys': Icons.toys,
+      'pets': Icons.pets,
+      'child_friendly': Icons.child_friendly,
+      'book': Icons.book,
+      'auto_stories': Icons.auto_stories,
+      'medical_services': Icons.medical_services,
+      'spa': Icons.spa,
+    };
+
+    return iconMap[name] ?? Icons.category;
+  }
+}
+
 // Add enum for category status filter similar to user filter
 enum CategoryStatusFilter { todos, activo, inactivo }
+
+// Widget for icon selection
+class IconSelector extends StatefulWidget {
+  final String initialIcon;
+  final Function(String) onIconSelected;
+
+  const IconSelector({
+    Key? key,
+    required this.initialIcon,
+    required this.onIconSelected,
+  }) : super(key: key);
+
+  @override
+  State<IconSelector> createState() => _IconSelectorState();
+}
+
+class _IconSelectorState extends State<IconSelector> {
+  late String selectedIcon;
+  bool _showGrid = false;
+
+  // List of common Material icons to choose from
+  final List<Map<String, dynamic>> availableIcons = [
+    {'name': 'category', 'icon': Icons.category},
+    {'name': 'shopping_basket', 'icon': Icons.shopping_basket},
+    {'name': 'fastfood', 'icon': Icons.fastfood},
+    {'name': 'local_drink', 'icon': Icons.local_drink},
+    {'name': 'bakery_dining', 'icon': Icons.bakery_dining},
+    {'name': 'restaurant', 'icon': Icons.restaurant},
+    {'name': 'liquor', 'icon': Icons.liquor},
+    {'name': 'local_mall', 'icon': Icons.local_mall},
+    {'name': 'checkroom', 'icon': Icons.checkroom},
+    {'name': 'diamond', 'icon': Icons.diamond},
+    {'name': 'watch', 'icon': Icons.watch},
+    {'name': 'devices', 'icon': Icons.devices},
+    {'name': 'phone_android', 'icon': Icons.phone_android},
+    {'name': 'tv', 'icon': Icons.tv},
+    {'name': 'laptop', 'icon': Icons.laptop},
+    {'name': 'headphones', 'icon': Icons.headphones},
+    {'name': 'camera_alt', 'icon': Icons.camera_alt},
+    {'name': 'sports_basketball', 'icon': Icons.sports_basketball},
+    {'name': 'sports_soccer', 'icon': Icons.sports_soccer},
+    {'name': 'sports_tennis', 'icon': Icons.sports_tennis},
+    {'name': 'fitness_center', 'icon': Icons.fitness_center},
+    {'name': 'home', 'icon': Icons.home},
+    {'name': 'bed', 'icon': Icons.bed},
+    {'name': 'chair', 'icon': Icons.chair},
+    {'name': 'kitchen', 'icon': Icons.kitchen},
+    {'name': 'format_paint', 'icon': Icons.format_paint},
+    {'name': 'toys', 'icon': Icons.toys},
+    {'name': 'pets', 'icon': Icons.pets},
+    {'name': 'child_friendly', 'icon': Icons.child_friendly},
+    {'name': 'book', 'icon': Icons.book},
+    {'name': 'auto_stories', 'icon': Icons.auto_stories},
+    {'name': 'medical_services', 'icon': Icons.medical_services},
+    {'name': 'spa', 'icon': Icons.spa},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    selectedIcon = widget.initialIcon;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Icono',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+
+        // Current selected icon preview
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showGrid = !_showGrid;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(IconDataHelper.getIconByName(selectedIcon), size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Icono seleccionado',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
+          ),
+        ),
+
+        // Grid of icons to choose from
+        if (_showGrid) ...[
+          const SizedBox(height: 16),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              itemCount: availableIcons.length,
+              itemBuilder: (context, index) {
+                final iconData = availableIcons[index];
+                final bool isSelected = selectedIcon == iconData['name'];
+
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      selectedIcon = iconData['name'];
+                      widget.onIconSelected(selectedIcon);
+                      _showGrid = false;
+                    });
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: isSelected
+                          ? Border.all(color: Theme.of(context).primaryColor)
+                          : null,
+                    ),
+                    child: Icon(
+                      iconData['icon'],
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey.shade800,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class CategoriesView extends StatefulWidget {
   final Function toggleTheme;
@@ -201,6 +406,8 @@ class _CategoriesViewState extends State<CategoriesView> {
     final TextEditingController nameController =
         TextEditingController(text: category["Categoria_Producto"]);
     bool isActive = category["isActive"];
+    String selectedIcon =
+        category["icon"] ?? "category"; // Get existing icon or use default
     String? errorText; // Variable para mostrar el mensaje de error
 
     showDialog(
@@ -210,43 +417,58 @@ class _CategoriesViewState extends State<CategoriesView> {
           builder: (BuildContext context, StateSetter setModalState) {
             return AlertDialog(
               title: const Text('Editar Categoría'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Campo para editar el nombre
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Nombre de la categoría',
-                      border: const OutlineInputBorder(),
-                      errorText:
-                          errorText, // Mostrar mensaje de error si es necesario
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        errorText =
-                            null; // Limpiar el mensaje de error al escribir
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Switch para activar/desactivar
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Activo'),
-                      Switch(
-                        value: isActive,
-                        onChanged: (value) {
-                          setModalState(() {
-                            isActive =
-                                value; // Actualiza el estado local del modal
-                          });
-                        },
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Campo para editar el nombre
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la categoría',
+                        border: const OutlineInputBorder(),
+                        errorText:
+                            errorText, // Mostrar mensaje de error si es necesario
                       ),
-                    ],
-                  ),
-                ],
+                      onChanged: (value) {
+                        setModalState(() {
+                          errorText =
+                              null; // Limpiar el mensaje de error al escribir
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Icon selector widget
+                    IconSelector(
+                      initialIcon: selectedIcon,
+                      onIconSelected: (icon) {
+                        setModalState(() {
+                          selectedIcon = icon;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Switch para activar/desactivar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Activo'),
+                        Switch(
+                          value: isActive,
+                          onChanged: (value) {
+                            setModalState(() {
+                              isActive =
+                                  value; // Actualiza el estado local del modal
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -288,6 +510,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                           if (index != -1) {
                             categories[index]["Categoria_Producto"] = newName;
                             categories[index]["isActive"] = isActive;
+                            categories[index]["icon"] = selectedIcon;
                           }
                           // Update filtered list
                           _applyFilters();
@@ -303,6 +526,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                         newName,
                         isActive,
                         token, // Pasar el token aquí
+                        icon: selectedIcon, // Pass the selected icon
                       );
 
                       // Recargar la lista de categorías
@@ -339,6 +563,7 @@ class _CategoriesViewState extends State<CategoriesView> {
     final TextEditingController categoriaProductoController =
         TextEditingController();
     bool isActive = true;
+    String selectedIcon = 'category'; // Default icon
     String? errorTextTipoProducto;
     String? errorTextCategoriaProducto;
 
@@ -349,57 +574,69 @@ class _CategoriesViewState extends State<CategoriesView> {
           builder: (BuildContext context, StateSetter setModalState) {
             return AlertDialog(
               title: const Text('Crear Nueva Categoría'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Campo para Tipo_Producto
-                  TextField(
-                    controller: tipoProductoController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Tipo de Producto (ID)',
-                      border: const OutlineInputBorder(),
-                      errorText: errorTextTipoProducto,
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        errorTextTipoProducto =
-                            null; // Limpiar error al escribir
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Campo para Categoria_Producto
-                  TextField(
-                    controller: categoriaProductoController,
-                    decoration: InputDecoration(
-                      labelText: 'Nombre de la Categoría',
-                      border: const OutlineInputBorder(),
-                      errorText: errorTextCategoriaProducto,
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        errorTextCategoriaProducto = null; // Limpiar error
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Switch para activar/desactivar
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Activo'),
-                      Switch(
-                        value: isActive,
-                        onChanged: (value) {
-                          setModalState(() {
-                            isActive = value; // Actualizar estado local
-                          });
-                        },
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Campo para Tipo_Producto
+                    TextField(
+                      controller: tipoProductoController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de Producto (ID)',
+                        border: const OutlineInputBorder(),
+                        errorText: errorTextTipoProducto,
                       ),
-                    ],
-                  ),
-                ],
+                      onChanged: (value) {
+                        setModalState(() {
+                          errorTextTipoProducto =
+                              null; // Limpiar error al escribir
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Campo para Categoria_Producto
+                    TextField(
+                      controller: categoriaProductoController,
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la Categoría',
+                        border: const OutlineInputBorder(),
+                        errorText: errorTextCategoriaProducto,
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          errorTextCategoriaProducto = null; // Limpiar error
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Icon selector
+                    IconSelector(
+                      initialIcon: selectedIcon,
+                      onIconSelected: (icon) {
+                        setModalState(() {
+                          selectedIcon = icon;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Switch para activar/desactivar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Activo'),
+                        Switch(
+                          value: isActive,
+                          onChanged: (value) {
+                            setModalState(() {
+                              isActive = value; // Actualizar estado local
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -452,6 +689,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                         categoriaProductoController.text.trim(),
                         isActive,
                         token, // Pasar el token aquí
+                        icon: selectedIcon, // Pass the selected icon
                       );
 
                       // Recargar la lista de categorías
@@ -749,7 +987,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                   ),
                   columns: const [
                     DataColumn(
-                        label: Text('Foto',
+                        label: Text('Icono',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(
                         label: Text('Categoría',
@@ -766,6 +1004,8 @@ class _CategoriesViewState extends State<CategoriesView> {
                     final nombre =
                         category["Categoria_Producto"] ?? 'Desconocida';
                     final isActive = category["isActive"] as bool? ?? false;
+                    final iconName = category["icon"] ?? "category";
+
                     return DataRow(
                       cells: [
                         DataCell(
@@ -774,7 +1014,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                             backgroundColor:
                                 Theme.of(context).colorScheme.surfaceVariant,
                             child: Icon(
-                              Icons.category,
+                              IconDataHelper.getIconByName(iconName),
                               size: 20,
                               color: Theme.of(context).colorScheme.primary,
                             ),

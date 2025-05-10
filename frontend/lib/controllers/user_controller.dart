@@ -57,6 +57,7 @@ class UserController with ChangeNotifier {
     required String dateOfBirth,
     required String securityQuestion,
     required String securityAnswer,
+    int? rif,
   }) async {
     _isLoading = true;
     _error = null;
@@ -79,6 +80,7 @@ class UserController with ChangeNotifier {
           'date_of_birth': dateOfBirth,
           'security_question': securityQuestion,
           'security_answer': securityAnswer,
+          if (rif != null) 'rif': rif,
         }),
       );
 

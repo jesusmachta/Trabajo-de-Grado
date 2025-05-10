@@ -72,8 +72,9 @@ class CategoriesController {
   }
 
   // Create a new category
-  Future<void> createCategory(int tipoProducto, String categoriaProducto,
-      bool isActive, String token) async {
+  Future<void> createCategory(
+      int tipoProducto, String categoriaProducto, bool isActive, String token,
+      {String icon = 'category'}) async {
     final url = Uri.parse('$baseUrl/api/categories/create');
     try {
       final response = await _client.post(
@@ -86,6 +87,7 @@ class CategoriesController {
           "Tipo_Producto": tipoProducto,
           "Categoria_Producto": categoriaProducto,
           "isActive": isActive,
+          "icon": icon, // Add the icon field
         }),
       );
 
@@ -103,19 +105,27 @@ class CategoriesController {
 
   // Update a category
   Future<void> updateCategory(
-      String id, String name, bool isActive, String token) async {
+      String id, String name, bool isActive, String token,
+      {String? icon}) async {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     try {
+      final Map<String, dynamic> requestBody = {
+        "Categoria_Producto": name,
+        "isActive": isActive,
+      };
+
+      // Add icon to request if provided
+      if (icon != null) {
+        requestBody["icon"] = icon;
+      }
+
       final response = await _client.put(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token', // Agregar el token JWT aquí
         },
-        body: json.encode({
-          "Categoria_Producto": name,
-          "isActive": isActive,
-        }),
+        body: json.encode(requestBody),
       );
 
       if (response.statusCode != 200) {
