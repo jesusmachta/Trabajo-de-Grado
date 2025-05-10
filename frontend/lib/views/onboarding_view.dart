@@ -162,120 +162,134 @@ class _OnboardingViewState extends State<OnboardingView> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: Row(
-              children: [
-                // Left: Texts and content
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          const SizedBox(height: 16),
+          // Progress indicator at the top, centered
+          Center(
+            child: SizedBox(
+              width: 300, // Fixed width for the progress bar
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.grey[300],
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(Color(0xFF0277BD)),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Main content
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Row(
                     children: [
-                      Text(
-                        step.title,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        step.subtitle,
-                        style: const TextStyle(
-                            fontSize: 18, color: Colors.black87),
-                      ),
-                      step.content,
-                      if (_currentStep == 0) ...[
-                        const SizedBox(height: 24),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text(
-                              'Volver al inicio de sesión',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 32),
-                      Row(
-                        children: [
-                          if (_currentStep > 0)
-                            ElevatedButton(
-                              onPressed: _previousStep,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey[400],
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 32, vertical: 16),
+                      // Left: Texts and content
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              step.title,
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
                               ),
-                              child: const Text('Anterior',
-                                  style: TextStyle(fontSize: 16)),
                             ),
-                          if (_currentStep > 0) const SizedBox(width: 16),
-                          ElevatedButton(
-                            onPressed: _nextStep,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0277BD),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 32, vertical: 16),
+                            const SizedBox(height: 12),
+                            Text(
+                              step.subtitle,
+                              style: const TextStyle(
+                                  fontSize: 18, color: Colors.black87),
                             ),
-                            child: Text(
-                                _currentStep == _steps.length - 1
-                                    ? 'Siguiente'
-                                    : 'Siguiente',
-                                style: const TextStyle(fontSize: 16)),
-                          ),
-                        ],
+                            step.content,
+                            if (_currentStep == 0) ...[
+                              const SizedBox(height: 24),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: const Text(
+                                    'Volver al inicio de sesión',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 32),
+                            Row(
+                              children: [
+                                if (_currentStep > 0)
+                                  ElevatedButton(
+                                    onPressed: _previousStep,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey[400],
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 32, vertical: 16),
+                                    ),
+                                    child: const Text('Anterior',
+                                        style: TextStyle(fontSize: 16)),
+                                  ),
+                                if (_currentStep > 0) const SizedBox(width: 16),
+                                ElevatedButton(
+                                  onPressed: _nextStep,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0277BD),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 32, vertical: 16),
+                                  ),
+                                  child: Text(
+                                      _currentStep == _steps.length - 1
+                                          ? 'Siguiente'
+                                          : 'Siguiente',
+                                      style: const TextStyle(fontSize: 16)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 32),
-                      LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: Colors.grey[300],
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF0277BD)),
-                        minHeight: 6,
+                      const SizedBox(width: 32),
+                      // Right: Image
+                      Expanded(
+                        flex: 6,
+                        child: Container(
+                          width: double.infinity,
+                          height: 500,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  spreadRadius: 5,
+                                )
+                              ]),
+                          child: Image.asset(
+                            step.image,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 32),
-                // Right: Image
-                Expanded(
-                  flex: 6,
-                  child: Container(
-                    width: double.infinity,
-                    height: 500,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            spreadRadius: 5,
-                          )
-                        ]),
-                    child: Image.asset(
-                      step.image,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
