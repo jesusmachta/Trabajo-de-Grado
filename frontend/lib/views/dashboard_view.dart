@@ -433,15 +433,6 @@ class _DashboardViewState extends State<DashboardView> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'Horas con mayor afluencia de clientes',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
               SizedBox(
                 height: chartHeight,
                 width: constraints.maxWidth,
@@ -583,29 +574,30 @@ class _DashboardViewState extends State<DashboardView> {
               ),
               const SizedBox(height: 16),
 
-              // Leyenda para los puntos de datos
+              // Leyenda para los puntos de datos - Ajustado para que quepan todas las tarjetas
               Wrap(
                 alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 4, // Reducido de 8 a 4
+                runSpacing: 6, // Reducido de 8 a 6
                 children: chartData.map((data) {
                   return Container(
                     decoration: BoxDecoration(
                       color: primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius:
+                          BorderRadius.circular(12), // Reducido de 16 a 12
                       border: Border.all(
                         color: primaryColor.withOpacity(0.3),
                         width: 1,
                       ),
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 8, // Reducido de 12 a 8
+                      vertical: 4, // Reducido de 6 a 4
                     ),
                     child: Text(
                       data.fullLabel,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10, // Reducido de 11 a 10
                         fontWeight: FontWeight.bold,
                         color: primaryColor,
                       ),
@@ -715,15 +707,6 @@ class _DashboardViewState extends State<DashboardView> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'Horas con menor afluencia de clientes',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: tealColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
               SizedBox(
                 height: chartHeight,
                 width: constraints.maxWidth,
@@ -866,29 +849,30 @@ class _DashboardViewState extends State<DashboardView> {
               ),
               const SizedBox(height: 16),
 
-              // Leyenda para los puntos de datos
+              // Leyenda para los puntos de datos - Ajustado para que quepan todas las tarjetas
               Wrap(
                 alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 4, // Reducido de 8 a 4
+                runSpacing: 6, // Reducido de 8 a 6
                 children: chartData.map((data) {
                   return Container(
                     decoration: BoxDecoration(
                       color: tealColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius:
+                          BorderRadius.circular(12), // Reducido de 16 a 12
                       border: Border.all(
                         color: tealColor.withOpacity(0.3),
                         width: 1,
                       ),
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 8, // Reducido de 12 a 8
+                      vertical: 4, // Reducido de 6 a 4
                     ),
                     child: Text(
                       data.fullLabel,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10, // Reducido de 11 a 10
                         fontWeight: FontWeight.bold,
                         color: tealColor,
                       ),
@@ -1163,15 +1147,6 @@ class _DashboardViewState extends State<DashboardView> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Días de la Semana con Más y Menos Afluencia',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
