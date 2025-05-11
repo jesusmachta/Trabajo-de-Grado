@@ -452,6 +452,24 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                             ),
                           ),
                         ),
+                        // Add back button
+                        _currentTab > 0
+                            ? OutlinedButton(
+                                onPressed: _previousTab,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.arrow_back, size: 16),
+                                    SizedBox(width: 4),
+                                    Text('Atrás'),
+                                  ],
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: _isLoading
