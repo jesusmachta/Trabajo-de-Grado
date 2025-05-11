@@ -80,10 +80,26 @@ def reset_statistics_documents(empresa):
         "top_successful_categories", "emotional_differences_by_category",
         "age_gender_distribution_by_category"
     ]
+    
+    # Eliminar documento de registro de procesamiento
+    collections["Estadisticas"].delete_one({"_id": f"processed_documents:{empresa}"})
+    logger.info(f"Eliminado registro de documentos procesados para empresa: {empresa}")
+    
+    # Crear un nuevo documento de registro vacío
+    collections["Estadisticas"].insert_one({
+        "_id": f"processed_documents:{empresa}",
+        "processed_ids": {},
+        "last_id_processed": 0,
+        "current_page": 1,
+        "last_updated": datetime.utcnow().isoformat()
+    })
+    
+    # Resetear todos los documentos de estadísticas
     for stat in stat_names:
         _id = f"{stat}:{empresa}"
         collections["Estadisticas"].delete_one({"_id": _id})
         logger.info(f"Eliminado documento de estadísticas: {_id}")
+        
     # Solo crear los documentos, no llamar a recalculate ni a initialize_statistics de nuevo
     initialize_statistics(empresa)
     logger.info("Documentos de estadísticas reiniciados completamente")
@@ -95,25 +111,75 @@ def recalculate_all_statistics(empresa=None):
     """
     try:
         logger.info("Iniciando recálculo completo de estadísticas desde datos históricos...")
-        # No llamar a reset_statistics_documents aquí para evitar bucles
+        
+        # Resetear estadísticas para la(s) empresa(s) afectada(s)
+        if empresa:
+            # Resetear solo para la empresa específica
+            reset_statistics_documents(empresa)
+            # También limpiar el registro de documentos procesados
+            collections["Estadisticas"].delete_one({"_id": f"processed_documents:{empresa}"})
+            collections["Estadisticas"].insert_one({
+                "_id": f"processed_documents:{empresa}",
+                "processed_ids": {},
+                "last_id_processed": 0,
+                "current_page": 1,
+                "last_updated": datetime.utcnow().isoformat()
+            })
+        else:
+            # Resetear para todas las empresas - buscar todas las empresas con datos
+            empresas = list(collections["Persona_AR"].distinct("empresa"))
+            for emp in empresas:
+                if emp:  # Asegurarse de que no sea None o vacío
+                    reset_statistics_documents(emp)
+                    # Limpiar registro de documentos procesados
+                    collections["Estadisticas"].delete_one({"_id": f"processed_documents:{emp}"})
+                    collections["Estadisticas"].insert_one({
+                        "_id": f"processed_documents:{emp}",
+                        "processed_ids": {},
+                        "last_id_processed": 0,
+                        "current_page": 1,
+                        "last_updated": datetime.utcnow().isoformat()
+                    })
+        
+        # Recuperar y procesar los documentos
         total_docs = collections["Persona_AR"].count_documents({"empresa": empresa} if empresa else {})
         if total_docs == 0:
             logger.info("No hay documentos en Persona_AR para recalcular estadísticas.")
             return
+        
         processed = 0
         cursor = collections["Persona_AR"].find({"empresa": empresa} if empresa else {}).sort("date", pymongo.ASCENDING)
         error_docs = []
+        
+        # Crear un conjunto para rastrear documentos ya procesados durante este recálculo
+        # Usamos un conjunto para verificación rápida en memoria durante el recálculo
+        processed_ids = set()
+        
         for document in cursor:
             try:
+                doc_id = document.get("id")
+                if doc_id in processed_ids:
+                    logger.info(f"Documento {doc_id} ya procesado en esta sesión, omitiendo.")
+                    continue
+                
+                # La función update_statistics_on_insert ahora se encarga de verificar
+                # si el documento ya está en la colección de documentos procesados,
+                # y de agregarlo si no lo está
                 update_statistics_on_insert(document)
+                
+                processed_ids.add(doc_id)
                 processed += 1
+                
                 if processed % 100 == 0 or processed == total_docs:
                     logger.info(f"Procesados {processed}/{total_docs} documentos ({processed/total_docs*100:.1f}%)")
             except Exception as doc_error:
                 doc_id = document.get('id', 'desconocido')
                 error_docs.append(doc_id)
                 logger.error(f"Error procesando documento {doc_id}: {doc_error}")
+                import traceback
+                logger.error(traceback.format_exc())
                 continue
+                
         if processed == 0:
             logger.warning("No se procesaron documentos durante el recálculo.")
         else:
@@ -148,6 +214,7 @@ def update_statistics_on_insert(document: Dict[str, Any]):
     """
     try:
         # Extraer información relevante del documento
+        doc_id = document.get("id")
         date_str = document.get("date")
         time_str = document.get("time")
         category = document.get("categoria_producto")
@@ -155,9 +222,39 @@ def update_statistics_on_insert(document: Dict[str, Any]):
         age_range = document.get("age_range", {})
         emotion = document.get("emotions")
         empresa = document.get("empresa")
-        if not all([date_str, time_str, category, gender, emotion, age_range, empresa]):
+        
+        if not all([doc_id, date_str, time_str, category, gender, emotion, age_range, empresa]):
             logger.warning(f"Documento incompleto, no se puede actualizar estadísticas: {document}")
             return
+        
+        # Verificar si este documento ya fue procesado para estadísticas
+        processed_doc_id = f"processed_documents:{empresa}"
+        processed_doc = collections["Estadisticas"].find_one({"_id": processed_doc_id})
+        
+        if not processed_doc:
+            # Crear el documento si no existe
+            collections["Estadisticas"].insert_one({
+                "_id": processed_doc_id,
+                "processed_ids": {},  # Cambiado a diccionario para manejar paginación
+                "last_id_processed": 0,
+                "current_page": 1,
+                "last_updated": datetime.utcnow().isoformat()
+            })
+            processed_doc = {"processed_ids": {}, "last_id_processed": 0, "current_page": 1}
+        
+        # Verificar si este documento ya fue procesado
+        # Buscar en qué página puede estar el ID
+        found = False
+        processed_ids = processed_doc.get("processed_ids", {})
+        for page, ids in processed_ids.items():
+            if str(doc_id) in ids:
+                found = True
+                logger.info(f"Documento {doc_id} ya fue procesado para estadísticas (página {page}), omitiendo.")
+                break
+                
+        if found:
+            return
+            
         # Convertir la fecha a objeto datetime para manipulación
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         day_of_week = date_obj.strftime("%A")  # Lunes, Martes, etc.
@@ -196,9 +293,38 @@ def update_statistics_on_insert(document: Dict[str, Any]):
         update_emotional_differences_by_category(category, gender, emotion, empresa)
         # Actualizar distribución de edad y género por categoría
         update_age_gender_distribution_by_category(category, gender, age_group, empresa)
-        logger.info(f"Estadísticas actualizadas exitosamente para documento: {document.get('id')}")
+        
+        # Marcar este documento como procesado
+        # Usar sistema de paginación para documentos procesados (máximo 1000 IDs por página)
+        current_page = str(processed_doc.get("current_page", 1))
+        if current_page not in processed_ids:
+            processed_ids[current_page] = []
+            
+        # Verificar si la página actual está llena
+        if len(processed_ids.get(current_page, [])) >= 1000:
+            # Crear nueva página
+            new_page = int(current_page) + 1
+            current_page = str(new_page)
+            processed_ids[current_page] = []
+            
+        # Añadir ID a la página actual
+        processed_ids[current_page].append(str(doc_id))
+        
+        collections["Estadisticas"].update_one(
+            {"_id": processed_doc_id},
+            {"$set": {
+                "processed_ids": processed_ids,
+                "last_id_processed": doc_id,
+                "current_page": int(current_page),
+                "last_updated": datetime.utcnow().isoformat()
+            }}
+        )
+        
+        logger.info(f"Estadísticas actualizadas exitosamente para documento: {doc_id}")
     except Exception as e:
         logger.error(f"Error al actualizar estadísticas: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 def update_peak_hours(day_of_week: str, hour: int, empresa: str):
     try:

@@ -10,6 +10,7 @@ categories_collection = collections["Tipo_Producto"]
 class UpdateCategoryRequest(BaseModel):
     Categoria_Producto: str
     isActive: bool
+    icon: str = "category"  # Default icon if not specified
 
 @router.put("/categories/{category_id}", tags=["Categories"])
 def update_category(category_id: str, request: UpdateCategoryRequest, empresa: str = Depends(get_empresa)):
@@ -30,7 +31,8 @@ def update_category(category_id: str, request: UpdateCategoryRequest, empresa: s
             {
                 "$set": {
                     "Categoria_Producto": request.Categoria_Producto,
-                    "isActive": request.isActive
+                    "isActive": request.isActive,
+                    "icon": request.icon  # Update the icon
                 }
             }
         )

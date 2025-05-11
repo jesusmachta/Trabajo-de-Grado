@@ -85,6 +85,7 @@ class UserCreate(BaseModel):
     date_of_birth: str  # Add date of birth field
     security_question: str  # Add security question field
     security_answer: str  # Add security answer field
+    rif: Optional[int] = None  # <-- AGREGADO
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -1048,6 +1049,8 @@ async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
         "security_question": user_data.security_question,
         "security_answer": hashed_security_answer
     }
+    if user_data.rif is not None:
+        user["rif"] = user_data.rif
     
     # Insert user into database
     collections['Users'].insert_one(user)

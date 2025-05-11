@@ -10,6 +10,7 @@ class CreateCategoryRequest(BaseModel):
     Tipo_Producto: int = Field(..., ge=0, description="Debe ser un número entero positivo")
     Categoria_Producto: str
     isActive: bool
+    icon: str = "category"  # Default icon if not specified
 
 @router.post("/categories/create", tags=["Categories"])
 async def create_category(request: CreateCategoryRequest, empresa: str = Depends(get_empresa)):
@@ -52,6 +53,7 @@ async def create_category(request: CreateCategoryRequest, empresa: str = Depends
             "Tipo_Producto": request.Tipo_Producto,
             "Categoria_Producto": request.Categoria_Producto.strip(),
             "isActive": request.isActive,
+            "icon": request.icon,  # Add the icon field
             "empresa": empresa  # Asociar la categoría a la empresa
         }
         result = categories_collection.insert_one(new_category)

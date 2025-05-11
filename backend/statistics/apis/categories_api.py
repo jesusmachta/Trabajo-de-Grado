@@ -11,6 +11,7 @@ categories_collection = collections["Tipo_Producto"]
 class UpdateCategoryRequest(BaseModel):
     Categoria_Producto: str
     isActive: bool
+    icon: str = "category"  # Default icon if not specified
 
 @router.get("/categories", tags=["Categories"])
 def get_categories(empresa: str= Depends (get_empresa)):
@@ -29,7 +30,8 @@ def get_categories(empresa: str= Depends (get_empresa)):
                 "_id": str(category["_id"]),
                 "Tipo_Producto": category.get("Tipo_Producto", None),
                 "Categoria_Producto": category.get("Categoria_Producto", "Sin nombre"),
-                "isActive": category.get("isActive", True)
+                "isActive": category.get("isActive", True),
+                "icon": category.get("icon", "category")  # Get the icon or use default
             }
             for category in categories_list
         ]
