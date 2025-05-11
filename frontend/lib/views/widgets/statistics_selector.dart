@@ -14,20 +14,31 @@ class StatisticsSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return DropdownButtonFormField<String>(
       value: value,
       decoration: InputDecoration(
         border: const OutlineInputBorder(),
         labelText: 'Seleccionar Estadística',
-        labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary),
+        labelStyle: TextStyle(
+          color: isDarkMode
+              ? Colors.white70
+              : Theme.of(context).colorScheme.primary,
+        ),
         filled: true,
-        fillColor:
-            Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        fillColor: isDarkMode
+            ? Theme.of(context).inputDecorationTheme.fillColor
+            : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+          borderSide: BorderSide(
+            color: isDarkMode
+                ? Colors.white30
+                : Theme.of(context).colorScheme.outline,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -35,14 +46,26 @@ class StatisticsSelector extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary, width: 2),
         ),
       ),
-      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-      dropdownColor: Theme.of(context).colorScheme.surface,
+      style: TextStyle(
+        color:
+            isDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface,
+      ),
+      dropdownColor: isDarkMode
+          ? Color(0xFF2C3A47)
+          : Theme.of(context).colorScheme.surface,
       icon: Icon(Icons.arrow_drop_down,
-          color: Theme.of(context).colorScheme.primary),
+          color: isDarkMode
+              ? Colors.white70
+              : Theme.of(context).colorScheme.primary),
       items: options.map((option) {
         return DropdownMenuItem(
           value: option['value'],
-          child: Text(option['label']!),
+          child: Text(
+            option['label']!,
+            style: TextStyle(
+              color: isDarkMode ? Colors.white : null,
+            ),
+          ),
         );
       }).toList(),
       onChanged: onChanged,

@@ -37,144 +37,125 @@ class DashboardController {
   }
 
   // Obtener resumen del dashboard
-  Future<Map<String, dynamic>> getDashboardSummary() async {
-    // En un futuro, aquí se pueden agregar llamadas a más endpoints para obtener datos de resumen
-    return {
-      'title': 'Bienvenido al Sistema de Análisis de Clientes',
-      'description':
-          'Este sistema te permite visualizar estadísticas sobre el comportamiento de clientes en tiempo real.'
-    };
+  Future<Map<String, dynamic>> getDashboardSummary(String token) async {
+    try {
+      final url = '$baseUrl/api/dashboard/summary';
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+            'Error al cargar el resumen del dashboard. Código: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error en getDashboardSummary: $e');
+      throw Exception('Error al cargar el resumen del dashboard: $e');
+    }
   }
 
-  // Get all statistics for the dashboard
-  Future<Map<String, dynamic>> getAllDashboardStatistics() async {
+  // Obtener todas las estadísticas del dashboard
+  Future<Map<String, dynamic>> getAllDashboardStatistics(String token) async {
     try {
-      // Create a map to hold all statistics data
       Map<String, dynamic> dashboardData = {};
 
-      // Fetch peak hours statistics with specific document ID
-      final peakHoursResponse =
-          await getStatisticById('peak-hours', 'peak_hours');
+      // Fetch peak hours statistics
+      final peakHoursResponse = await getStatisticById('peak-hours', token);
       dashboardData['peakHours'] = peakHoursResponse;
 
-      // Fetch least busy hours statistics with specific document ID
-      final leastHoursResponse =
-          await getStatisticById('least-hours', 'least_busy_hours');
+      // Fetch least busy hours statistics
+      final leastHoursResponse = await getStatisticById('least-hours', token);
       dashboardData['leastHours'] = leastHoursResponse;
 
-      // Fetch busy days combined statistics with specific document IDs
-      final busyDaysResponse = await getBusyDaysStatistics(
-          mostBusyDayId: 'most_busy_day', leastBusyDayId: 'least_busy_day');
+      // Fetch busy days combined statistics
+      final busyDaysResponse = await getBusyDaysStatistics(token: token);
       dashboardData['busyDays'] = busyDaysResponse;
 
-      // Fetch visited categories statistics with specific document ID
-      final visitedCategoriesResponse = await getStatisticById(
-          'visited-categories-historical', 'historical_categories');
+      // Fetch visited categories statistics
+      final visitedCategoriesResponse =
+          await getStatisticById('visited-categories-historical', token);
       dashboardData['visitedCategories'] = visitedCategoriesResponse;
 
-      // Fetch emotion percentage statistics with specific document ID
-      final emotionResponse = await getStatisticById(
-          'emotion-percentage', 'most_frequent_emotions');
+      // Fetch emotion percentage statistics
+      final emotionResponse =
+          await getStatisticById('most-frequent-emotions', token);
       dashboardData['emotionPercentage'] = emotionResponse;
 
-      // Fetch emotion percentage by category (para la gráfica de emociones por categoría)
-      final emotionByCategoryResponse = await getStatisticById(
-          'emotion-percentage', 'emotion_percentage_by_category');
+      // Fetch emotion percentage by category
+      final emotionByCategoryResponse =
+          await getStatisticById('emotion-percentage', token);
       dashboardData['emotionPercentageByCategory'] = emotionByCategoryResponse;
 
-      // Fetch preferred categories by gender with specific document ID
-      final preferredCategoriesByGenderResponse = await getStatisticById(
-          'preferred-category-by-gender', 'preferred_category_by_gender');
+      // Fetch preferred categories by gender
+      final preferredCategoriesByGenderResponse =
+          await getStatisticById('preferred-category-by-gender', token);
       dashboardData['preferredCategoriesByGender'] =
           preferredCategoriesByGenderResponse;
 
-      // Fetch top categories with specific document ID
-      final topCategoriesResponse = await getStatisticById(
-          'top-successful-categories', 'top_successful_categories');
+      // Fetch top categories
+      final topCategoriesResponse =
+          await getStatisticById('top-successful-categories', token);
       dashboardData['topCategories'] = topCategoriesResponse;
 
       return dashboardData;
     } catch (e) {
-      print('Error getting all dashboard statistics: $e');
+      print('Error en getAllDashboardStatistics: $e');
       throw Exception('Error al cargar las estadísticas del dashboard: $e');
     }
   }
 
   // Obtener datos de estadísticas por ID específico
   Future<Map<String, dynamic>> getStatisticById(
-      String endpoint, String documentId) async {
+      String endpoint, String token) async {
     try {
-      // Construir la URL con el ID del documento
-      String url = '$baseUrl/api/statistics/$endpoint/?id=$documentId';
-      print('Fetching statistics from: $url');
-
-      // Make the request with timeout
-      final response = await _client
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10), onTimeout: () {
-        throw Exception(
-            'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
-      });
+      final url = '$baseUrl/api/statistics/$endpoint/';
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data;
-      } else if (response.statusCode == 422) {
-        throw Exception(
-            'Error de validación: asegúrate de seleccionar parámetros válidos.');
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 404) {
+        // No hay datos aún, retornar empty state
+        return {'empty': true};
       } else {
         throw Exception(
             'Error al cargar estadísticas. Código: ${response.statusCode}');
       }
     } catch (e) {
       print('Error en getStatisticById: $e');
-      rethrow; // Re-throw to handle in the UI
-    }
-  }
-
-  // Make sure getBusyDaysStatistics fetches using document IDs
-  Future<Map<String, dynamic>> getBusyDaysStatistics({
-    required String mostBusyDayId,
-    required String leastBusyDayId,
-  }) async {
-    try {
-      final mostBusyDaysResponse =
-          await getStatisticById('busy-days', mostBusyDayId);
-      final leastBusyDaysResponse =
-          await getStatisticById('least-days', leastBusyDayId);
-
-      // Extraer los datos teniendo en cuenta la estructura actual:
-      // data: {"day": "Wednesday", "count": 11}
-      String mostBusyDay =
-          mostBusyDaysResponse['data']?['day'] ?? 'No disponible';
-      int mostBusyCount = mostBusyDaysResponse['data']?['count'] ?? 0;
-
-      String leastBusyDay =
-          leastBusyDaysResponse['data']?['day'] ?? 'No disponible';
-      int leastBusyCount = leastBusyDaysResponse['data']?['count'] ?? 0;
-
-      return {
-        'message': 'Success',
-        'data': {
-          'most_busy_day': mostBusyDay,
-          'most_busy_count': mostBusyCount,
-          'least_busy_day': leastBusyDay,
-          'least_busy_count': leastBusyCount
-        }
-      };
-    } catch (e) {
-      print('Error al obtener estadísticas de días: $e');
       rethrow;
     }
   }
 
-  // Método para obtener las categorías Top Visitadas
-  Future<dynamic> getTopSuccessfulCategories() async {
+  // Obtener estadísticas de días más y menos concurridos
+  Future<Map<String, dynamic>> getBusyDaysStatistics({
+    required String token,
+  }) async {
     try {
-      return await getStatisticById(
-          'top-successful-categories', 'top_successful_categories');
+      final mostBusyDaysResponse = await getStatisticById('busy-days', token);
+      final leastBusyDaysResponse = await getStatisticById('least-days', token);
+
+      return {
+        'most_busy_day':
+            mostBusyDaysResponse['data']?['day'] ?? 'No disponible',
+        'most_busy_count': mostBusyDaysResponse['data']?['count'] ?? 0,
+        'least_busy_day':
+            leastBusyDaysResponse['data']?['day'] ?? 'No disponible',
+        'least_busy_count': leastBusyDaysResponse['data']?['count'] ?? 0,
+      };
     } catch (e) {
-      print('Error en getTopSuccessfulCategories: $e');
+      print('Error en getBusyDaysStatistics: $e');
       rethrow;
     }
   }

@@ -24,47 +24,22 @@ class UserController with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/users'),
+        Uri.parse('http://127.0.0.1:8000/api/users'),
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
         },
       );
 
       if (response.statusCode == 200) {
-        final responseBody = jsonDecode(response.body);
-        if (responseBody.containsKey('data') && responseBody['data'] is List) {
-          final List<dynamic> responseData = responseBody['data'];
-          _users =
-              responseData.map((userData) => User.fromJson(userData)).toList();
-        } else {
-          _users = []; // Reset users if the response format is unexpected
-          _error = 'Formato de respuesta inesperado';
-        }
-        _isLoading = false;
-        notifyListeners();
-      } else if (response.statusCode == 401) {
-        _error =
-            'Sesión expirada o no autorizada. Por favor inicie sesión nuevamente.';
-        _users = [];
-        _isLoading = false;
-        notifyListeners();
+        final List<dynamic> data =
+            json.decode(utf8.decode(response.bodyBytes))['data'];
+        _users = data.map((user) => User.fromJson(user)).toList();
       } else {
-        try {
-          final responseData = jsonDecode(response.body);
-          _error = responseData['detail'] ??
-              'Error al obtener usuarios: ${response.statusCode}';
-        } catch (e) {
-          _error = 'Error al obtener usuarios: ${response.statusCode}';
-        }
-        _users = [];
-        _isLoading = false;
-        notifyListeners();
+        _error = 'Error al cargar usuarios: ${response.statusCode}';
       }
     } catch (e) {
-      _error =
-          'Error de conexión: ${e.toString()}. Intente de nuevo más tarde.';
-      _users = [];
+      _error = 'Error de red: ${e.toString()}';
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -79,6 +54,10 @@ class UserController with ChangeNotifier {
     String role = 'user',
     String? profilePicture,
     bool isActive = true,
+    required String dateOfBirth,
+    required String securityQuestion,
+    required String securityAnswer,
+    int? rif,
   }) async {
     _isLoading = true;
     _error = null;
@@ -98,6 +77,10 @@ class UserController with ChangeNotifier {
           'role': role,
           'profile_picture': profilePicture,
           'is_active': isActive,
+          'date_of_birth': dateOfBirth,
+          'security_question': securityQuestion,
+          'security_answer': securityAnswer,
+          if (rif != null) 'rif': rif,
         }),
       );
 
@@ -123,29 +106,48 @@ class UserController with ChangeNotifier {
   }
 
   // Update user
-  Future<bool> updateUser(String token, User user) async {
+  Future<bool> updateUser(
+    String token,
+    User user, {
+    String? password,
+    String? securityAnswer,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      final body = {
+        'email': user.email,
+        'full_name': user.fullName,
+        'role': user.role,
+        'is_active': user.isActive,
+        'profile_picture': user.profilePicture,
+        'date_of_birth': user.dateOfBirth,
+        'security_question': user.securityQuestion,
+      };
+
+      // Solo incluir la contraseña si se proporciona
+      if (password != null && password.isNotEmpty) {
+        body['password'] = password;
+      }
+
+      // Include security answer if provided
+      if (securityAnswer != null && securityAnswer.isNotEmpty) {
+        body['security_answer'] = securityAnswer;
+      }
+
       final response = await http.put(
         Uri.parse('$_baseUrl/users/${user.id}'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'email': user.email,
-          'full_name': user.fullName,
-          'role': user.role,
-          'profile_picture': user.profilePicture,
-          'is_active': user.isActive,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
-        // Update the user in the list
+        // Actualizar el usuario en la lista
         final index = _users.indexWhere((u) => u.id == user.id);
         if (index != -1) {
           _users[index] = user;
@@ -235,7 +237,7 @@ class UserController with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        // Remove the user from the list
+        // Eliminar el usuario de la lista local
         _users.removeWhere((user) => user.id == userId);
         _isLoading = false;
         notifyListeners();

@@ -9,9 +9,111 @@ import 'controllers/user_controller.dart';
 import 'controllers/chat_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:go_router/go_router.dart';
+import 'views/help_view.dart';
+import 'views/about_view.dart';
+import 'views/company_view.dart';
 
 // Create a global theme controller
 final themeController = StreamController<ThemeMode>.broadcast();
+
+// Global GoRouter instance for routing
+final GoRouter router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => AuthWrapper(toggleTheme: () {
+        // Toggle theme globally through the stream controller
+        final currentMode = Theme.of(context).brightness == Brightness.light
+            ? ThemeMode.dark
+            : ThemeMode.light;
+        themeController.add(currentMode);
+      }),
+    ),
+    GoRoute(
+      path: '/dashboard',
+      builder: (context, state) => AuthWrapper(toggleTheme: () {
+        final currentMode = Theme.of(context).brightness == Brightness.light
+            ? ThemeMode.dark
+            : ThemeMode.light;
+        themeController.add(currentMode);
+      }),
+    ),
+    GoRoute(
+      path: '/statistics',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'statistics',
+      ),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'categories',
+      ),
+    ),
+    GoRoute(
+      path: '/users',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'users',
+      ),
+    ),
+    GoRoute(
+      path: '/cameras',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'cameras',
+      ),
+    ),
+    GoRoute(
+      path: '/chat',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'chat',
+      ),
+    ),
+    GoRoute(
+      path: '/help',
+      builder: (context, state) => const HelpView(),
+    ),
+    GoRoute(
+      path: '/about',
+      builder: (context, state) => const AboutView(),
+    ),
+    GoRoute(
+      path: '/company',
+      builder: (context, state) => const CompanyView(),
+    ),
+  ],
+);
 
 void main() {
   // Ensure Flutter bindings are initialized
@@ -75,15 +177,10 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  void toggleThemeMode() {
-    final newMode =
-        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    themeController.add(newMode);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
+      routerConfig: router,
       title: 'StoreSense',
       debugShowCheckedModeBanner: false,
       // Add a builder to allow overlays for toast notifications
@@ -92,7 +189,17 @@ class _MyAppState extends State<MyApp> {
         return Overlay(
           initialEntries: [
             OverlayEntry(
-              builder: (context) => child!,
+              builder: (context) {
+                // Apply app icon to top level
+                if (child != null) {
+                  final mediaQueryData = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: mediaQueryData,
+                    child: child,
+                  );
+                }
+                return Container();
+              },
             ),
           ],
         );
@@ -198,6 +305,10 @@ class _MyAppState extends State<MyApp> {
           surface: Color(0xFF121212),
           background: Color(0xFF121212),
           surfaceVariant: darkBlue.withOpacity(0.3),
+          onSurface: Colors.white,
+          onBackground: Colors.white,
+          secondary: Color(0xFF81D4FA),
+          onSecondary: Colors.white,
         ),
         scaffoldBackgroundColor: Color(0xFF121212),
         // Personalización de texto para Material 3
@@ -216,12 +327,21 @@ class _MyAppState extends State<MyApp> {
               TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
           bodyLarge: TextStyle(color: Colors.white),
           bodyMedium: TextStyle(color: Colors.white70),
+          bodySmall: TextStyle(color: Colors.white70),
+          labelLarge: TextStyle(color: Colors.white),
+          labelMedium: TextStyle(color: Colors.white),
+          labelSmall: TextStyle(color: Colors.white),
         ),
         // Configuración para los componentes
         appBarTheme: AppBarTheme(
           centerTitle: false,
-          backgroundColor: darkBlue,
+          backgroundColor: Color(0xFF0D2B4E),
           foregroundColor: Colors.white,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
           elevation: 0,
         ),
         cardTheme: CardTheme(
@@ -264,7 +384,7 @@ class _MyAppState extends State<MyApp> {
         // Configuración para los inputs
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: darkBlue.withOpacity(0.2),
+          fillColor: Color(0xFF2C3A47),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
@@ -279,15 +399,38 @@ class _MyAppState extends State<MyApp> {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Color(0xFF64B5F6), width: 2),
           ),
+          labelStyle: TextStyle(color: Colors.white70),
+          hintStyle: TextStyle(color: Colors.white54),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: darkBlue.withOpacity(0.2),
+          backgroundColor: Color(0xFF0D2B4E),
           indicatorColor: Color(0xFF64B5F6).withOpacity(0.3),
+          labelTextStyle: MaterialStateProperty.all(
+            TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          ),
+          iconTheme: MaterialStateProperty.all(
+            IconThemeData(color: Colors.white),
+          ),
+        ),
+        listTileTheme: ListTileThemeData(
+          textColor: Colors.white,
+          iconColor: Colors.white,
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: Color(0xFF2C3A47),
+          textStyle: TextStyle(color: Colors.white),
+        ),
+        dropdownMenuTheme: DropdownMenuThemeData(
+          textStyle: TextStyle(color: Colors.white),
+          menuStyle: MenuStyle(
+            backgroundColor: MaterialStateProperty.all(Color(0xFF2C3A47)),
+          ),
+        ),
+        dividerTheme: DividerThemeData(
+          color: Colors.white24,
         ),
       ),
       themeMode: _themeMode,
-      // Use AuthWrapper as the home widget
-      home: AuthWrapper(toggleTheme: toggleThemeMode),
     );
   }
 }
@@ -296,8 +439,13 @@ class _MyAppState extends State<MyApp> {
 // This widget checks the authentication state and displays the appropriate view.
 class AuthWrapper extends StatelessWidget {
   final Function toggleTheme;
+  final String? initialView;
 
-  const AuthWrapper({super.key, required this.toggleTheme});
+  const AuthWrapper({
+    super.key,
+    required this.toggleTheme,
+    this.initialView,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -331,8 +479,11 @@ class AuthWrapper extends StatelessWidget {
 
         // After initialization, decide which view to show
         if (authController.isAuthenticated) {
-          // User is authenticated -> Show HomeView
-          return HomeView(toggleTheme: toggleTheme);
+          // User is authenticated -> Show HomeView with initialView parameter
+          return HomeView(
+            toggleTheme: toggleTheme,
+            initialView: initialView,
+          );
         } else {
           // User is not authenticated -> Show LoginView
           return LoginView(toggleTheme: toggleTheme);

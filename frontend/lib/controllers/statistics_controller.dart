@@ -65,59 +65,57 @@ class StatisticsController {
 
   // Obtener datos de estadísticas
   Future<Map<String, dynamic>> getStatistics(String endpoint,
-      {Map<String, String>? params}) async {
+      {Map<String, String>? params, required String token}) async {
     try {
       // Construir la URL base
       String url = '$baseUrl/api/statistics/$endpoint/';
 
-      // Generate default parameters
+      // Generar parámetros predeterminados
       Map<String, String> defaultParams = {};
       if (_endpointRequiresParams(endpoint)) {
         // Caso especial para emotion-comparison
         if (endpoint == 'emotion-comparison') {
-          // Always clear cache for emotion-comparison to ensure fresh data
           clearCache(endpoint);
 
           final now = DateTime.now();
 
-          // Si no hay parámetros, usar período semanal por defecto
           if (params == null || !params.containsKey('period')) {
             defaultParams['period'] = 'week';
-
-            // Fecha actual como fecha de fin
             final formatter = DateFormat('yyyy-MM-dd');
             defaultParams['end_date'] = formatter.format(now);
-
-            // Una semana antes como fecha de inicio
             final startDate = now.subtract(const Duration(days: 6));
             defaultParams['date'] = formatter.format(startDate);
-          }
-          // Si el período es 'month' y no se especifica mes/año
-          else if (params != null &&
+          } else if (params != null &&
               params['period'] == 'month' &&
               (!params.containsKey('month') || !params.containsKey('year'))) {
             defaultParams['month'] = now.month.toString();
             defaultParams['year'] = now.year.toString();
           }
         } else {
-          defaultParams['period'] = 'week';
-
-          // Incluir la fecha actual en formato YYYY-MM-DD si no se proporciona
-          if (params == null || !params.containsKey('date')) {
-            final now = DateTime.now();
-            final formatter = DateFormat('yyyy-MM-dd');
-            defaultParams['date'] = formatter.format(now);
+          // Period is 'historic' for gender/age stats when requesting overall data
+          if (params != null &&
+              params['period'] == 'historic' &&
+              (endpoint == 'gender-distribution' ||
+                  endpoint == 'age-distribution')) {
+            defaultParams['period'] = 'historic';
+          } else {
+            defaultParams['period'] = 'week';
+            if (params == null || !params.containsKey('date')) {
+              final now = DateTime.now();
+              final formatter = DateFormat('yyyy-MM-dd');
+              defaultParams['date'] = formatter.format(now);
+            }
           }
         }
       }
 
-      // Combine default params with provided ones
+      // Combinar parámetros predeterminados con los proporcionados
       final Map<String, String> finalParams = {...defaultParams};
       if (params != null) {
         finalParams.addAll(params);
       }
 
-      // Add parameters to URL
+      // Agregar parámetros a la URL
       if (finalParams.isNotEmpty) {
         url += '?';
         String queryParams = finalParams.entries
@@ -128,17 +126,21 @@ class StatisticsController {
 
       print('Fetching statistics from: $url');
 
-      // Check cache before making the request
+      // Generar clave de caché
       final cacheKey = _generateCacheKey(endpoint, finalParams);
       if (_isCacheValid(cacheKey)) {
         print('Using cached data for $cacheKey');
         return _cache[cacheKey]!;
       }
 
-      // Make the request with timeout
-      final response = await _client
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+      // Realizar la solicitud con el token JWT
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
         throw Exception(
             'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
       });
@@ -146,7 +148,7 @@ class StatisticsController {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // Update cache
+        // Actualizar la caché
         _cache[cacheKey] = data;
         _lastFetchTime[cacheKey] = DateTime.now();
 
@@ -160,7 +162,7 @@ class StatisticsController {
       }
     } catch (e) {
       print('Error en getStatistics: $e');
-      rethrow; // Re-throw to handle in the UI
+      rethrow;
     }
   }
 
@@ -178,10 +180,13 @@ class StatisticsController {
   }
 
   // Fetch both busy days statistics in one call
-  Future<Map<String, dynamic>> getBusyDaysStatistics() async {
+  Future<Map<String, dynamic>> getBusyDaysStatistics(
+      {required String token}) async {
     try {
-      final mostBusyDaysResponse = await getStatistics('busy-days');
-      final leastBusyDaysResponse = await getStatistics('least-days');
+      final mostBusyDaysResponse =
+          await getStatistics('busy-days', token: token);
+      final leastBusyDaysResponse =
+          await getStatistics('least-days', token: token);
 
       // Extraer los datos teniendo en cuenta la estructura actual:
       // data: {"day": "Wednesday", "count": 11}
@@ -201,10 +206,13 @@ class StatisticsController {
   }
 
   // Fetch both most-visited and least-visited categories in one call
-  Future<Map<String, dynamic>> getVisitedCategoriesStatistics() async {
+  Future<Map<String, dynamic>> getVisitedCategoriesStatistics(
+      {Map<String, String>? params, required String token}) async {
     try {
-      final mostVisitedResponse = await getStatistics('most-visited');
-      final leastVisitedResponse = await getStatistics('least-visited');
+      final mostVisitedResponse =
+          await getStatistics('most-visited', params: params, token: token);
+      final leastVisitedResponse =
+          await getStatistics('least-visited', params: params, token: token);
 
       // Extract category and count data
       String mostVisitedCategory = mostVisitedResponse['data']
@@ -233,10 +241,11 @@ class StatisticsController {
   }
 
   // Fetch historical visited categories (both most and least) in one call
-  Future<Map<String, dynamic>>
-      getHistoricalVisitedCategoriesStatistics() async {
+  Future<Map<String, dynamic>> getHistoricalVisitedCategoriesStatistics(
+      {required String token}) async {
     try {
-      final response = await getStatistics('visited-categories-historical');
+      final response =
+          await getStatistics('visited-categories-historical', token: token);
 
       // The response already contains both most and least visited categories
       return response;
@@ -248,12 +257,13 @@ class StatisticsController {
   }
 
   // Método para obtener las categorías Top Visitadas
-  Future<List<dynamic>> getTopSuccessfulCategories() async {
+  Future<List<dynamic>> getTopSuccessfulCategories(
+      {required String token}) async {
     try {
       // Endpoint ahora devuelve Top por Visitas Totales
       const endpoint = 'top-successful-categories';
       final url = '$baseUrl/api/statistics/$endpoint/';
-      print('Fetching top categories (by total visits) from: $url');
+      print('Fetching top categories with happy emotions from: $url');
 
       const cacheKey = endpoint;
       if (_isCacheValid(cacheKey)) {
@@ -269,9 +279,13 @@ class StatisticsController {
         }
       }
 
-      final response = await _client
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
         throw Exception(
             'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
       });
@@ -309,7 +323,8 @@ class StatisticsController {
   Future<Map<String, dynamic>> getEmotionalDifferencesByCategory() async {
     try {
       // Llamar al endpoint que ahora devuelve directamente raw_counts
-      final response = await getStatistics('emotional-differences-by-category');
+      final response =
+          await getStatistics('emotional-differences-by-category', token: '');
 
       // Verificar que la respuesta tenga el formato esperado
       if (response.containsKey('data')) {
@@ -326,15 +341,15 @@ class StatisticsController {
 
   // Fetch both gender and age distribution in one call
   Future<Map<String, dynamic>> getGenderAgeDistributionStatistics(
-      {Map<String, String>? params}) async {
+      {Map<String, String>? params, required String token}) async {
     try {
       print('Fetching gender distribution with params: $params');
-      final genderResponse =
-          await getStatistics('gender-distribution', params: params);
+      final genderResponse = await getStatistics('gender-distribution',
+          params: params, token: token);
 
       print('Fetching age distribution with same params: $params');
       final ageResponse =
-          await getStatistics('age-distribution', params: params);
+          await getStatistics('age-distribution', params: params, token: token);
 
       print('Gender Response: $genderResponse');
       print('Age Response: $ageResponse');
@@ -476,7 +491,7 @@ class StatisticsController {
         'data': {'gender': genderData, 'age': ageData}
       };
     } catch (e) {
-      print('Error al obtener estadísticas de género y edad: $e');
+      print('Error al obtener estadísticas de sexo y edad: $e');
       rethrow;
     }
   }
@@ -515,14 +530,14 @@ class StatisticsController {
       // Estadísticas que requieren parámetros adicionales
       {
         'value': 'gender-age-combined',
-        'label': 'Distribución por género y edad',
+        'label': 'Distribución por sexo y edad',
         'emoji': '👥'
       },
 
       // Estadísticas históricas
       {
         'value': 'preferred-category-by-gender',
-        'label': 'Categorías preferidas por género',
+        'label': 'Categorías preferidas por sexo',
         'emoji': '👫'
       },
       {
@@ -537,38 +552,30 @@ class StatisticsController {
       },
       {
         'value': 'age-gender-distribution-by-category',
-        'label': 'Distribución edad-género por categoría',
+        'label': 'Distribución edad-sexo por categoría',
         'emoji': '📊'
       },
     ];
   }
 
   // --- NUEVO: Obtener semanas y meses disponibles para gender/age ---
-  Future<List<String>> getAvailableWeeks() async {
-    final genderResp = await getStatistics('gender-distribution');
-    final ageResp = await getStatistics('age-distribution');
+  Future<List<String>> getAvailableWeeks({required String token}) async {
+    final genderResp = await getStatistics('gender-distribution', token: token);
     final Set<String> weeks = {};
     if (genderResp['data'] != null && genderResp['data']['weekly'] != null) {
       weeks.addAll((genderResp['data']['weekly'] as Map<String, dynamic>).keys);
-    }
-    if (ageResp['data'] != null && ageResp['data']['weekly'] != null) {
-      weeks.addAll((ageResp['data']['weekly'] as Map<String, dynamic>).keys);
     }
     final sorted = weeks.toList()
       ..sort((a, b) => b.compareTo(a)); // Más reciente primero
     return sorted;
   }
 
-  Future<List<String>> getAvailableMonths() async {
-    final genderResp = await getStatistics('gender-distribution');
-    final ageResp = await getStatistics('age-distribution');
+  Future<List<String>> getAvailableMonths({required String token}) async {
+    final genderResp = await getStatistics('gender-distribution', token: token);
     final Set<String> months = {};
     if (genderResp['data'] != null && genderResp['data']['monthly'] != null) {
       months
           .addAll((genderResp['data']['monthly'] as Map<String, dynamic>).keys);
-    }
-    if (ageResp['data'] != null && ageResp['data']['monthly'] != null) {
-      months.addAll((ageResp['data']['monthly'] as Map<String, dynamic>).keys);
     }
     final sorted = months.toList()
       ..sort((a, b) => b.compareTo(a)); // Más reciente primero

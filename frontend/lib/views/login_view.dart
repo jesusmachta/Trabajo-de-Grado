@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'home_view.dart';
+import 'register_company_view.dart';
 import '../controllers/auth_controller.dart';
+import 'forgot_password_view.dart';
+import 'onboarding_view.dart';
 
 class LoginView extends StatefulWidget {
   final Function toggleTheme;
@@ -31,7 +34,7 @@ class _LoginViewState extends State<LoginView> {
     if (value == null || value.isEmpty) {
       return 'Por favor ingresa tu correo electrónico';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (!RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
       return 'Por favor ingresa un correo electrónico válido';
     }
     return null;
@@ -91,6 +94,16 @@ class _LoginViewState extends State<LoginView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Logo
+                    Center(
+                      child: Image.asset(
+                        'assets/images/storesense_logo.png',
+                        height: 80,
+                        width: 80,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
                     // Title and subtitle
                     const Text(
                       'Bienvenido de nuevo',
@@ -126,7 +139,7 @@ class _LoginViewState extends State<LoginView> {
                       style: const TextStyle(fontSize: 17),
                       validator: _validateEmail,
                       decoration: InputDecoration(
-                        hintText: 'correo@ejemplo.com',
+                        hintText: 'Ingresa tu correo electrónico',
                         prefixIcon: const Icon(Icons.email_outlined, size: 24),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -136,6 +149,37 @@ class _LoginViewState extends State<LoginView> {
                       ),
                     ),
                     const SizedBox(height: 24),
+
+                    // Add "Forgot Password" button here
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          // Navigate to the forgot password screen
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ForgotPasswordView(
+                                toggleTheme: widget.toggleTheme,
+                              ),
+                            ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          '¿Olvidaste tu contraseña?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
 
                     // Password field
                     const Text(
@@ -203,6 +247,42 @@ class _LoginViewState extends State<LoginView> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                    ),
+
+                    // Add register company button
+                    const SizedBox(height: 20),
+                    OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => OnboardingView(
+                              toggleTheme: widget.toggleTheme,
+                              onFinish: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) => RegisterCompanyView(
+                                      toggleTheme: widget.toggleTheme,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Registrar Empresa',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),

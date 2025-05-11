@@ -4,8 +4,9 @@
 class HourData {
   final String hour;
   final double count;
+  final String fullLabel;
 
-  HourData({required this.hour, required this.count});
+  HourData({required this.hour, required this.count, this.fullLabel = ''});
 }
 
 // Datos para gráfico de días
@@ -34,7 +35,7 @@ class EmotionData {
       {required this.emotion, required this.count, required this.percentage});
 }
 
-// Datos para gráfico de géneros
+// Datos para gráfico de sexos
 class GenderData {
   final String gender;
   final int count;

@@ -12,6 +12,8 @@ class User {
   final DateTime createdAt;
   final String? profilePicture;
   final bool isActive;
+  final String? empresa;
+  final String? rif;
 
   User({
     required this.id,
@@ -21,6 +23,8 @@ class User {
     required this.createdAt,
     this.profilePicture,
     this.isActive = true,
+    this.empresa,
+    this.rif,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,8 @@ class User {
       role: json['role'] ?? 'user',
       profilePicture: json['profile_picture'],
       isActive: json['is_active'] ?? true,
+      empresa: json['empresa'],
+      rif: json['rif'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -165,6 +171,8 @@ class AuthController with ChangeNotifier {
             'profile_picture': _currentUser!.profilePicture,
             'is_active': _currentUser!.isActive,
             'created_at': _currentUser!.createdAt.toIso8601String(),
+            'empresa': _currentUser!.empresa,
+            'rif': _currentUser!.rif,
           }));
     }
   }
@@ -209,6 +217,8 @@ class AuthController with ChangeNotifier {
           profilePicture: responseData['profile_picture'],
           isActive: responseData['is_active'] ?? true,
           createdAt: DateTime.now(),
+          empresa: responseData['empresa'],
+          rif: responseData['rif'],
         );
 
         await _saveCredentials();
@@ -274,6 +284,8 @@ class AuthController with ChangeNotifier {
           profilePicture: profilePictureUrl,
           isActive: responseData['is_active'] ?? true,
           createdAt: DateTime.now(),
+          empresa: responseData['empresa'],
+          rif: responseData['rif'],
         );
 
         await _saveCredentials();
@@ -317,6 +329,8 @@ class AuthController with ChangeNotifier {
         createdAt: _currentUser!.createdAt,
         isActive: _currentUser!.isActive,
         profilePicture: _encodeProfilePictureUrl(newProfilePictureUrl),
+        empresa: _currentUser!.empresa,
+        rif: _currentUser!.rif,
       );
 
       // Save updated user to SharedPreferences
@@ -449,6 +463,8 @@ class AuthController with ChangeNotifier {
             createdAt: userData['created_at'] != null
                 ? DateTime.parse(userData['created_at'])
                 : _currentUser!.createdAt,
+            empresa: userData['empresa'],
+            rif: userData['rif'],
           );
 
           // Save updated user data

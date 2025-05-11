@@ -6,8 +6,213 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart';
 
+// Helper class to convert icon names to IconData
+class IconDataHelper {
+  static IconData getIconByName(String name) {
+    // Map of icon names to IconData objects
+    Map<String, IconData> iconMap = {
+      'category': Icons.category,
+      'shopping_basket': Icons.shopping_basket,
+      'fastfood': Icons.fastfood,
+      'local_drink': Icons.local_drink,
+      'bakery_dining': Icons.bakery_dining,
+      'restaurant': Icons.restaurant,
+      'liquor': Icons.liquor,
+      'local_mall': Icons.local_mall,
+      'checkroom': Icons.checkroom,
+      'diamond': Icons.diamond,
+      'watch': Icons.watch,
+      'devices': Icons.devices,
+      'phone_android': Icons.phone_android,
+      'tv': Icons.tv,
+      'laptop': Icons.laptop,
+      'headphones': Icons.headphones,
+      'camera_alt': Icons.camera_alt,
+      'sports_basketball': Icons.sports_basketball,
+      'sports_soccer': Icons.sports_soccer,
+      'sports_tennis': Icons.sports_tennis,
+      'fitness_center': Icons.fitness_center,
+      'home': Icons.home,
+      'bed': Icons.bed,
+      'chair': Icons.chair,
+      'kitchen': Icons.kitchen,
+      'format_paint': Icons.format_paint,
+      'toys': Icons.toys,
+      'pets': Icons.pets,
+      'child_friendly': Icons.child_friendly,
+      'book': Icons.book,
+      'auto_stories': Icons.auto_stories,
+      'medical_services': Icons.medical_services,
+      'spa': Icons.spa,
+    };
+
+    return iconMap[name] ?? Icons.category;
+  }
+}
+
 // Add enum for category status filter similar to user filter
 enum CategoryStatusFilter { todos, activo, inactivo }
+
+// Widget for icon selection
+class IconSelector extends StatefulWidget {
+  final String initialIcon;
+  final Function(String) onIconSelected;
+
+  const IconSelector({
+    Key? key,
+    required this.initialIcon,
+    required this.onIconSelected,
+  }) : super(key: key);
+
+  @override
+  State<IconSelector> createState() => _IconSelectorState();
+}
+
+class _IconSelectorState extends State<IconSelector> {
+  late String selectedIcon;
+  bool _showGrid = false;
+
+  // List of common Material icons to choose from
+  final List<Map<String, dynamic>> availableIcons = [
+    {'name': 'category', 'icon': Icons.category},
+    {'name': 'shopping_basket', 'icon': Icons.shopping_basket},
+    {'name': 'fastfood', 'icon': Icons.fastfood},
+    {'name': 'local_drink', 'icon': Icons.local_drink},
+    {'name': 'bakery_dining', 'icon': Icons.bakery_dining},
+    {'name': 'restaurant', 'icon': Icons.restaurant},
+    {'name': 'liquor', 'icon': Icons.liquor},
+    {'name': 'local_mall', 'icon': Icons.local_mall},
+    {'name': 'checkroom', 'icon': Icons.checkroom},
+    {'name': 'diamond', 'icon': Icons.diamond},
+    {'name': 'watch', 'icon': Icons.watch},
+    {'name': 'devices', 'icon': Icons.devices},
+    {'name': 'phone_android', 'icon': Icons.phone_android},
+    {'name': 'tv', 'icon': Icons.tv},
+    {'name': 'laptop', 'icon': Icons.laptop},
+    {'name': 'headphones', 'icon': Icons.headphones},
+    {'name': 'camera_alt', 'icon': Icons.camera_alt},
+    {'name': 'sports_basketball', 'icon': Icons.sports_basketball},
+    {'name': 'sports_soccer', 'icon': Icons.sports_soccer},
+    {'name': 'sports_tennis', 'icon': Icons.sports_tennis},
+    {'name': 'fitness_center', 'icon': Icons.fitness_center},
+    {'name': 'home', 'icon': Icons.home},
+    {'name': 'bed', 'icon': Icons.bed},
+    {'name': 'chair', 'icon': Icons.chair},
+    {'name': 'kitchen', 'icon': Icons.kitchen},
+    {'name': 'format_paint', 'icon': Icons.format_paint},
+    {'name': 'toys', 'icon': Icons.toys},
+    {'name': 'pets', 'icon': Icons.pets},
+    {'name': 'child_friendly', 'icon': Icons.child_friendly},
+    {'name': 'book', 'icon': Icons.book},
+    {'name': 'auto_stories', 'icon': Icons.auto_stories},
+    {'name': 'medical_services', 'icon': Icons.medical_services},
+    {'name': 'spa', 'icon': Icons.spa},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    selectedIcon = widget.initialIcon;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Icono',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+
+        // Current selected icon preview
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showGrid = !_showGrid;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(IconDataHelper.getIconByName(selectedIcon), size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Icono seleccionado',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
+          ),
+        ),
+
+        // Grid of icons to choose from
+        if (_showGrid) ...[
+          const SizedBox(height: 16),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              itemCount: availableIcons.length,
+              itemBuilder: (context, index) {
+                final iconData = availableIcons[index];
+                final bool isSelected = selectedIcon == iconData['name'];
+
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      selectedIcon = iconData['name'];
+                      widget.onIconSelected(selectedIcon);
+                      _showGrid = false;
+                    });
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: isSelected
+                          ? Border.all(color: Theme.of(context).primaryColor)
+                          : null,
+                    ),
+                    child: Icon(
+                      iconData['icon'],
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey.shade800,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class CategoriesView extends StatefulWidget {
   final Function toggleTheme;
@@ -27,8 +232,7 @@ class _CategoriesViewState extends State<CategoriesView> {
   CategoryStatusFilter _selectedStatus =
       CategoryStatusFilter.todos; // Default filter status
   int _currentPage = 0;
-  int _rowsPerPage = 10;
-  final List<int> _rowsPerPageOptions = [10, 20, 50];
+  final int _rowsPerPage = 10; // Fixed at 10 rows per page
 
   @override
   void initState() {
@@ -42,20 +246,29 @@ class _CategoriesViewState extends State<CategoriesView> {
     });
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Llama a getCategories con el token
       final List<Map<String, dynamic>> categoryData =
-          await _controller.getCategories();
+          await _controller.getCategories(token);
 
       setState(() {
         categories = categoryData;
-        // Apply filters after loading
-        _applyFilters();
+        _applyFilters(); // Aplica los filtros después de cargar las categorías
         isLoading = false;
       });
     } catch (e) {
       setState(() {
         isLoading = false;
       });
-      ToastService.showError(context, 'Error loading categories: $e');
+      ToastService.showError(context, 'Error al cargar categorías: $e');
     }
   }
 
@@ -96,428 +309,71 @@ class _CategoriesViewState extends State<CategoriesView> {
   }
 
   void _deleteCategory(Map<String, dynamic> category) async {
-    final int tipoProducto =
-        category["Tipo_Producto"] ?? category["Id_Tipo_Producto"];
     final String categoriaId = category["_id"];
     final String categoriaNombre =
         category["Categoria_Producto"] ?? "Categoría";
 
-    // 1. Obtener cámaras vinculadas a la categoría
-    List<Map<String, dynamic>> cameras = [];
-    bool tipoProductoIsActive = category["isActive"] == true;
-    try {
-      cameras = await _controller.getCamerasByTipoProducto(tipoProducto);
-    } catch (e) {
-      ToastService.showError(context, 'Error al buscar cámaras vinculadas: $e');
-      return;
-    }
-
-    // 2. Si no hay cámaras vinculadas, eliminar la categoría normalmente
-    if (cameras.isEmpty) {
-      final bool confirm = await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Eliminar Categoría'),
-            content: Text(
-              '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
-            ),
-            actions: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.blue),
-                ),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Colors.blue)),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child:
-                    const Text('Eliminar', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirm == true) {
-        try {
-          await _controller.deleteCategory(categoriaId);
-          await _loadCategories();
-          ToastService.showSuccess(
-              context, 'Categoría eliminada: $categoriaNombre');
-        } catch (e) {
-          ToastService.showError(context, 'Error al eliminar categoría: $e');
-        }
-      }
-      return;
-    }
-
-    // 3. Si hay cámaras vinculadas, validar isActive en cámaras y Tipo_Producto
-    final bool anyCameraActive = cameras.any((cam) => cam["isActive"] == true);
-    if (!anyCameraActive && !tipoProductoIsActive) {
-      // Todas las cámaras y la categoría están inactivas, eliminar todo
-      final bool confirm = await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Eliminar Categoría y Cámaras'),
-            content: Text(
-              'Esta categoría tiene cámaras vinculadas, pero todas están inactivas. ¿Deseas eliminar la categoría y todas sus cámaras asociadas? Esta acción no se puede deshacer.',
-            ),
-            actions: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.blue),
-                ),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Colors.blue)),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Eliminar todo',
-                    style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirm == true) {
-        try {
-          // Eliminar todas las cámaras asociadas
-          for (final cam in cameras) {
-            await _deleteCameraById(cam["_id"]);
-          }
-          // Eliminar la categoría
-          await _controller.deleteCategory(categoriaId);
-          await _loadCategories();
-          ToastService.showSuccess(context, 'Categoría y cámaras eliminadas');
-        } catch (e) {
-          ToastService.showError(context, 'Error al eliminar: $e');
-        }
-      }
-      return;
-    }
-
-    // 4. Si alguna cámara o la categoría está activa, mostrar modal con opciones
-    await showDialog(
+    // Confirmar eliminación
+    final bool confirm = await showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (BuildContext context) {
-        String? selectedCategoryId;
-        String? errorText;
-        bool isProcessing = false;
-        final theme = Theme.of(context);
-        final Color azulPrincipal = theme.colorScheme.primary;
-        final Color azulClaro =
-            theme.colorScheme.primaryContainer.withOpacity(0.25);
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18)),
-              insetPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header azul con icono de cerrar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: azulPrincipal,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(18),
-                          topRight: Radius.circular(18),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Cámaras vinculadas activas',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: isProcessing
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                            child: const Icon(Icons.close,
-                                color: Colors.white, size: 28),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 18),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'No puedes eliminar la categoría "$categoriaNombre" porque tiene cámaras activas vinculadas. ¿Qué deseas hacer?',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 18),
-                          // Cámaras vinculadas en recuadro azul claro
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: azulClaro,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Cámaras vinculadas:',
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.bold)),
-                                ...cameras.map((cam) => Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 3.0),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.lens,
-                                              color: azulPrincipal, size: 14),
-                                          const SizedBox(width: 6),
-                                          Text('ID: ${cam["Id_Camara"]}',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w500)),
-                                          if (cam["isActive"] == true)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 6.0),
-                                              child: Text(
-                                                '(Activo)',
-                                                style: TextStyle(
-                                                    color: azulPrincipal,
-                                                    fontWeight: FontWeight.w500,
-                                                    fontSize: 13),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    )),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          Text('Opciones:',
-                              style: theme.textTheme.bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.delete_outline),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(48),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              textStyle: const TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.w600),
-                            ),
-                            onPressed: isProcessing
-                                ? null
-                                : () async {
-                                    setModalState(() => isProcessing = true);
-                                    try {
-                                      for (final cam in cameras) {
-                                        await _deleteCameraById(cam["_id"]);
-                                      }
-                                      await _controller
-                                          .deleteCategory(categoriaId);
-                                      await _loadCategories();
-                                      if (mounted) Navigator.of(context).pop();
-                                      ToastService.showSuccess(context,
-                                          'Cámaras y categoría eliminadas');
-                                    } catch (e) {
-                                      setModalState(() => isProcessing = false);
-                                      ToastService.showError(
-                                          context, 'Error al eliminar: $e');
-                                    }
-                                  },
-                            label: const Text('Eliminar cámaras y categoría'),
-                          ),
-                          const SizedBox(height: 10),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.swap_horiz),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: azulPrincipal,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(48),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              textStyle: const TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.w600),
-                            ),
-                            onPressed: isProcessing
-                                ? null
-                                : () async {
-                                    final List<Map<String, dynamic>>
-                                        otherCategories = categories
-                                            .where((cat) =>
-                                                cat["_id"] != categoriaId)
-                                            .toList();
-                                    await showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return StatefulBuilder(
-                                          builder: (context, setState2) {
-                                            return AlertDialog(
-                                              title: const Text(
-                                                  'Reasignar cámaras'),
-                                              content: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Text(
-                                                      'Selecciona la categoría a la que deseas mover las cámaras:'),
-                                                  const SizedBox(height: 10),
-                                                  DropdownButtonFormField<
-                                                      String>(
-                                                    value: selectedCategoryId,
-                                                    items: otherCategories
-                                                        .map((cat) {
-                                                      return DropdownMenuItem<
-                                                          String>(
-                                                        value: cat["_id"]
-                                                            as String,
-                                                        child: Text(
-                                                            cat["Categoria_Producto"] ??
-                                                                'Sin nombre'),
-                                                      );
-                                                    }).toList(),
-                                                    onChanged: (value) {
-                                                      setState2(() {
-                                                        selectedCategoryId =
-                                                            value;
-                                                        errorText = null;
-                                                      });
-                                                    },
-                                                    decoration: InputDecoration(
-                                                      labelText:
-                                                          'Nueva categoría',
-                                                      errorText: errorText,
-                                                      contentPadding:
-                                                          const EdgeInsets
-                                                              .symmetric(
-                                                              vertical: 8,
-                                                              horizontal: 10),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(context)
-                                                          .pop(),
-                                                  child: const Text('Cancelar'),
-                                                ),
-                                                ElevatedButton(
-                                                  onPressed: () async {
-                                                    if (selectedCategoryId ==
-                                                        null) {
-                                                      setState2(() => errorText =
-                                                          'Selecciona una categoría');
-                                                      return;
-                                                    }
-                                                    setModalState(() =>
-                                                        isProcessing = true);
-                                                    try {
-                                                      final newTipoProducto = otherCategories
-                                                              .firstWhere((cat) =>
-                                                                  cat["_id"] ==
-                                                                  selectedCategoryId)[
-                                                          "Tipo_Producto"] as int;
-                                                      for (final cam
-                                                          in cameras) {
-                                                        await _updateCameraTipoProducto(
-                                                            cam["_id"],
-                                                            cam["Id_Camara"],
-                                                            newTipoProducto);
-                                                      }
-                                                      await _controller
-                                                          .deleteCategory(
-                                                              categoriaId);
-                                                      await _loadCategories();
-                                                      if (mounted)
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      if (mounted)
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      ToastService.showSuccess(
-                                                          context,
-                                                          'Cámaras reasignadas y categoría eliminada');
-                                                    } catch (e) {
-                                                      setModalState(() =>
-                                                          isProcessing = false);
-                                                      ToastService.showError(
-                                                          context,
-                                                          'Error al reasignar: $e');
-                                                    }
-                                                  },
-                                                  child: const Text(
-                                                      'Reasignar y eliminar categoría'),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        );
-                                      },
-                                    );
-                                  },
-                            label: const Text(
-                                'Reasignar cámaras a otra categoría'),
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: isProcessing
-                                  ? null
-                                  : () => Navigator.of(context).pop(),
-                              style: TextButton.styleFrom(
-                                  foregroundColor: azulPrincipal),
-                              child: const Text('Cancelar'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        return AlertDialog(
+          title: const Text('Eliminar Categoría'),
+          content: Text(
+            '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child:
+                  const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            ),
+          ],
         );
       },
     );
+
+    if (confirm == true) {
+      try {
+        // Obtén el token JWT desde el AuthController
+        final authController =
+            Provider.of<AuthController>(context, listen: false);
+        final String? token = authController.token;
+
+        if (token == null) {
+          throw Exception('No se encontró el token de autenticación.');
+        }
+
+        // Optimistic update - remove from UI first
+        if (mounted) {
+          setState(() {
+            categories.removeWhere((cat) => cat["_id"] == categoriaId);
+            _applyFilters(); // Update filtered list
+            isLoading = true; // Show loading state
+          });
+        }
+
+        // Llamar al controlador para eliminar la categoría
+        await _controller.deleteCategory(categoriaId, token);
+
+        // Recargar la lista de categorías para asegurar consistencia
+        if (mounted) {
+          await _loadCategories();
+          ToastService.showSuccess(
+              context, 'Categoría eliminada: $categoriaNombre');
+        }
+      } catch (e) {
+        // On error, refresh the list to get the correct state
+        if (mounted) {
+          await _loadCategories();
+          ToastService.showError(context, 'Error al eliminar categoría: $e');
+        }
+      }
+    }
   }
 
   // Función auxiliar para eliminar cámara por id (llama al endpoint de cámaras)
@@ -550,6 +406,8 @@ class _CategoriesViewState extends State<CategoriesView> {
     final TextEditingController nameController =
         TextEditingController(text: category["Categoria_Producto"]);
     bool isActive = category["isActive"];
+    String selectedIcon =
+        category["icon"] ?? "category"; // Get existing icon or use default
     String? errorText; // Variable para mostrar el mensaje de error
 
     showDialog(
@@ -559,43 +417,67 @@ class _CategoriesViewState extends State<CategoriesView> {
           builder: (BuildContext context, StateSetter setModalState) {
             return AlertDialog(
               title: const Text('Editar Categoría'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Campo para editar el nombre
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Nombre de la categoría',
-                      border: const OutlineInputBorder(),
-                      errorText:
-                          errorText, // Mostrar mensaje de error si es necesario
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        errorText =
-                            null; // Limpiar el mensaje de error al escribir
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Switch para activar/desactivar
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Activo'),
-                      Switch(
-                        value: isActive,
-                        onChanged: (value) {
-                          setModalState(() {
-                            isActive =
-                                value; // Actualiza el estado local del modal
-                          });
-                        },
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Campo para editar el nombre
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la categoría',
+                        border: const OutlineInputBorder(),
+                        errorText:
+                            errorText, // Mostrar mensaje de error si es necesario
                       ),
-                    ],
-                  ),
-                ],
+                      onChanged: (value) {
+                        setModalState(() {
+                          errorText =
+                              null; // Limpiar el mensaje de error al escribir
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Icon selector widget
+                    IconSelector(
+                      initialIcon: selectedIcon,
+                      onIconSelected: (icon) {
+                        setModalState(() {
+                          selectedIcon = icon;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Switch para activar/desactivar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Activo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : null,
+                          ),
+                        ),
+                        Switch(
+                          value: isActive,
+                          onChanged: (value) {
+                            setModalState(() {
+                              isActive =
+                                  value; // Actualiza el estado local del modal
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -615,28 +497,63 @@ class _CategoriesViewState extends State<CategoriesView> {
                     }
 
                     try {
+                      // Obtén el token JWT desde el AuthController
+                      final authController =
+                          Provider.of<AuthController>(context, listen: false);
+                      final String? token = authController.token;
+
+                      if (token == null) {
+                        throw Exception(
+                            'No se encontró el token de autenticación.');
+                      }
+
+                      // Optimistic update - update UI before API call
+                      final String categoryId = category["_id"];
+                      final String newName = nameController.text.trim();
+
+                      // Update the local list
+                      if (mounted) {
+                        setState(() {
+                          final index = categories
+                              .indexWhere((c) => c["_id"] == categoryId);
+                          if (index != -1) {
+                            categories[index]["Categoria_Producto"] = newName;
+                            categories[index]["isActive"] = isActive;
+                            categories[index]["icon"] = selectedIcon;
+                          }
+                          // Update filtered list
+                          _applyFilters();
+                        });
+                      }
+
+                      // Cerrar el modal
+                      Navigator.of(context).pop();
+
                       // Llamar al controlador para actualizar la categoría
                       await _controller.updateCategory(
-                        category["_id"],
-                        nameController.text.trim(),
+                        categoryId,
+                        newName,
                         isActive,
+                        token, // Pasar el token aquí
+                        icon: selectedIcon, // Pass the selected icon
                       );
 
-                      // Esperamos un poco para asegurarnos que el backend haya guardado
-                      await Future.delayed(const Duration(milliseconds: 200));
+                      // Recargar la lista de categorías
+                      if (mounted) {
+                        await _loadCategories();
+                      }
 
-                      // Recargamos
-                      await _loadCategories(); // This will also call _applyFilters() now
-
-                      // Cerramos modal
-                      if (mounted) Navigator.of(context).pop();
-
-                      ToastService.showSuccess(
-                          context, 'Categoría actualizada exitosamente');
+                      if (mounted) {
+                        ToastService.showSuccess(
+                            context, 'Categoría actualizada exitosamente');
+                      }
                     } catch (e) {
-                      if (mounted) Navigator.of(context).pop();
-                      ToastService.showError(
-                          context, 'Error al actualizar categoría: $e');
+                      // If error occurs, reload to get correct state
+                      if (mounted) {
+                        await _loadCategories();
+                        ToastService.showError(
+                            context, 'Error al actualizar categoría: $e');
+                      }
                     }
                   },
                   child: const Text('Guardar'),
@@ -655,6 +572,7 @@ class _CategoriesViewState extends State<CategoriesView> {
     final TextEditingController categoriaProductoController =
         TextEditingController();
     bool isActive = true;
+    String selectedIcon = 'category'; // Default icon
     String? errorTextTipoProducto;
     String? errorTextCategoriaProducto;
 
@@ -665,57 +583,88 @@ class _CategoriesViewState extends State<CategoriesView> {
           builder: (BuildContext context, StateSetter setModalState) {
             return AlertDialog(
               title: const Text('Crear Nueva Categoría'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Campo para Tipo_Producto
-                  TextField(
-                    controller: tipoProductoController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Tipo de Producto (ID)',
-                      border: const OutlineInputBorder(),
-                      errorText: errorTextTipoProducto,
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        errorTextTipoProducto =
-                            null; // Limpiar error al escribir
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Campo para Categoria_Producto
-                  TextField(
-                    controller: categoriaProductoController,
-                    decoration: InputDecoration(
-                      labelText: 'Nombre de la Categoría',
-                      border: const OutlineInputBorder(),
-                      errorText: errorTextCategoriaProducto,
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        errorTextCategoriaProducto = null; // Limpiar error
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Switch para activar/desactivar
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Activo'),
-                      Switch(
-                        value: isActive,
-                        onChanged: (value) {
-                          setModalState(() {
-                            isActive = value; // Actualizar estado local
-                          });
-                        },
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Campo para Tipo_Producto
+                    TextField(
+                      controller: tipoProductoController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de Producto (ID)',
+                        border: const OutlineInputBorder(),
+                        errorText: errorTextTipoProducto,
                       ),
-                    ],
-                  ),
-                ],
+                      onChanged: (value) {
+                        setModalState(() {
+                          errorTextTipoProducto =
+                              null; // Limpiar error al escribir
+
+                          // Validación para asegurar que sea un número entero
+                          if (value.isNotEmpty) {
+                            try {
+                              int.parse(value);
+                            } catch (e) {
+                              errorTextTipoProducto =
+                                  'Debe ser un número entero';
+                            }
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Campo para Categoria_Producto
+                    TextField(
+                      controller: categoriaProductoController,
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la Categoría',
+                        border: const OutlineInputBorder(),
+                        errorText: errorTextCategoriaProducto,
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          errorTextCategoriaProducto = null; // Limpiar error
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Icon selector
+                    IconSelector(
+                      initialIcon: selectedIcon,
+                      onIconSelected: (icon) {
+                        setModalState(() {
+                          selectedIcon = icon;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Switch para activar/desactivar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Activo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : null,
+                          ),
+                        ),
+                        Switch(
+                          value: isActive,
+                          onChanged: (value) {
+                            setModalState(() {
+                              isActive = value; // Actualizar estado local
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -733,6 +682,17 @@ class _CategoriesViewState extends State<CategoriesView> {
                       });
                       return;
                     }
+
+                    // Validar que Tipo_Producto sea un número entero
+                    try {
+                      int.parse(tipoProductoController.text.trim());
+                    } catch (e) {
+                      setModalState(() {
+                        errorTextTipoProducto = 'Debe ser un número entero';
+                      });
+                      return;
+                    }
+
                     if (categoriaProductoController.text.trim().isEmpty) {
                       setModalState(() {
                         errorTextCategoriaProducto =
@@ -742,24 +702,50 @@ class _CategoriesViewState extends State<CategoriesView> {
                     }
 
                     try {
+                      // Obtén el token JWT desde el AuthController
+                      final authController =
+                          Provider.of<AuthController>(context, listen: false);
+                      final String? token = authController.token;
+
+                      if (token == null) {
+                        throw Exception(
+                            'No se encontró el token de autenticación.');
+                      }
+
+                      // Cerrar el modal antes de la operación API
+                      Navigator.of(context).pop();
+
+                      // Show loading indicator
+                      if (mounted) {
+                        setState(() {
+                          isLoading = true;
+                        });
+                      }
+
                       // Llamar al controlador para crear la categoría
                       await _controller.createCategory(
                         int.parse(tipoProductoController.text.trim()),
                         categoriaProductoController.text.trim(),
                         isActive,
+                        token, // Pasar el token aquí
+                        icon: selectedIcon, // Pass the selected icon
                       );
 
                       // Recargar la lista de categorías
-                      await _loadCategories(); // This will also call _applyFilters() now
-
-                      // Cerrar el modal
-                      if (mounted) Navigator.of(context).pop();
-
-                      ToastService.showSuccess(
-                          context, 'Categoría creada exitosamente');
+                      if (mounted) {
+                        await _loadCategories();
+                        ToastService.showSuccess(
+                            context, 'Categoría creada exitosamente');
+                      }
                     } catch (e) {
-                      ToastService.showError(
-                          context, 'Error al crear categoría: $e');
+                      // Hide loading and show error
+                      if (mounted) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ToastService.showError(
+                            context, 'Error al crear categoría: $e');
+                      }
                     }
                   },
                   child: const Text('Crear'),
@@ -776,14 +762,24 @@ class _CategoriesViewState extends State<CategoriesView> {
     final bool currentStatus = category["isActive"] as bool? ?? false;
     final String categoryId = category["_id"] as String;
     final String categoryName = category["Categoria_Producto"] ?? "Categoría";
+    final bool newStatus = !currentStatus;
 
     try {
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
       // Optimistically update UI first
       setState(() {
         // Find the category in our list and update its status
         final index = categories.indexWhere((c) => c["_id"] == categoryId);
         if (index != -1) {
-          categories[index]["isActive"] = !currentStatus;
+          categories[index]["isActive"] = newStatus;
         }
 
         // Update the filtered list through our filter method
@@ -794,13 +790,17 @@ class _CategoriesViewState extends State<CategoriesView> {
       await _controller.updateCategory(
         categoryId,
         category["Categoria_Producto"],
-        !currentStatus,
+        newStatus,
+        token,
       );
+
+      // Don't reload the full list after toggle - just keep our optimistic update
+      // This avoids the flicker effect where the switch appears to revert
 
       // Show success message
       if (mounted) {
         ToastService.showSuccess(context,
-            'Estado de "$categoryName" actualizado a ${!currentStatus ? 'activo' : 'inactivo'}');
+            'Estado de "$categoryName" actualizado a ${newStatus ? 'activo' : 'inactivo'}');
       }
     } catch (e) {
       // If there was an error, revert the optimistic update
@@ -826,7 +826,7 @@ class _CategoriesViewState extends State<CategoriesView> {
     final isAdmin = authController.currentUser?.role == 'admin';
     if (!isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Acceso denegado')),
+        appBar: AppBar(title: const Text('StoreSense')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1001,6 +1001,8 @@ class _CategoriesViewState extends State<CategoriesView> {
     final int totalPages = (filteredCategories.length / _rowsPerPage).ceil();
     final Color azulOscuro = const Color(0xFF223A5E);
     final Color grisClaro = const Color(0xFFE0E0E0);
+    final theme = Theme.of(context);
+
     return Column(
       children: [
         Card(
@@ -1024,7 +1026,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                   ),
                   columns: const [
                     DataColumn(
-                        label: Text('Foto',
+                        label: Text('Icono',
                             style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(
                         label: Text('Categoría',
@@ -1041,6 +1043,8 @@ class _CategoriesViewState extends State<CategoriesView> {
                     final nombre =
                         category["Categoria_Producto"] ?? 'Desconocida';
                     final isActive = category["isActive"] as bool? ?? false;
+                    final iconName = category["icon"] ?? "category";
+
                     return DataRow(
                       cells: [
                         DataCell(
@@ -1049,7 +1053,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                             backgroundColor:
                                 Theme.of(context).colorScheme.surfaceVariant,
                             child: Icon(
-                              Icons.category,
+                              IconDataHelper.getIconByName(iconName),
                               size: 20,
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -1121,56 +1125,105 @@ class _CategoriesViewState extends State<CategoriesView> {
           }),
         ),
         // --- CONTROLES DE PAGINACIÓN ESTILO MATERIAL ---
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+          ),
+          child: Column(
             children: [
-              Text('Filas por página:', style: TextStyle(fontSize: 15)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _rowsPerPage,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-                items: _rowsPerPageOptions.map((value) {
-                  return DropdownMenuItem<int>(
-                    value: value,
-                    child: Text(value.toString()),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _rowsPerPage = value;
-                      _currentPage = 0;
-                    });
-                  }
-                },
-                underline: Container(),
+              // Record count text
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  'Mostrando ${filteredCategories.isEmpty ? 0 : startIndex + 1}-${endIndex > filteredCategories.length ? filteredCategories.length : endIndex} de ${filteredCategories.length} registros',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                ),
               ),
-              const SizedBox(width: 32),
-              Text(
-                  'Página ${filteredCategories.isEmpty ? 0 : _currentPage + 1} de $totalPages',
-                  style: TextStyle(fontSize: 15)),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                color: Colors.black.withOpacity(_currentPage > 0 ? 0.87 : 0.2),
-                onPressed: _currentPage > 0
-                    ? () => setState(() => _currentPage--)
-                    : null,
-                splashRadius: 18,
-                iconSize: 24,
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                color: Colors.black.withOpacity(
-                    endIndex < filteredCategories.length ? 0.87 : 0.2),
-                onPressed: endIndex < filteredCategories.length
-                    ? () => setState(() => _currentPage++)
-                    : null,
-                splashRadius: 18,
-                iconSize: 24,
+              // Pagination buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_double_arrow_left),
+                    onPressed: _currentPage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage = 0;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Primera página',
+                    color: _currentPage > 0
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_left),
+                    onPressed: _currentPage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage--;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Página anterior',
+                    color: _currentPage > 0
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color:
+                          theme.colorScheme.primaryContainer.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Página ${filteredCategories.isEmpty ? 0 : _currentPage + 1} de $totalPages',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_right),
+                    onPressed: endIndex < filteredCategories.length
+                        ? () {
+                            setState(() {
+                              _currentPage++;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Página siguiente',
+                    color: endIndex < filteredCategories.length
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_double_arrow_right),
+                    onPressed: _currentPage < totalPages - 1
+                        ? () {
+                            setState(() {
+                              _currentPage = totalPages - 1;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Última página',
+                    color: _currentPage < totalPages - 1
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                ],
               ),
             ],
           ),

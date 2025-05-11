@@ -25,7 +25,7 @@ class CategoriesController {
   final Duration _cacheInvalidationTime = const Duration(minutes: 5);
 
   // Fetch categories from the API
-  Future<List<Map<String, dynamic>>> getCategories() async {
+  Future<List<Map<String, dynamic>>> getCategories(String token) async {
     // Check if cache is valid
     if (_cachedCategories != null &&
         _lastFetchTime != null &&
@@ -35,17 +35,20 @@ class CategoriesController {
     }
 
     try {
-      final url = Uri.parse('$baseUrl/api/categories/');
-      final response = await _client
-          .get(url)
-          .timeout(const Duration(seconds: 10), onTimeout: () {
+      final url = Uri.parse('$baseUrl/api/categories');
+      final response = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
         throw Exception(
             'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
       });
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> categoryData = jsonResponse['data']['data'];
+        final List<dynamic> categoryData = jsonResponse['data'];
 
         // Cache the data
         _cachedCategories = List<Map<String, dynamic>>.from(categoryData);
@@ -70,22 +73,30 @@ class CategoriesController {
 
   // Create a new category
   Future<void> createCategory(
-      int tipoProducto, String categoriaProducto, bool isActive) async {
+      int tipoProducto, String categoriaProducto, bool isActive, String token,
+      {String icon = 'category'}) async {
     final url = Uri.parse('$baseUrl/api/categories/create');
     try {
       final response = await _client.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
         body: json.encode({
           "Tipo_Producto": tipoProducto,
           "Categoria_Producto": categoriaProducto,
           "isActive": isActive,
+          "icon": icon, // Add the icon field
         }),
       );
 
       if (response.statusCode != 200) {
         throw Exception('Error al crear categoría: ${response.body}');
       }
+
+      // Clear cache after creating a category
+      clearCache();
     } catch (e) {
       print('Error en createCategory: $e');
       rethrow; // Re-throw para manejar en la UI
@@ -93,21 +104,36 @@ class CategoriesController {
   }
 
   // Update a category
-  Future<void> updateCategory(String id, String name, bool isActive) async {
+  Future<void> updateCategory(
+      String id, String name, bool isActive, String token,
+      {String? icon}) async {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     try {
+      final Map<String, dynamic> requestBody = {
+        "Categoria_Producto": name,
+        "isActive": isActive,
+      };
+
+      // Add icon to request if provided
+      if (icon != null) {
+        requestBody["icon"] = icon;
+      }
+
       final response = await _client.put(
         url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          "Categoria_Producto": name,
-          "isActive": isActive,
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
+        body: json.encode(requestBody),
       );
 
       if (response.statusCode != 200) {
         throw Exception('Error al actualizar categoría: ${response.body}');
       }
+
+      // Clear cache after updating a category
+      clearCache();
     } catch (e) {
       print('Error en updateCategory: $e');
       rethrow; // Re-throw para manejar en la UI
@@ -115,14 +141,22 @@ class CategoriesController {
   }
 
   // Delete a category
-  Future<void> deleteCategory(String id) async {
+  Future<void> deleteCategory(String id, String token) async {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     try {
-      final response = await _client.delete(url);
+      final response = await _client.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token', // Agregar el token JWT aquí
+        },
+      );
 
       if (response.statusCode != 200) {
         throw Exception('Error al eliminar categoría: ${response.body}');
       }
+
+      // Clear cache after deleting a category
+      clearCache();
     } catch (e) {
       print('Error en deleteCategory: $e');
       rethrow; // Re-throw para manejar en la UI

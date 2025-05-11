@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import '../controllers/auth_controller.dart'; // To get the base URL potentially
-import '../widgets/toast_notification.dart'; // Import the new ToastService
+import '../controllers/auth_controller.dart';
+import '../widgets/toast_notification.dart';
+import '../controllers/cameras_controller.dart'; // Importar el nuevo controller
+import 'categories_view.dart'; // Importar directamente la vista de categorías
 
 // Define the base URL for the API
 const String _apiBaseUrl =
@@ -22,6 +24,8 @@ class CamerasView extends StatefulWidget {
 }
 
 class _CamerasViewState extends State<CamerasView> {
+  final CamerasController _controller =
+      CamerasController(); // Instanciar el controller
   List<Map<String, dynamic>> _cameras = [];
   List<Map<String, dynamic>> _filteredCameras = []; // New filtered list
   List<Map<String, dynamic>> _activeCategories = [];
@@ -34,8 +38,7 @@ class _CamerasViewState extends State<CamerasView> {
   String _searchTerm = ''; // For search functionality
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 0;
-  int _rowsPerPage = 10;
-  final List<int> _rowsPerPageOptions = [10, 20, 50];
+  final int _rowsPerPage = 10; // Fixed at 10 rows per page
 
   @override
   void initState() {
@@ -59,37 +62,37 @@ class _CamerasViewState extends State<CamerasView> {
     });
 
     try {
-      final response = await http.get(Uri.parse('$_apiBaseUrl/cameras'));
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Usar el controller para obtener las cámaras
+      final cameras = await _controller.getCameras(token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        setState(() {
-          // Sort cameras by ID by default
-          _cameras = List<Map<String, dynamic>>.from(data)
-            ..sort((a, b) =>
-                (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
-          _isLoadingCameras = false;
-
-          // Apply filters after loading data
-          _filterCameras();
-        });
-      } else {
-        throw Exception(
-            'Failed to load cameras: ${response.statusCode} ${response.body}');
-      }
+      setState(() {
+        _cameras = cameras
+          ..sort((a, b) =>
+              (a['Id_Camara'] as int).compareTo(b['Id_Camara'] as int));
+        _isLoadingCameras = false;
+        _filterCameras(); // Aplicar filtros después de cargar los datos
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _camerasError = 'Error fetching cameras: $e';
+        _camerasError = 'Error al cargar cámaras: $e';
         _isLoadingCameras = false;
-        print(_camerasError);
       });
     }
   }
 
-  // Función para cargar categorías - corregida para coincidir con la estructura de la base de datos
+  // Función para cargar categorías activas
   Future<void> _fetchActiveCategories() async {
     if (!mounted) return;
     setState(() {
@@ -98,66 +101,26 @@ class _CamerasViewState extends State<CamerasView> {
     });
 
     try {
-      // Imprimir para depurar
-      print('Fetching categories from: $_apiBaseUrl/categories');
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
 
-      final response = await http.get(Uri.parse('$_apiBaseUrl/categories'));
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Usar el controller para obtener las categorías activas
+      final activeCategories = await _controller.getActiveCategories(token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final List<dynamic> categoriesData =
-            json.decode(utf8.decode(response.bodyBytes));
-
-        print('Received ${categoriesData.length} categories from API');
-
-        // Lista para almacenar las categorías activas
-        final List<Map<String, dynamic>> activeCategories = [];
-
-        // Recorrer todas las categorías y verificar la estructura de datos
-        for (var category in categoriesData) {
-          if (category is Map<String, dynamic>) {
-            // Depurar cada categoría para ver su estructura
-            print('Category data: ${category.toString()}');
-
-            // Verificar si isActive es true (puede estar en varios formatos)
-            bool isActive = false;
-            if (category.containsKey('isActive')) {
-              final activeVal = category['isActive'];
-              isActive =
-                  activeVal == true || activeVal == 'true' || activeVal == 1;
-            }
-
-            // Solo procesar categorías activas
-            if (isActive) {
-              // Normalizar los campos para que funcionen con nuestro código
-              // Usamos la estructura real de la BD según el ejemplo proporcionado
-              final normalizedCategory = {
-                'Id_Tipo_Producto': category['Tipo_Producto'],
-                'Nombre': category['Categoria_Producto'],
-                'isActive': true,
-                // Conservar datos originales también
-                ...category,
-              };
-
-              activeCategories.add(normalizedCategory);
-              print(
-                  'Added active category: ${normalizedCategory['Nombre']} (${normalizedCategory['Id_Tipo_Producto']})');
-            }
-          }
-        }
-
-        if (!mounted) return;
-
-        setState(() {
-          _activeCategories = activeCategories;
-          _isLoadingCategories = false;
-          print(
-              'Successfully loaded ${_activeCategories.length} active categories');
-        });
-      } else {
-        throw Exception('Failed to load categories: ${response.statusCode}');
-      }
+      setState(() {
+        _activeCategories = activeCategories;
+        _isLoadingCategories = false;
+        print(
+            'Successfully loaded ${_activeCategories.length} active categories');
+      });
     } catch (e) {
       print('Error during category loading: $e');
       if (!mounted) return;
@@ -166,61 +129,7 @@ class _CamerasViewState extends State<CamerasView> {
         _categoriesError = 'Error: $e';
         _isLoadingCategories = false;
       });
-
-      // Intento directo a la API sin usar http para depurar
-      print('Attempting direct call via run_terminal_cmd...');
-      try {
-        // Mostrar categorías directamente desde la base de datos
-        _loadCategoriesDirectly();
-      } catch (directError) {
-        print('Direct loading failed: $directError');
-      }
     }
-  }
-
-  // Método de emergencia para cargar categorías directamente
-  Future<void> _loadCategoriesDirectly() async {
-    if (!mounted) return;
-
-    // Lista de categorías predefinidas basadas en las que vimos en la BD
-    final hardcodedCategories = [
-      {
-        'Id_Tipo_Producto': 1,
-        'Nombre': 'Alcohol',
-        'isActive': true,
-        'Tipo_Producto': 1,
-        'Categoria_Producto': 'Alcohol'
-      },
-      {
-        'Id_Tipo_Producto': 2,
-        'Nombre': 'Frutas',
-        'isActive': true,
-        'Tipo_Producto': 2,
-        'Categoria_Producto': 'Frutas'
-      },
-      {
-        'Id_Tipo_Producto': 3,
-        'Nombre': 'Vegetales',
-        'isActive': true,
-        'Tipo_Producto': 3,
-        'Categoria_Producto': 'Vegetales'
-      },
-      {
-        'Id_Tipo_Producto': 4,
-        'Nombre': 'Snacks',
-        'isActive': true,
-        'Tipo_Producto': 4,
-        'Categoria_Producto': 'Snacks'
-      }
-    ];
-
-    setState(() {
-      _activeCategories = hardcodedCategories;
-      _isLoadingCategories = false;
-      _categoriesError = null;
-      print(
-          'Loaded ${_activeCategories.length} hardcoded categories as emergency measure');
-    });
   }
 
   // Helper to find type/product ID given various possible field names
@@ -275,36 +184,21 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
 
     try {
-      final response = await http.post(
-        Uri.parse('$_apiBaseUrl/cameras'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'Id_Camara': idCamara,
-          'Tipo_Producto': categoryId,
-          'isActive': true,
-        }),
-      );
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
 
-      if (!mounted) return;
-
-      if (response.statusCode == 201) {
-        await _fetchCameras(); // This will also call _filterCameras() now
-        Navigator.of(currentContext).pop();
-        ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
-      } else {
-        String errorMessage = 'Failed to add camera';
-        try {
-          final errorBody = json.decode(response.body);
-          if (errorBody is Map && errorBody.containsKey('detail')) {
-            errorMessage = errorBody['detail'];
-          } else {
-            errorMessage = 'Failed to add camera: ${response.statusCode}';
-          }
-        } catch (_) {
-          errorMessage = 'Failed to add camera: ${response.statusCode}';
-        }
-        throw Exception(errorMessage);
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
       }
+
+      // Usar el controller para añadir la cámara
+      await _controller.addCamera(idCamara, categoryId, token);
+
+      await _fetchCameras(); // Recargar la lista de cámaras
+      Navigator.of(currentContext).pop();
+      ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
     } catch (e) {
       if (mounted) {
         if (Navigator.of(currentContext).canPop()) {
@@ -318,44 +212,44 @@ class _CamerasViewState extends State<CamerasView> {
   Future<void> _toggleCameraStatus(String mongoId, bool currentStatus) async {
     if (!mounted) return;
     final currentContext = context;
-    final newStatus = !currentStatus;
+    final bool newStatus = !currentStatus;
 
+    // Encuentra la cámara en la lista y actualiza su estado de manera optimista
     final index = _cameras.indexWhere((cam) => cam['_id'] == mongoId);
     if (index != -1) {
       setState(() {
         _cameras[index]['isActive'] = newStatus;
-        _filterCameras(); // Apply filters after updating camera status
+        _filterCameras(); // Aplicar filtros después de actualizar el estado
       });
     }
 
     try {
-      final response = await http.put(
-        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'isActive': newStatus}),
-      );
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Usar el controller para actualizar el estado
+      await _controller.toggleCameraStatus(mongoId, newStatus, token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        // Success, state already updated
-        ToastService.showSuccess(currentContext,
-            'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
-      } else {
-        if (index != -1) {
-          setState(() {
-            _cameras[index]['isActive'] = currentStatus;
-            _filterCameras(); // Apply filters after reverting to original status
-          });
-        }
-        throw Exception(
-            'Failed to update camera status: ${response.statusCode} ${response.body}');
-      }
+      // No reload full camera list to avoid switch flickering
+      // The optimistic update already took care of the UI
+
+      // Éxito, el estado ya se actualizó de manera optimista
+      ToastService.showSuccess(currentContext,
+          'Estado de cámara actualizado a ${newStatus ? 'activa' : 'inactiva'}');
     } catch (e) {
-      if (index != -1 && _cameras[index]['isActive'] != currentStatus) {
+      // Revertir el cambio optimista si falla la solicitud
+      if (index != -1 && mounted) {
         setState(() {
           _cameras[index]['isActive'] = currentStatus;
-          _filterCameras(); // Apply filters after handling error
+          _filterCameras(); // Aplicar filtros después de revertir el estado
         });
       }
       if (mounted) {
@@ -370,21 +264,22 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
 
     try {
-      final response = await http.delete(
-        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-      );
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Usar el controller para eliminar la cámara
+      await _controller.deleteCamera(mongoId, token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 204) {
-        await _fetchCameras(); // This will also call _filterCameras() now
-        ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
-      } else if (response.statusCode == 404) {
-        throw Exception('Camera not found (already deleted?).');
-      } else {
-        throw Exception(
-            'Failed to delete camera: ${response.statusCode} ${response.body}');
-      }
+      await _fetchCameras(); // Recargar la lista de cámaras
+      ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
     } catch (e) {
       if (mounted) {
         ToastService.showError(currentContext, 'Error al eliminar cámara: $e');
@@ -398,36 +293,23 @@ class _CamerasViewState extends State<CamerasView> {
     final currentContext = context;
 
     try {
-      final response = await http.put(
-        Uri.parse('$_apiBaseUrl/cameras/$mongoId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'Id_Camara': idCamara,
-          'Tipo_Producto': categoryId,
-        }),
-      );
+      // Obtén el token JWT desde el AuthController
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró el token de autenticación.');
+      }
+
+      // Usar el controller para editar la cámara
+      await _controller.editCamera(mongoId, idCamara, categoryId, token);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        await _fetchCameras(); // This will also call _filterCameras() now
-        Navigator.of(currentContext).pop();
-        ToastService.showSuccess(
-            currentContext, 'Cámara actualizada con éxito.');
-      } else {
-        String errorMessage = 'Failed to update camera';
-        try {
-          final errorBody = json.decode(response.body);
-          if (errorBody is Map && errorBody.containsKey('detail')) {
-            errorMessage = errorBody['detail'];
-          } else {
-            errorMessage = 'Failed to update camera: ${response.statusCode}';
-          }
-        } catch (_) {
-          errorMessage = 'Failed to update camera: ${response.statusCode}';
-        }
-        throw Exception(errorMessage);
-      }
+      await _fetchCameras(); // Recargar la lista de cámaras
+      Navigator.of(currentContext).pop();
+      ToastService.showSuccess(currentContext, 'Cámara actualizada con éxito.');
     } catch (e) {
       if (mounted) {
         if (Navigator.of(currentContext).canPop()) {
@@ -442,22 +324,29 @@ class _CamerasViewState extends State<CamerasView> {
   // --- Dialogs ---
 
   void _showAddCameraDialog() {
-    print('Opening Add Camera Dialog');
-
-    // Si hay un problema cargando categorías, intentamos cargarlas directamente con datos predefinidos
-    if (_isLoadingCategories || _activeCategories.isEmpty) {
-      _loadCategoriesDirectly();
+    if (_isLoadingCategories) {
+      // Esperar a que las categorías se carguen antes de mostrar el diálogo
+      ToastService.showInfo(
+          context, 'Cargando categorías, por favor espere...');
+      _fetchActiveCategories().then((_) {
+        if (mounted) {
+          // Mostrar el diálogo solo cuando termina de cargar
+          _showAddCameraDialogContent();
+        }
+      });
+    } else {
+      // Ya cargaron categorías, mostrar el diálogo
+      _showAddCameraDialogContent();
     }
+  }
 
+  void _showAddCameraDialogContent() {
     final formKey = GlobalKey<FormState>();
     final idCamaraController = TextEditingController();
     int? selectedCategoryId;
 
-    // Lista de IDs de cámaras existentes para validación
     final List<int> existingCameraIds =
         _cameras.map((camera) => camera['Id_Camara'] as int).toList();
-
-    print('Existing camera IDs: $existingCameraIds');
 
     showDialog(
       context: context,
@@ -465,15 +354,17 @@ class _CamerasViewState extends State<CamerasView> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            // Crear un mapa simple de ID a nombre para las categorías
+            // Crear un mapa de ID a nombre para las categorías
             final Map<int, String> categoryMap = {};
             for (var category in _activeCategories) {
+              // Extraer ID de categoría de forma segura
               final id = category['Tipo_Producto'] as int? ??
                   (category['Id_Tipo_Producto'] is int
                       ? category['Id_Tipo_Producto'] as int
                       : int.tryParse(category['Id_Tipo_Producto'].toString()) ??
                           0);
 
+              // Extraer nombre de categoría
               final name = category['Categoria_Producto'] as String? ??
                   category['Nombre'] as String? ??
                   'Sin nombre';
@@ -481,40 +372,8 @@ class _CamerasViewState extends State<CamerasView> {
               categoryMap[id] = name;
             }
 
-            print('Available categories: $categoryMap');
-
             return AlertDialog(
-              title: Row(
-                children: [
-                  const Text('Añadir Nueva Cámara'),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Actualizar categorías',
-                    onPressed: () async {
-                      setDialogState(() {
-                        _isLoadingCategories = true;
-                      });
-
-                      try {
-                        await _fetchActiveCategories();
-                      } catch (e) {
-                        print('Error refreshing categories: $e');
-                        _loadCategoriesDirectly();
-                      }
-
-                      setDialogState(() {});
-
-                      ToastService.showInfo(
-                        context,
-                        'Categorías cargadas: ${_activeCategories.length}',
-                      );
-                    },
-                  ),
-                ],
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              title: const Text('Añadir Nueva Cámara'),
               content: SizedBox(
                 width: 400,
                 child: Form(
@@ -552,74 +411,97 @@ class _CamerasViewState extends State<CamerasView> {
 
                       const SizedBox(height: 24),
 
-                      // Dropdown simplificado
+                      // Si hay categorías activas, mostrar el dropdown
                       if (_isLoadingCategories)
                         const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(),
-                          ),
+                          child: CircularProgressIndicator(),
                         )
                       else if (_activeCategories.isEmpty)
-                        Center(
-                          child: ElevatedButton(
-                            onPressed: () => _loadCategoriesDirectly(),
-                            child: const Text('Cargar Categorías Predefinidas'),
-                          ),
-                        )
-                      else
                         Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text('Seleccionar Categoría:',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            // Simple dropdown button
+                            // Mensaje de aviso cuando no hay categorías
                             Container(
-                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.amber.shade300),
                               ),
-                              child: DropdownButton<int>(
-                                value: selectedCategoryId,
-                                isExpanded: true,
-                                hint: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text('Seleccione una categoría'),
-                                ),
-                                underline:
-                                    Container(), // Eliminar línea inferior
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                items: categoryMap.entries.map((entry) {
-                                  return DropdownMenuItem<int>(
-                                    value: entry.key,
-                                    child: Text(entry.value),
-                                  );
-                                }).toList(),
-                                onChanged: (int? newValue) {
-                                  print(
-                                      'Selected category: $newValue - ${categoryMap[newValue]}');
-                                  setDialogState(() {
-                                    selectedCategoryId = newValue;
-                                  });
-                                },
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded,
+                                          color: Colors.amber.shade800),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'No existen categorías activas',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Necesitas crear al menos una categoría activa para poder asociarla a la cámara.',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Botón para ir a la vista de categorías
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.category),
+                                    label: const Text('Ir a Categorías'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber.shade700,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () {
+                                      // Cerrar diálogo actual
+                                      Navigator.of(context).pop();
+
+                                      // Navegar a la vista de categorías usando la clase importada
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CategoriesView(
+                                              toggleTheme: widget.toggleTheme),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
-                            if (selectedCategoryId != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  'Categoría seleccionada: ${categoryMap[selectedCategoryId]}',
-                                  style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
                           ],
+                        )
+                      else
+                        DropdownButtonFormField<int>(
+                          value: selectedCategoryId,
+                          decoration: const InputDecoration(
+                            labelText: 'Seleccionar Categoría',
+                          ),
+                          items: categoryMap.entries.map((entry) {
+                            return DropdownMenuItem<int>(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            );
+                          }).toList(),
+                          onChanged: (int? newValue) {
+                            setDialogState(() {
+                              selectedCategoryId = newValue;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Por favor seleccione una categoría';
+                            }
+                            return null;
+                          },
                         ),
                     ],
                   ),
@@ -688,11 +570,6 @@ class _CamerasViewState extends State<CamerasView> {
   void _showEditCameraDialog(Map<String, dynamic> camera) {
     print('Opening Edit Camera Dialog');
 
-    // Si hay un problema cargando categorías, intentamos cargarlas directamente con datos predefinidos
-    if (_isLoadingCategories || _activeCategories.isEmpty) {
-      _loadCategoriesDirectly();
-    }
-
     final formKey = GlobalKey<FormState>();
     final idCamaraController =
         TextEditingController(text: camera['Id_Camara'].toString());
@@ -744,7 +621,6 @@ class _CamerasViewState extends State<CamerasView> {
                         await _fetchActiveCategories();
                       } catch (e) {
                         print('Error refreshing categories: $e');
-                        _loadCategoriesDirectly();
                       }
 
                       setDialogState(() {});
@@ -796,7 +672,7 @@ class _CamerasViewState extends State<CamerasView> {
 
                       const SizedBox(height: 24),
 
-                      // Dropdown simplificado
+                      // Verificar si hay categorías disponibles
                       if (_isLoadingCategories)
                         const Center(
                           child: Padding(
@@ -805,11 +681,67 @@ class _CamerasViewState extends State<CamerasView> {
                           ),
                         )
                       else if (_activeCategories.isEmpty)
-                        Center(
-                          child: ElevatedButton(
-                            onPressed: () => _loadCategoriesDirectly(),
-                            child: const Text('Cargar Categorías Predefinidas'),
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Mensaje de aviso cuando no hay categorías
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.amber.shade300),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded,
+                                          color: Colors.amber.shade800),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'No existen categorías activas',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Necesitas crear al menos una categoría activa para poder asociarla a la cámara.',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Botón para ir a la vista de categorías
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.category),
+                                    label: const Text('Ir a Categorías'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber.shade700,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () {
+                                      // Cerrar diálogo actual
+                                      Navigator.of(context).pop();
+
+                                      // Navegar a la vista de categorías usando la clase importada
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CategoriesView(
+                                              toggleTheme: widget.toggleTheme),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         )
                       else
                         Column(
@@ -974,6 +906,8 @@ class _CamerasViewState extends State<CamerasView> {
     final int totalPages = (_filteredCameras.length / _rowsPerPage).ceil();
     final Color azulOscuro = const Color(0xFF223A5E);
     final Color grisClaro = const Color(0xFFE0E0E0);
+    final theme = Theme.of(context);
+
     return Column(
       children: [
         Card(
@@ -1012,25 +946,14 @@ class _CamerasViewState extends State<CamerasView> {
                   rows: pageCameras.map((camera) {
                     final mongoId = camera['_id'] as String;
                     final idCamara = camera['Id_Camara'] ?? 'N/A';
-                    final categoriaFallback =
+                    final categoriaProducto =
                         camera['Categoria_Producto'] ?? 'Desconocida';
                     final isActive = camera['isActive'] as bool? ?? false;
-                    final categoryData = _activeCategories.firstWhere(
-                      (cat) =>
-                          (cat['Id_Tipo_Producto'] ?? cat['Tipo_Producto']) ==
-                          camera['Tipo_Producto'],
-                      orElse: () => {
-                        'Nombre': categoriaFallback,
-                        'Categoria_Producto': categoriaFallback
-                      },
-                    );
-                    final categoryName = categoryData['Nombre'] ??
-                        categoryData['Categoria_Producto'] ??
-                        categoriaFallback;
+
                     return DataRow(
                       cells: [
                         DataCell(Text(idCamara.toString())),
-                        DataCell(Text(categoryName.toString())),
+                        DataCell(Text(categoriaProducto.toString())),
                         DataCell(Row(
                           children: [
                             Switch(
@@ -1097,57 +1020,106 @@ class _CamerasViewState extends State<CamerasView> {
             );
           }),
         ),
-        // --- CONTROLES DE PAGINACIÓN ESTILO MATERIAL ---
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+        // Pagination controls
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+          ),
+          child: Column(
             children: [
-              Text('Filas por página:', style: TextStyle(fontSize: 15)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: _rowsPerPage,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-                items: _rowsPerPageOptions.map((value) {
-                  return DropdownMenuItem<int>(
-                    value: value,
-                    child: Text(value.toString()),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _rowsPerPage = value;
-                      _currentPage = 0;
-                    });
-                  }
-                },
-                underline: Container(),
+              // Record count text
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  'Mostrando ${_filteredCameras.isEmpty ? 0 : startIndex + 1}-${endIndex > _filteredCameras.length ? _filteredCameras.length : endIndex} de ${_filteredCameras.length} registros',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                ),
               ),
-              const SizedBox(width: 32),
-              Text(
-                  'Página ${_filteredCameras.isEmpty ? 0 : _currentPage + 1} de $totalPages',
-                  style: TextStyle(fontSize: 15)),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                color: Colors.black.withOpacity(_currentPage > 0 ? 0.87 : 0.2),
-                onPressed: _currentPage > 0
-                    ? () => setState(() => _currentPage--)
-                    : null,
-                splashRadius: 18,
-                iconSize: 24,
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                color: Colors.black.withOpacity(
-                    endIndex < _filteredCameras.length ? 0.87 : 0.2),
-                onPressed: endIndex < _filteredCameras.length
-                    ? () => setState(() => _currentPage++)
-                    : null,
-                splashRadius: 18,
-                iconSize: 24,
+              // Pagination buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_double_arrow_left),
+                    onPressed: _currentPage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage = 0;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Primera página',
+                    color: _currentPage > 0
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_left),
+                    onPressed: _currentPage > 0
+                        ? () {
+                            setState(() {
+                              _currentPage--;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Página anterior',
+                    color: _currentPage > 0
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color:
+                          theme.colorScheme.primaryContainer.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'Página ${_filteredCameras.isEmpty ? 0 : _currentPage + 1} de $totalPages',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_right),
+                    onPressed: endIndex < _filteredCameras.length
+                        ? () {
+                            setState(() {
+                              _currentPage++;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Página siguiente',
+                    color: endIndex < _filteredCameras.length
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_double_arrow_right),
+                    onPressed: _currentPage < totalPages - 1
+                        ? () {
+                            setState(() {
+                              _currentPage = totalPages - 1;
+                            });
+                          }
+                        : null,
+                    tooltip: 'Última página',
+                    color: _currentPage < totalPages - 1
+                        ? const Color(0xFF0277BD)
+                        : Colors.grey,
+                  ),
+                ],
               ),
             ],
           ),
@@ -1162,7 +1134,7 @@ class _CamerasViewState extends State<CamerasView> {
     final isAdmin = authController.currentUser?.role == 'admin';
     if (!isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Acceso denegado')),
+        appBar: AppBar(title: const Text('StoreSense')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

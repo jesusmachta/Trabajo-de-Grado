@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'dashboard_view.dart';
 import 'statistics_view.dart';
 import 'users_view.dart';
@@ -14,8 +15,13 @@ import '../controllers/chat_controller.dart'; // Import ChatController
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
+  final String? initialView;
 
-  const HomeView({super.key, required this.toggleTheme});
+  const HomeView({
+    super.key,
+    required this.toggleTheme,
+    this.initialView,
+  });
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -44,7 +50,44 @@ class _HomeViewState extends State<HomeView> {
       if (!authController.isAuthenticated) {
         authController.checkAuthAndRedirect(context);
       }
+
+      // Set the initial view if specified via the URL route
+      if (widget.initialView != null) {
+        // Set initial view based on route parameter
+        switch (widget.initialView) {
+          case 'statistics':
+            setState(() {
+              _currentIndex = 1;
+              _showStatisticsSubmenu = true; // Show the statistics submenu
+            });
+            break;
+          case 'users':
+            setState(() {
+              _currentIndex = 2;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          case 'categories':
+            setState(() {
+              _currentIndex = 3;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          case 'cameras':
+            setState(() {
+              _currentIndex = 4;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          default:
+            setState(() {
+              _currentIndex = 0;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+        }
+      }
     });
+
     // Inicializar _pages y _titles en didChangeDependencies para tener acceso al usuario
   }
 
@@ -123,6 +166,41 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
+  // Navigate to a specific view and update URL
+  void _navigateToView(int index) {
+    setState(() {
+      _currentIndex = index;
+
+      // Hide statistics submenu if we're navigating to anything other than statistics
+      if (index != 1) {
+        _showStatisticsSubmenu = false;
+      }
+    });
+
+    // Update the URL based on the selected view
+    String path = '/';
+    switch (index) {
+      case 0:
+        path = '/dashboard';
+        break;
+      case 1:
+        path = '/statistics';
+        break;
+      case 2:
+        path = '/users';
+        break;
+      case 3:
+        path = '/categories';
+        break;
+      case 4:
+        path = '/cameras';
+        break;
+    }
+
+    // Update URL without triggering a full page reload
+    GoRouter.of(context).go(path);
+  }
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -138,15 +216,31 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _titles[_currentIndex],
-          style: const TextStyle(
-            color: Color(0xFF223A5E),
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/storesense_logo.png',
+              height: 40,
+              width: 40,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'StoreSense',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : const Color(0xFF223A5E),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF223A5E),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).appBarTheme.backgroundColor
+            : Colors.white,
+        foregroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : const Color(0xFF223A5E),
         elevation: 0,
         centerTitle: false,
         actions: [
@@ -154,10 +248,12 @@ class _HomeViewState extends State<HomeView> {
             children: [
               Text(
                 '¡Hola, $userName!',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
-                  color: Color(0xFF223A5E),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : const Color(0xFF223A5E),
                 ),
               ),
               const SizedBox(width: 12),
@@ -218,7 +314,23 @@ class _HomeViewState extends State<HomeView> {
                       .toggleChatOverlay(context);
                 },
               ),
-              const SizedBox(width: 16), // Add some spacing before drawer icon
+              const SizedBox(width: 8),
+              // Company info button (only for admin)
+              if (Provider.of<AuthController>(context).currentUser?.role ==
+                  'admin') ...[
+                IconButton(
+                  icon: Icon(
+                    Icons.business, // Building icon for company
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  tooltip: 'Información de la Empresa',
+                  onPressed: () {
+                    // Navigate to company view
+                    GoRouter.of(context).push('/company');
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
             ],
           ),
         ],
@@ -227,182 +339,516 @@ class _HomeViewState extends State<HomeView> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            ListTile(
-              leading: const Icon(Icons.dashboard, size: 32),
-              title: const Text('Dashboard',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              selected: _currentIndex == 0,
-              onTap: () {
-                setState(() {
-                  _currentIndex = 0;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            // Statistics ExpansionTile for vertical expansion
-            ExpansionTile(
-              leading: const Icon(Icons.bar_chart, size: 32),
-              title: const Text('Estadísticas',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              initiallyExpanded: _showStatisticsSubmenu,
-              onExpansionChanged: (expanded) {
-                setState(() {
-                  _showStatisticsSubmenu = expanded;
-                });
-              },
-              children:
-                  _statisticsController.getStatisticsOptions().map((option) {
-                // Map de valores de estadísticas a iconos apropiados
-                IconData getStatIcon(String value) {
-                  switch (value) {
-                    case 'peak-hours':
-                      return Icons.access_time;
-                    case 'least-hours':
-                      return Icons.hourglass_empty;
-                    case 'busy-days-combined':
-                      return Icons.calendar_today;
-                    case 'visited-categories-combined':
-                      return Icons.category;
-                    case 'most-frequent-emotions':
-                      return Icons.emoji_emotions;
-                    case 'emotion-percentage':
-                      return Icons.pie_chart;
-                    case 'gender-age-combined':
-                      return Icons.people;
-                    case 'emotion-comparison': // Kept for compatibility
-                      return Icons.compare_arrows;
-                    case 'visited-categories-historical':
-                      return Icons.history;
-                    case 'preferred-category-by-gender':
-                      return Icons.wc;
-                    case 'top-successful-categories':
-                      return Icons.trending_up;
-                    case 'emotional-differences-by-category':
-                      return Icons.mood;
-                    case 'age-gender-distribution-by-category':
-                      return Icons.group;
-                    default:
-                      return Icons.analytics;
-                  }
-                }
-
-                return ListTile(
-                  contentPadding: const EdgeInsets.only(left: 70),
-                  dense: true,
-                  leading: Icon(
-                    getStatIcon(option['value']!),
-                    color: Colors.grey,
-                    size: 20,
+            // Custom header for the drawer
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+              color: Theme.of(context).colorScheme.surfaceVariant,
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/images/storesense_logo.png',
+                    height: 40,
+                    width: 40,
                   ),
-                  title: Text(option['label']!,
-                      style: const TextStyle(fontSize: 14)),
-                  onTap: () {
-                    setState(() {
-                      _currentIndex = 1;
-                    });
-                    // Update statistics view with selected stat type
-                    _statisticsViewKey.currentState
-                        ?.updateSelectedStat(option['value']!);
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'StoreSense',
+                    style: TextStyle(
+                      color: Color(0xFF223A5E),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            // Solo mostrar estos botones si es admin
+            const SizedBox(height: 8),
+
+            // Dashboard menu item with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  _navigateToView(0);
+                  Navigator.pop(context);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _currentIndex == 0
+                        ? const Color(
+                            0xFFE1F5FF) // Light blue background for selected item
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.dashboard,
+                        size: 28,
+                        color: _currentIndex == 0
+                            ? const Color(0xFF223A5E)
+                            : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: _currentIndex == 0
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Statistics ExpansionTile with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _currentIndex == 1
+                      ? const Color(
+                          0xFFE1F5FF) // Light blue background for selected item
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
+                  ),
+                  child: ExpansionTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    leading: Icon(
+                      Icons.bar_chart,
+                      size: 28,
+                      color: _currentIndex == 1
+                          ? const Color(0xFF223A5E)
+                          : Colors.grey[600],
+                    ),
+                    title: Text(
+                      'Estadísticas',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: _currentIndex == 1
+                            ? const Color(0xFF223A5E)
+                            : Colors.grey[800],
+                      ),
+                    ),
+                    initiallyExpanded: _showStatisticsSubmenu,
+                    onExpansionChanged: (expanded) {
+                      setState(() {
+                        _showStatisticsSubmenu = expanded;
+                        // Remove the automatic navigation when expanding
+                        // Just toggle the visibility of the submenu
+                      });
+                    },
+                    children: _statisticsController
+                        .getStatisticsOptions()
+                        .map((option) {
+                      // Map de valores de estadísticas a iconos apropiados
+                      IconData getStatIcon(String value) {
+                        switch (value) {
+                          case 'peak-hours':
+                            return Icons.access_time;
+                          case 'least-hours':
+                            return Icons.hourglass_empty;
+                          case 'busy-days-combined':
+                            return Icons.calendar_today;
+                          case 'visited-categories-combined':
+                            return Icons.category;
+                          case 'most-frequent-emotions':
+                            return Icons.emoji_emotions;
+                          case 'emotion-percentage':
+                            return Icons.pie_chart;
+                          case 'gender-age-combined':
+                            return Icons.people;
+                          case 'emotion-comparison': // Kept for compatibility
+                            return Icons.compare_arrows;
+                          case 'visited-categories-historical':
+                            return Icons.history;
+                          case 'preferred-category-by-gender':
+                            return Icons.wc;
+                          case 'top-successful-categories':
+                            return Icons.trending_up;
+                          case 'emotional-differences-by-category':
+                            return Icons.mood;
+                          case 'age-gender-distribution-by-category':
+                            return Icons.group;
+                          default:
+                            return Icons.analytics;
+                        }
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.only(left: 40),
+                          dense: true,
+                          leading: Icon(
+                            getStatIcon(option['value']!),
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                          title: Text(option['label']!,
+                              style: const TextStyle(fontSize: 14)),
+                          onTap: () {
+                            // Obtener la estadística seleccionada antes de cerrar el drawer
+                            final String statValue = option['value']!;
+                            print(
+                                'HomeView - Seleccionada estadística: $statValue');
+
+                            // Cerrar el drawer primero
+                            Navigator.pop(context);
+
+                            // Actualizar índice actual después de cerrar el drawer
+                            setState(() {
+                              _currentIndex = 1;
+                            });
+
+                            // Esperar a que se complete el build y luego actualizar la estadística
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              // Actualizar la estadística seleccionada
+                              if (_statisticsViewKey.currentState != null) {
+                                print(
+                                    'HomeView - Actualizando estadística a: $statValue');
+                                _statisticsViewKey.currentState!
+                                    .updateSelectedStat(statValue);
+
+                                // Navegar después de asegurar que la actualización se ha iniciado
+                                Future.delayed(Duration(milliseconds: 100), () {
+                                  print('HomeView - Navegando a /statistics');
+                                  GoRouter.of(context).go('/statistics');
+                                });
+                              } else {
+                                print(
+                                    'HomeView - Error: statisticsViewKey.currentState es null');
+                                // Navegar de todos modos
+                                GoRouter.of(context).go('/statistics');
+                              }
+                            });
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+
+            // Admin menu items with custom styling
             if (Provider.of<AuthController>(context).currentUser?.role ==
                 'admin') ...[
-              ListTile(
-                leading: const Icon(Icons.admin_panel_settings, size: 32),
-                title: const Text('Roles y Privilegios',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                selected: _currentIndex == 2,
-                onTap: () {
-                  setState(() {
-                    _currentIndex = 2;
-                  });
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(2);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 2
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings,
+                          size: 28,
+                          color: _currentIndex == 2
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Roles y Privilegios',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 2
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.category, size: 32),
-                title: const Text('Categorías',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                selected: _currentIndex == 3,
-                onTap: () {
-                  setState(() {
-                    _currentIndex = 3;
-                  });
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(3);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 3
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.category,
+                          size: 28,
+                          color: _currentIndex == 3
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Categorías',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 3
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, size: 32),
-                title: const Text('Cámaras',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                selected: _currentIndex == 4,
-                onTap: () {
-                  setState(() {
-                    _currentIndex = 4;
-                  });
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(4);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 4
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.camera_alt,
+                          size: 28,
+                          color: _currentIndex == 4
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Cámaras',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 4
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
-            const Divider(),
-            ListTile(
-              leading: Icon(
-                  isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round,
-                  size: 32),
-              title: Text(isDarkMode ? 'Modo claro' : 'Modo oscuro',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                // Cerrar el drawer inmediatamente
-                Navigator.pop(context);
 
-                // Comunicar directamente con el controlador de tema global
-                // para cambiar el tema inmediatamente
-                final newMode = Theme.of(context).brightness == Brightness.dark
-                    ? ThemeMode.light
-                    : ThemeMode.dark;
-                themeController.add(newMode);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline, size: 32),
-              title: const Text('Ayuda',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, size: 32),
-              title: const Text('Acerca de',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout, size: 32),
-              title: const Text('Log out',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              onTap: () async {
-                // Cerrar el drawer primero
-                Navigator.pop(context);
+            const Divider(height: 32),
 
-                // Ejecutar logout
-                await Provider.of<AuthController>(context, listen: false)
-                    .logout();
+            // Theme switch with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  // Cerrar el drawer inmediatamente
+                  Navigator.pop(context);
 
-                // No necesitamos hacer navegación manual aquí.
-                // El AuthWrapper detectará el cambio en isAuthenticated y mostrará LoginView automáticamente
-              },
+                  // Comunicar directamente con el controlador de tema global
+                  // para cambiar el tema inmediatamente
+                  final newMode =
+                      Theme.of(context).brightness == Brightness.dark
+                          ? ThemeMode.light
+                          : ThemeMode.dark;
+                  themeController.add(newMode);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isDarkMode
+                            ? Icons.wb_sunny_outlined
+                            : Icons.nightlight_round,
+                        size: 28,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        isDarkMode ? 'Modo claro' : 'Modo oscuro',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Help button with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context); // Cerrar el drawer
+                  // Navegar a la vista de Ayuda
+                  GoRouter.of(context).push('/help');
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.help_outline,
+                        size: 28,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Ayuda',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // About button with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context); // Cerrar el drawer
+                  // Navegar a la vista de Acerca de
+                  GoRouter.of(context).push('/about');
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 28,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Acerca de',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const Divider(height: 32),
+
+            // Logout button with custom styling
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () async {
+                  // Cerrar el drawer primero
+                  Navigator.pop(context);
+
+                  // Ejecutar logout
+                  await Provider.of<AuthController>(context, listen: false)
+                      .logout();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.logout,
+                        size: 28,
+                        color: Colors.red[400],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Log out',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
