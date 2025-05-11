@@ -503,16 +503,40 @@ class _HomeViewState extends State<HomeView> {
                           title: Text(option['label']!,
                               style: const TextStyle(fontSize: 14)),
                           onTap: () {
+                            // Obtener la estadística seleccionada antes de cerrar el drawer
+                            final String statValue = option['value']!;
+                            print(
+                                'HomeView - Seleccionada estadística: $statValue');
+
+                            // Cerrar el drawer primero
+                            Navigator.pop(context);
+
+                            // Actualizar índice actual después de cerrar el drawer
                             setState(() {
                               _currentIndex = 1;
                             });
-                            // Update statistics view with selected stat type
-                            _statisticsViewKey.currentState
-                                ?.updateSelectedStat(option['value']!);
-                            Navigator.pop(context);
 
-                            // Update URL to statistics
-                            GoRouter.of(context).go('/statistics');
+                            // Esperar a que se complete el build y luego actualizar la estadística
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              // Actualizar la estadística seleccionada
+                              if (_statisticsViewKey.currentState != null) {
+                                print(
+                                    'HomeView - Actualizando estadística a: $statValue');
+                                _statisticsViewKey.currentState!
+                                    .updateSelectedStat(statValue);
+
+                                // Navegar después de asegurar que la actualización se ha iniciado
+                                Future.delayed(Duration(milliseconds: 100), () {
+                                  print('HomeView - Navegando a /statistics');
+                                  GoRouter.of(context).go('/statistics');
+                                });
+                              } else {
+                                print(
+                                    'HomeView - Error: statisticsViewKey.currentState es null');
+                                // Navegar de todos modos
+                                GoRouter.of(context).go('/statistics');
+                              }
+                            });
                           },
                         ),
                       );

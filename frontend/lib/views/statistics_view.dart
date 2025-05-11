@@ -92,17 +92,37 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Method to update the selected stat from outside
   void updateSelectedStat(String stat) {
+    print('StatisticsView - updateSelectedStat called with: $stat');
+
     if (_selectedStat != stat) {
+      print(
+          'StatisticsView - Updating selected stat from $_selectedStat to $stat');
+
+      // Limpiar datos previos para forzar la recarga
       setState(() {
+        _statisticsData = null;
+        _error = null;
+        _isLoading = false;
         _selectedStat = stat;
+
+        // Reiniciar configuraciones específicas
         if (stat == 'gender-age-combined') {
-          _selectedCategoryPeriodType = 'historic'; // Reinicia a histórico
+          _selectedCategoryPeriodType = 'historic';
         }
       });
-      if (stat == 'gender-age-combined') {
-        _initAvailablePeriods();
-      }
-      _loadStatistics();
+
+      // Asegurar que la carga de datos ocurra después de actualizar el estado
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (stat == 'gender-age-combined') {
+          _initAvailablePeriods();
+        }
+        _loadStatistics();
+      });
+    } else {
+      // Incluso si es la misma estadística, forzar recarga
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadStatistics();
+      });
     }
   }
 
@@ -4740,7 +4760,7 @@ class StatisticsViewState extends State<StatisticsView> {
           width: 1,
         ),
       ),
-      color: isFemale ? Colors.pink.shade50 : colorScheme.surface,
+      color: colorScheme.surface, // Removed conditional pink background
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
