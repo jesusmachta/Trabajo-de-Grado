@@ -205,23 +205,9 @@ class StatisticsViewState extends State<StatisticsView> {
 
       // NEW LOGIC FOR COMBINED STATS
       if (_selectedStat == 'visited-categories-combined') {
-        if (_selectedCategoryPeriodType == 'overall') {
-          data = await _controller.getHistoricalVisitedCategoriesStatistics(
-              token: token);
-        } else {
-          params = {'period': _selectedCategoryPeriodType};
-          if (_selectedCategoryPeriodType == 'week' &&
-              _selectedCategoryWeek != null) {
-            params['date'] =
-                DateFormat('yyyy-MM-dd').format(_selectedCategoryWeek!);
-          } else if (_selectedCategoryPeriodType == 'month' &&
-              _selectedCategoryMonth != null) {
-            params['month'] = _selectedCategoryMonth!.month.toString();
-            params['year'] = _selectedCategoryMonth!.year.toString();
-          }
-          data = await _controller.getVisitedCategoriesStatistics(
-              params: params, token: token);
-        }
+        // Always get historical data for visited categories
+        data = await _controller.getHistoricalVisitedCategoriesStatistics(
+            token: token);
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
@@ -698,103 +684,7 @@ class StatisticsViewState extends State<StatisticsView> {
             // --- CONTROLES DE FILTRO ---
             // Mostrar selectores de período específico para visited-categories-combined
             if (_selectedStat == 'visited-categories-combined') ...[
-              const SizedBox(height: 16),
-              Text(
-                'Filtrar por período:',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary),
-              ),
-              const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: _categoryPeriodOptions.map((option) {
-                  return ButtonSegment<String>(
-                    value: option['value']!,
-                    label: Text(option['label']!),
-                    icon: Icon(option['value'] == 'week'
-                        ? Icons.view_week
-                        : Icons.calendar_month),
-                  );
-                }).toList(),
-                selected: {_selectedCategoryPeriodType},
-                onSelectionChanged: (Set<String> newSelection) {
-                  if (newSelection.isNotEmpty &&
-                      newSelection.first != _selectedCategoryPeriodType) {
-                    setState(() {
-                      _selectedCategoryPeriodType = newSelection.first;
-                      // Clear data to force reload when changing period type
-                      _statisticsData = null;
-                    });
-                    _loadStatistics();
-                  }
-                },
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color>(
-                    (Set<MaterialState> states) {
-                      if (states.contains(MaterialState.selected)) {
-                        return Theme.of(context).colorScheme.primary;
-                      }
-                      return Theme.of(context)
-                          .colorScheme
-                          .surfaceVariant
-                          .withOpacity(0.5);
-                    },
-                  ),
-                  foregroundColor: MaterialStateProperty.resolveWith<Color>(
-                    (Set<MaterialState> states) {
-                      if (states.contains(MaterialState.selected)) {
-                        return Theme.of(context).colorScheme.onPrimary;
-                      }
-                      return Theme.of(context).colorScheme.onSurfaceVariant;
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_selectedCategoryPeriodType == 'week')
-                InkWell(
-                  onTap: () => _selectCategoryWeek(context),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Semana seleccionada',
-                      prefixIcon: const Icon(Icons.calendar_view_week),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 15),
-                    ),
-                    child: Text(
-                      _selectedCategoryWeek != null
-                          ? 'Semana del ${DateFormat('dd/MM/yyyy', 'es_ES').format(_selectedCategoryWeek!)}'
-                          : 'Seleccionar semana',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                ),
-              if (_selectedCategoryPeriodType == 'month')
-                InkWell(
-                  onTap: () => _selectCategoryMonth(context),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Mes seleccionado',
-                      prefixIcon: const Icon(Icons.calendar_month),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 15),
-                    ),
-                    child: Text(
-                      _selectedCategoryMonth != null
-                          ? DateFormat('MMMM yyyy', 'es_ES')
-                              .format(_selectedCategoryMonth!)
-                              .capitalize()
-                          : 'Seleccionar mes',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                ),
+              // Remove the period selectors - only showing historical data
               const SizedBox(height: 8),
             ],
 
@@ -4923,7 +4813,6 @@ class StatisticsViewState extends State<StatisticsView> {
     int mostVisitedCount = 0;
     String leastVisitedCategory = '';
     int leastVisitedCount = 0;
-    Map<String, dynamic> periodInfo = {}; // Store period info
 
     try {
       if (data is Map) {
@@ -4962,39 +4851,10 @@ class StatisticsViewState extends State<StatisticsView> {
               : int.tryParse(data['least_visited_count']?.toString() ?? '0') ??
                   0;
         }
-
-        // Extract period info (remains the same)
-        if (data.containsKey('period_info') && data['period_info'] is Map) {
-          periodInfo = data['period_info'];
-        }
       }
     } catch (e) {
       print('Error parsing combined visited categories data: $e');
       return Center(child: Text('Error al procesar datos: $e'));
-    }
-
-    // Determine the title based on period info safely
-    String titlePeriod = 'Histórico';
-    if (periodInfo['type'] == 'week') {
-      if (periodInfo['date'] != null && periodInfo['date'] is DateTime) {
-        final weekDate = periodInfo['date'] as DateTime;
-        titlePeriod =
-            'Semana del ${DateFormat('dd/MM/yyyy', 'es_ES').format(weekDate)}';
-      } else {
-        titlePeriod = 'Semana (Fecha no disponible)'; // Fallback title
-        print(
-            'Warning: periodInfo date is null or not DateTime for week type.');
-      }
-    } else if (periodInfo['type'] == 'month') {
-      if (periodInfo['date'] != null && periodInfo['date'] is DateTime) {
-        final monthDate = periodInfo['date'] as DateTime;
-        titlePeriod =
-            'Mes de ${DateFormat('MMMM yyyy', 'es_ES').format(monthDate).capitalize()}';
-      } else {
-        titlePeriod = 'Mes (Fecha no disponible)'; // Fallback title
-        print(
-            'Warning: periodInfo date is null or not DateTime for month type.');
-      }
     }
 
     // REMOVED SingleChildScrollView wrapper here
@@ -5073,25 +4933,19 @@ class StatisticsViewState extends State<StatisticsView> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
             child: Text(
-              'Estas estadísticas muestran las preferencias de los clientes al visitar las diferentes categorías de productos de la tienda.',
+              'Estas estadísticas muestran las preferencias históricas de los clientes al visitar las diferentes categorías de productos de la tienda.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 8),
-          // Add the period title here
+          // Show that this is historical data
           Text(
-            titlePeriod,
+            'Datos históricos acumulados',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontStyle: FontStyle.italic,
                   color: Theme.of(context).colorScheme.secondary,
                 ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Comparativa entre las categorías con mayor y menor número de visitas',
-            style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
         ],
