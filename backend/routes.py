@@ -2064,9 +2064,9 @@ async def register_company(
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_message)
         
-        # Verificar si ya existe una empresa con el mismo nombre o RIF
-        existing_company_by_name = collections['Users'].find_one({"empresa": nombre_empresa})
-        existing_company_by_rif = collections['Users'].find_one({"rif": rif})
+        # Verificar si ya existe una empresa con el mismo nombre o RIF en la colección Empresas
+        existing_company_by_name = collections['Empresas'].find_one({"nombre": nombre_empresa})
+        existing_company_by_rif = collections['Empresas'].find_one({"rif": rif})
         
         if existing_company_by_name:
             raise HTTPException(
@@ -2112,6 +2112,14 @@ async def register_company(
         
         # Insertar usuario en la base de datos
         collections['Users'].insert_one(user)
+        
+        # Guardar información de la empresa en la colección Empresas
+        empresa_doc = {
+            "nombre": nombre_empresa,
+            "rif": rif,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        collections['Empresas'].insert_one(empresa_doc)
         
         # Crear y devolver token de acceso
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -2327,3 +2335,123 @@ async def reset_password(
             status_code=500,
             detail=f"Error al restablecer contraseña: {str(e)}"
         )
+
+@router.delete("/delete-company")
+async def delete_company(current_user: dict = Depends(get_current_user)):
+    """
+    Endpoint to delete the current user's company and all related data.
+    Only company administrators can perform this action.
+    """
+    try:
+        # Verify the user is an admin
+        if current_user.get("role") != "admin":
+            raise HTTPException(
+                status_code=403, 
+                detail="Access forbidden: Only company administrators can delete a company"
+            )
+        
+        # Get the company name from the current user
+        empresa = current_user.get("empresa")
+        if not empresa:
+            raise HTTPException(
+                status_code=400,
+                detail="User does not belong to any company"
+            )
+            
+        logger.info(f"Starting deletion of company: {empresa}")
+        
+        # Delete all data related to the company from all collections
+        deleted_counts = {}
+        
+        # List of collections to clean (excluding system collections)
+        collections_to_clean = [
+            'Users', 
+            'Persona_AR', 
+            'Tipo_Producto', 
+            'Tipo_Producto_Zona_Camara'
+        ]
+        
+        # Delete data from each collection
+        for collection_name in collections_to_clean:
+            result = collections[collection_name].delete_many({"empresa": empresa})
+            deleted_counts[collection_name] = result.deleted_count
+            logger.info(f"Deleted {result.deleted_count} documents from {collection_name}")
+        
+        # Delete statistics documents that end with :{empresa}
+        stats_query = {"_id": {"$regex": f":{empresa}$"}}
+        stats_result = collections["Estadisticas"].delete_many(stats_query)
+        deleted_counts["Estadisticas"] = stats_result.deleted_count
+        logger.info(f"Deleted {stats_result.deleted_count} documents from Estadisticas")
+        
+        # Delete the company from the Empresas collection
+        empresa_result = collections["Empresas"].delete_one({"nombre": empresa})
+        deleted_counts["Empresas"] = empresa_result.deleted_count
+        logger.info(f"Deleted {empresa_result.deleted_count} documents from Empresas")
+        
+        # Return success response with deletion counts
+        return {
+            "message": f"Company '{empresa}' and all related data have been successfully deleted",
+            "deleted_counts": deleted_counts
+        }
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Error deleting company: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting company: {str(e)}")
+
+@router.post("/migrate-companies")
+async def migrate_existing_companies():
+    """
+    Endpoint para migrar las empresas existentes a la colección Empresas.
+    Este es un endpoint de uso único para migración de datos.
+    """
+    try:
+        # Obtener todas las empresas únicas de la colección Users
+        pipeline = [
+            {"$group": {"_id": {"empresa": "$empresa", "rif": "$rif"}}},
+            {"$project": {"nombre": "$_id.empresa", "rif": "$_id.rif", "_id": 0}}
+        ]
+        
+        unique_companies = list(collections['Users'].aggregate(pipeline))
+        
+        # Contador de empresas migradas y empresas ya existentes
+        migrated_count = 0
+        already_exists_count = 0
+        
+        for company in unique_companies:
+            nombre = company.get("nombre")
+            rif = company.get("rif")
+            
+            # Validar que tengamos nombre y RIF
+            if not nombre:
+                logger.warning(f"Empresa sin nombre encontrada, omitiendo: {company}")
+                continue
+                
+            # Verificar si ya existe en la colección Empresas
+            existing = collections['Empresas'].find_one({"nombre": nombre})
+            if existing:
+                already_exists_count += 1
+                continue
+                
+            # Crear documento de empresa
+            empresa_doc = {
+                "nombre": nombre,
+                "rif": rif,
+                "created_at": datetime.utcnow().isoformat(),
+                "migrated": True  # Marcar como migrada para referencia
+            }
+            
+            # Insertar en la colección Empresas
+            collections['Empresas'].insert_one(empresa_doc)
+            migrated_count += 1
+            
+        return {
+            "message": "Migración completada",
+            "migrated_count": migrated_count,
+            "already_exists_count": already_exists_count,
+            "total_processed": len(unique_companies)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error al migrar empresas: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al migrar empresas: {str(e)}")

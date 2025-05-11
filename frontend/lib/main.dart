@@ -12,6 +12,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:go_router/go_router.dart';
 import 'views/help_view.dart';
 import 'views/about_view.dart';
+import 'views/company_view.dart';
 
 // Create a global theme controller
 final themeController = StreamController<ThemeMode>.broadcast();
@@ -106,6 +107,10 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/about',
       builder: (context, state) => const AboutView(),
+    ),
+    GoRoute(
+      path: '/company',
+      builder: (context, state) => const CompanyView(),
     ),
   ],
 );

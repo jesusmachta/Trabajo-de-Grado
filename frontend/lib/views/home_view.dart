@@ -314,7 +314,23 @@ class _HomeViewState extends State<HomeView> {
                       .toggleChatOverlay(context);
                 },
               ),
-              const SizedBox(width: 16), // Add some spacing before drawer icon
+              const SizedBox(width: 8),
+              // Company info button (only for admin)
+              if (Provider.of<AuthController>(context).currentUser?.role ==
+                  'admin') ...[
+                IconButton(
+                  icon: Icon(
+                    Icons.business, // Building icon for company
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  tooltip: 'Información de la Empresa',
+                  onPressed: () {
+                    // Navigate to company view
+                    GoRouter.of(context).push('/company');
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
             ],
           ),
         ],
