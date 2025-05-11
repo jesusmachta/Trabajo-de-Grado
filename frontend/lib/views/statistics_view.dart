@@ -65,15 +65,15 @@ class StatisticsViewState extends State<StatisticsView> {
     'emotion-percentage':
         'Distribución porcentual de las diferentes emociones detectadas en los clientes por categoría. Ayuda a entender la respuesta emocional a distintos productos.',
     'gender-age-combined':
-        'Datos demográficos de los clientes según género y grupos de edad. Permite conocer mejor el perfil de la clientela para adaptar estrategias de marketing y producto.',
+        'Datos demográficos de los clientes según sexo y grupos de edad. Permite conocer mejor el perfil de la clientela para adaptar estrategias de marketing y producto.',
     'preferred-category-by-gender':
-        'Muestra las categorías de productos preferidas según el género de los clientes. Útil para estrategias de marketing segmentadas.',
+        'Muestra las categorías de productos preferidas según el sexo de los clientes. Útil para estrategias de marketing segmentadas.',
     'top-successful-categories':
         'Ranking de las categorías mejor evaluadas o más exitosas entre los clientes. Ayuda a identificar productos estrella y tendencias.',
     'emotional-differences-by-category':
-        'Analiza las diferencias en las respuestas emocionales de los clientes según género y categoría de producto. Útil para entender preferencias específicas.',
+        'Analiza las diferencias en las respuestas emocionales de los clientes según sexo y categoría de producto. Útil para entender preferencias específicas.',
     'age-gender-distribution-by-category':
-        'Detalla la distribución demográfica de los clientes por categoría de producto, mostrando patrones de interés según edad y género.',
+        'Detalla la distribución demográfica de los clientes por categoría de producto, mostrando patrones de interés según edad y sexo.',
   };
 
   // State specific for visited-categories-combined
@@ -1633,7 +1633,7 @@ class StatisticsViewState extends State<StatisticsView> {
     }
   }
 
-  // Visualizador para distribuciones (edad/género)
+  // Visualizador para distribuciones (edad/sexo)
   Widget _buildDistributionView(dynamic data) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1674,7 +1674,7 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Visualizador para categorías preferidas por género
+  // Visualizador para categorías preferidas por sexo
   Widget _buildPreferredCategoryView(dynamic data) {
     print('Building preferred category view with data: $data');
 
@@ -1691,7 +1691,7 @@ class StatisticsViewState extends State<StatisticsView> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            'Categorías Preferidas por Género',
+            'Categorías Preferidas por Sexo',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.primary,
@@ -1700,7 +1700,7 @@ class StatisticsViewState extends State<StatisticsView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Análisis histórico de las categorías más visitadas por hombres y mujeres',
+            'Estas estadísticas muestran las preferencias de compra por sexo basadas en todos los datos históricos recopilados.',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -1759,7 +1759,7 @@ class StatisticsViewState extends State<StatisticsView> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24.0),
             child: Text(
-              'Estas estadísticas muestran las preferencias de compra por género basadas en todos los datos históricos recopilados.',
+              'Estas estadísticas muestran las preferencias de compra por sexo basadas en todos los datos históricos recopilados.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -4066,7 +4066,7 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Visualizador para diferencias emocionales por categoría con íconos de género
+  // Visualizador para diferencias emocionales por categoría con íconos de sexo
   Widget _buildEmotionalDifferencesByCategoryView(dynamic data) {
     print('Building emotional differences by category with data: $data');
 
@@ -4213,7 +4213,7 @@ class StatisticsViewState extends State<StatisticsView> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Emociones detectadas por género en cada categoría',
+                  'Emociones detectadas por sexo en cada categoría',
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -4523,8 +4523,8 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // NEW: Visualizador para distribución de edad y género por categoría
-  // Mantener el estado del panel expandido y del género seleccionado
+  // NEW: Visualizador para distribución de edad y sexo por categoría
+  // Mantener el estado del panel expandido y del sexo seleccionado
   final Map<String, bool> _expandedCategories =
       {}; // Use a map to track expanded state per category
   String? _expandedCategoryName; // Track which category is expanded by name
@@ -4556,7 +4556,7 @@ class StatisticsViewState extends State<StatisticsView> {
           }
           String selectedGender = _selectedGenderForCategory[categoryName]!;
 
-          // Filtrar la lista por el género seleccionado
+          // Filtrar la lista por el sexo seleccionado
           List<Map<String, dynamic>> filteredData = distributionList
               .where((item) => item['gender'] == selectedGender)
               .map((item) => Map<String, dynamic>.from(item)) // Ensure Map type
@@ -4652,7 +4652,7 @@ class StatisticsViewState extends State<StatisticsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Selector de Género (Masculino/Femenino)
+                      // Selector de Sexo (Masculino/Femenino)
                       Center(
                         child: ToggleButtons(
                           isSelected: [
@@ -4692,12 +4692,12 @@ class StatisticsViewState extends State<StatisticsView> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Mostrar datos de edad para el género seleccionado
+                      // Mostrar datos de edad para el sexo seleccionado
                       if (filteredData.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Text(
-                            'No hay datos para el género seleccionado en esta categoría.',
+                            'No hay datos para el sexo seleccionado en esta categoría.',
                             style: TextStyle(
                               color: colorScheme.onSurfaceVariant,
                               fontStyle: FontStyle.italic,
@@ -5072,7 +5072,7 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Visualizador combinado para distribución por género y edad
+  // Visualizador combinado para distribución por sexo y edad
   Widget _buildCombinedGenderAgeDistributionView(dynamic data) {
     print('Building gender/age view with data: $data');
 
@@ -5237,7 +5237,7 @@ class StatisticsViewState extends State<StatisticsView> {
     print('Final processed gender data: $genderData');
     print('Final processed age data: $ageData');
 
-    // Verificamos si tenemos datos de género o edad (aunque sea uno solo)
+    // Verificamos si tenemos datos de sexo o edad (aunque sea uno solo)
     bool hasGenderData = genderData.isNotEmpty &&
         (genderData['male'] > 0 || genderData['female'] > 0);
     bool hasAgeData =
@@ -5299,7 +5299,7 @@ class StatisticsViewState extends State<StatisticsView> {
 
             // -- SECCIÓN DE GÉNERO --
             if (hasGenderData) ...[
-              // Usar un estilo similar al de "Categorías preferidas por género"
+              // Usar un estilo similar al de "Categorías preferidas por sexo"
               LayoutBuilder(
                 builder: (context, constraints) {
                   // Use row for wider screens, column for narrower screens
@@ -5709,7 +5709,7 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Construir tarjeta para género
+  // Construir tarjeta para sexo
   Widget _buildGenderCard(
       String gender, int count, IconData icon, Color color) {
     // Determine percentage based on gender
@@ -5777,13 +5777,13 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Visualizador para distribución por género
+  // Visualizador para distribución por sexo
   Widget _buildGenderDistributionView(dynamic data) {
     if (data == null) {
-      return _buildNoDataView('No hay datos de género disponibles');
+      return _buildNoDataView('No hay datos de sexo disponibles');
     }
 
-    // Extraer datos de género
+    // Extraer datos de sexo
     final int maleCount = data['male'] is int
         ? data['male']
         : int.tryParse(data['male'].toString()) ?? 0;
@@ -5802,7 +5802,7 @@ class StatisticsViewState extends State<StatisticsView> {
           children: [
             // Título
             Text(
-              'Distribución por género',
+              'Distribución por sexo',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

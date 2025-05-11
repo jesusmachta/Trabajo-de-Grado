@@ -35,7 +35,7 @@ class EmotionData {
       {required this.emotion, required this.count, required this.percentage});
 }
 
-// Datos para gráfico de géneros
+// Datos para gráfico de sexos
 class GenderData {
   final String gender;
   final int count;

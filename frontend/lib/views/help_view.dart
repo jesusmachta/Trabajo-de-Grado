@@ -35,7 +35,7 @@ class HelpView extends StatelessWidget {
               context,
               title: 'Dashboard',
               content:
-                  'El Dashboard te muestra un resumen de las métricas más importantes de tu tienda, como el número de visitantes, distribución por género y edad, y las emociones detectadas en tiempo real.',
+                  'El Dashboard te muestra un resumen de las métricas más importantes de tu tienda, como el número de visitantes, distribución por sexo y edad, y las emociones detectadas en tiempo real.',
               icon: Icons.dashboard,
             ),
             _buildHelpSection(
@@ -93,7 +93,7 @@ class HelpView extends StatelessWidget {
               context,
               question: '¿Cómo se recopilan los datos de los clientes?',
               answer:
-                  'StoreSense utiliza visión artificial avanzada a través de las cámaras instaladas en la tienda para detectar y analizar a los clientes. El sistema reconoce características como edad, género y emociones, todo sin almacenar imágenes de las personas para proteger su privacidad.',
+                  'StoreSense utiliza visión artificial avanzada a través de las cámaras instaladas en la tienda para detectar y analizar a los clientes. El sistema reconoce características como edad, sexo y emociones, todo sin almacenar imágenes de las personas para proteger su privacidad.',
             ),
             _buildFAQItem(
               context,

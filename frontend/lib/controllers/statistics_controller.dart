@@ -491,7 +491,7 @@ class StatisticsController {
         'data': {'gender': genderData, 'age': ageData}
       };
     } catch (e) {
-      print('Error al obtener estadísticas de género y edad: $e');
+      print('Error al obtener estadísticas de sexo y edad: $e');
       rethrow;
     }
   }
@@ -530,14 +530,14 @@ class StatisticsController {
       // Estadísticas que requieren parámetros adicionales
       {
         'value': 'gender-age-combined',
-        'label': 'Distribución por género y edad',
+        'label': 'Distribución por sexo y edad',
         'emoji': '👥'
       },
 
       // Estadísticas históricas
       {
         'value': 'preferred-category-by-gender',
-        'label': 'Categorías preferidas por género',
+        'label': 'Categorías preferidas por sexo',
         'emoji': '👫'
       },
       {
@@ -552,7 +552,7 @@ class StatisticsController {
       },
       {
         'value': 'age-gender-distribution-by-category',
-        'label': 'Distribución edad-género por categoría',
+        'label': 'Distribución edad-sexo por categoría',
         'emoji': '📊'
       },
     ];

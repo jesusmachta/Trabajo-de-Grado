@@ -1546,7 +1546,7 @@ class _DashboardViewState extends State<DashboardView> {
     if (_dashboardData == null ||
         !_dashboardData!.containsKey('preferredCategoriesByGender')) {
       return _buildEmptyStateCard(
-        title: 'Categorías preferidas por género',
+        title: 'Categorías preferidas por sexo',
         icon: Icons.category_outlined,
         message:
             'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
@@ -1559,7 +1559,7 @@ class _DashboardViewState extends State<DashboardView> {
             data['data'] == null ||
             (data['data'] is Map && (data['data'] as Map).isEmpty))) {
       return _buildEmptyStateCard(
-        title: 'Categorías preferidas por género',
+        title: 'Categorías preferidas por sexo',
         icon: Icons.category_outlined,
         message:
             'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
@@ -1611,7 +1611,7 @@ class _DashboardViewState extends State<DashboardView> {
     }
 
     return StatisticCard(
-      title: 'Categorías preferidas por género',
+      title: 'Categorías preferidas por sexo',
       icon: Icons.category_outlined,
       content: Row(
         children: [
