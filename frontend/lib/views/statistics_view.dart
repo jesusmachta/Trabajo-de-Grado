@@ -203,17 +203,28 @@ class StatisticsViewState extends State<StatisticsView> {
       Map<String, String>? params;
       dynamic data;
 
-      // NEW LOGIC FOR COMBINED STATS
       if (_selectedStat == 'visited-categories-combined') {
-        // Always get historical data for visited categories
         data = await _controller.getHistoricalVisitedCategoriesStatistics(
             token: token);
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
-        params = {
-          'period': _selectedCategoryPeriodType
-        }; // 'week', 'month', or 'historic'
+        // --- ARREGLO PARA EL MENSUAL ---
+        if (_selectedCategoryPeriodType == 'month') {
+          // Buscar el mes más reciente disponible en _availableMonths
+          if (_availableMonths.isNotEmpty) {
+            _selectedMonthKey = _availableMonths.first;
+          } else {
+            _selectedMonthKey = null;
+          }
+        } else if (_selectedCategoryPeriodType == 'week') {
+          if (_availableWeeks.isNotEmpty) {
+            _selectedWeekKey = _availableWeeks.first;
+          } else {
+            _selectedWeekKey = null;
+          }
+        }
+        params = {'period': _selectedCategoryPeriodType};
         if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
           params['date'] = _selectedWeekKey!;
         } else if (_selectedCategoryPeriodType == 'month' &&
@@ -222,19 +233,15 @@ class StatisticsViewState extends State<StatisticsView> {
           params['year'] = parts[0];
           params['month'] = parts[1];
         }
-        // For historic period, no additional parameters needed
         data = await _controller.getGenderAgeDistributionStatistics(
             params: params, token: token);
       } else if (_selectedStat == 'top-successful-categories') {
-        // Handle top-successful-categories endpoint separately
         data = await _controller.getTopSuccessfulCategories(token: token);
       } else {
-        // Original logic for non-combined (individual) stats
         if (_requiresParams(_selectedStat)) {
           params = {'period': _selectedPeriod};
           if (_selectedPeriod == 'week') {
             params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
-            // Special handling for emotion-comparison end_date
             if (_selectedStat == 'emotion-comparison' &&
                 _selectedEndDate != null) {
               params['end_date'] =
@@ -248,7 +255,6 @@ class StatisticsViewState extends State<StatisticsView> {
         data = await _controller.getStatistics(_selectedStat,
             params: params, token: token);
       }
-      // END OF NEW LOGIC
 
       setState(() {
         _statisticsData = data;
@@ -729,11 +735,6 @@ class StatisticsViewState extends State<StatisticsView> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
-              if (_selectedCategoryPeriodType == 'week')
-                _buildNewWeekSelector(),
-              if (_selectedCategoryPeriodType == 'month')
-                _buildNewMonthSelector(),
               const SizedBox(height: 8),
             ],
 
@@ -5545,17 +5546,21 @@ class StatisticsViewState extends State<StatisticsView> {
   // Replace the _buildNewWeekSelector method with this improved version
   Widget _buildNewWeekSelector() {
     if (_availableWeeks.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            'No hay semanas disponibles',
-            style: TextStyle(
-              fontStyle: FontStyle.italic,
-              color: Theme.of(context).colorScheme.error,
-            ),
+      // Mostrar un Dropdown deshabilitado sin mensaje
+      return DropdownButtonFormField<String>(
+        value: null,
+        decoration: InputDecoration(
+          labelText: 'Seleccionar semana',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
+          prefixIcon: const Icon(Icons.calendar_view_week),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         ),
+        items: const [],
+        onChanged: null,
+        disabledHint: const Text('Sin semanas disponibles'),
       );
     }
 
@@ -5591,17 +5596,21 @@ class StatisticsViewState extends State<StatisticsView> {
   // Replace the _buildNewMonthSelector method with this improved version
   Widget _buildNewMonthSelector() {
     if (_availableMonths.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            'No hay meses disponibles',
-            style: TextStyle(
-              fontStyle: FontStyle.italic,
-              color: Theme.of(context).colorScheme.error,
-            ),
+      // Mostrar un Dropdown deshabilitado sin mensaje
+      return DropdownButtonFormField<String>(
+        value: null,
+        decoration: InputDecoration(
+          labelText: 'Seleccionar mes',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
+          prefixIcon: const Icon(Icons.calendar_month),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         ),
+        items: const [],
+        onChanged: null,
+        disabledHint: const Text('Sin meses disponibles'),
       );
     }
 
