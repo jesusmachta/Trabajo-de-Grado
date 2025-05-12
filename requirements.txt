@@ -19,3 +19,4 @@ pyjwt
 pydantic[email]
 python-multipart
 apscheduler
+python-jose[cryptography]
