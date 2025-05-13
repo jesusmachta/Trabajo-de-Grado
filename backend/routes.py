@@ -7,6 +7,17 @@ from backend.statistics.apis.create_category_api import router as create_categor
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 from backend.auth.dependencies import get_empresa, get_current_user
+from backend.auth.create_user import create_user
+from backend.auth.login_user import login_user, create_access_token
+from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info
+from backend.auth.update_user import update_user_profile, reset_password, update_profile_picture
+from backend.auth.delete_user import delete_user
+from backend.auth.create_company import create_company
+from backend.auth.delete_company import delete_company
+from backend.auth.auth_models import (  # Import models from auth_models.py
+    UserCreate, UserLogin, Token, UserUpdate, ProfileUpdatePayload,
+    ProfilePicturePayload, WebProfilePicturePayload
+)
 import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, Field # Added Field
@@ -1074,52 +1085,15 @@ async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
     }
 
 @router.post("/login", response_model=Token)
-async def login(user_data: UserLogin):
+async def login_endpoint(user_data: UserLogin):
     """Endpoint for user login."""
-    try:
-        # Find user by email
-        user = collections['Users'].find_one({"email": user_data.email})
-        if user is None:
-            logger.warning(f"Login attempt with non-existent email: {user_data.email}")
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        # Verify password
-        if not verify_password(user_data.password, user["password"]):
-            logger.warning(f"Failed login attempt for user: {user_data.email}")
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        empresa = user.get("empresa")
-        if not empresa: 
-            logger.warning(f"User {user_data.email} does not have an associated company")
-            raise HTTPException(status_code=400, detail="User does not have an associated company")
-        
-        # Create and return access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": str(user["_id"]), "empresa": empresa}, 
-            expires_delta=access_token_expires
-        )
-        
-        # Convert _id to string for JSON serialization if it's not already a string
-        user_id = str(user["_id"])
-        
-        logger.info(f"Successful login for user: {user_data.email}")
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user_id": user_id,
-            "email": user.get("email"),
-            "full_name": user.get("full_name"),
-            "role": user.get("role"),
-            "empresa": empresa,
-            "profile_picture": user.get("profile_picture")  # Include profile picture URL
-        }
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error during login: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error during login")
+    # Use the login_user function from the model
+    login_result = login_user(
+        email=user_data.email,
+        password=user_data.password
+    )
+    
+    return login_result
 
 # User management endpoints
 class UserUpdate(BaseModel):
@@ -1181,60 +1155,36 @@ class ProfileUpdatePayload(BaseModel):
 @router.put("/users/profile", response_model=dict)
 async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
     """Update the current user's profile information."""
-    try:
-        user_id = current_user.get("_id")
+    user_id = str(current_user.get("_id"))
+    
+    # Prepare update data
+    update_data = {}
+    if payload.email is not None:
+        update_data["email"] = payload.email
+    
+    # Build full name from first and last name
+    if payload.first_name is not None or payload.last_name is not None:
+        current_full_name = current_user.get("full_name", "")
+        name_parts = current_full_name.split(" ", 1)
         
-        # Prepare update data
-        update_data = {}
-        if payload.email is not None:
-            # Check if email is already taken by another user
-            existing_user = collections['Users'].find_one({"email": payload.email})
-            if existing_user is not None and existing_user["_id"] != user_id:
-                raise HTTPException(status_code=400, detail="Email already registered")
-            update_data["email"] = payload.email
+        current_first = name_parts[0] if len(name_parts) > 0 else ""
+        current_last = name_parts[1] if len(name_parts) > 1 else ""
         
-        # Build full name from first and last name
-        if payload.first_name is not None or payload.last_name is not None:
-            current_full_name = current_user.get("full_name", "")
-            name_parts = current_full_name.split(" ", 1)
-            
-            current_first = name_parts[0] if len(name_parts) > 0 else ""
-            current_last = name_parts[1] if len(name_parts) > 1 else ""
-            
-            new_first = payload.first_name if payload.first_name is not None else current_first
-            new_last = payload.last_name if payload.last_name is not None else current_last
-            
-            update_data["full_name"] = f"{new_first} {new_last}".strip()
+        new_first = payload.first_name if payload.first_name is not None else current_first
+        new_last = payload.last_name if payload.last_name is not None else current_last
         
-        # Update password if provided
-        if payload.password is not None:
-            # Validate password
-            is_valid, error_message = validate_password(payload.password)
-            if not is_valid:
-                raise HTTPException(status_code=400, detail=error_message)
-            update_data["password"] = hash_password(payload.password)
-        
-        # Update user
-        if update_data:
-            collections['Users'].update_one(
-                {"_id": user_id},
-                {"$set": update_data}
-            )
-        
-        # Get updated user
-        updated_user = collections['Users'].find_one({"_id": user_id}, {"password": 0})
-        if updated_user:
-            updated_user["_id"] = str(updated_user["_id"])
-        
-        return {
-            "message": "Profile updated successfully",
-            "data": updated_user
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating profile: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
+        update_data["full_name"] = f"{new_first} {new_last}".strip()
+    
+    if payload.password is not None:
+        update_data["password"] = payload.password
+    
+    # Use the update_user_profile function from the model
+    updated_user = update_user_profile(user_id, update_data)
+    
+    return {
+        "message": "Profile updated successfully",
+        "data": updated_user
+    }
 
 @router.put("/users/{user_id}", response_model=dict)
 async def update_user(
@@ -1358,18 +1308,15 @@ async def upload_profile_picture(payload: ProfilePicturePayload, current_user: d
             raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
         
         # Generate a unique filename in the correct folder
-        user_id = current_user.get("_id")
+        user_id = str(current_user.get("_id"))
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         file_name = f"profile_pictures/{user_id}_{timestamp}.jpeg"
         
         # Upload to S3 with public-read ACL
         s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
         
-        # Update user record with the profile picture URL
-        collections['Users'].update_one(
-            {"_id": user_id},
-            {"$set": {"profile_picture": s3_url}}
-        )
+        # Update the user profile with the new picture URL
+        update_result = update_profile_picture(user_id, s3_url)
         
         return {
             "message": "Profile picture updated successfully",
@@ -2015,19 +1962,19 @@ async def chat_ai(
         raise HTTPException(status_code=500, detail=f"Internal server error in chat AI: {str(e)}")
 
 @router.post("/register-company", status_code=201)
-async def register_company(
+async def register_company_endpoint(
     background_tasks: BackgroundTasks,
     company_data: dict = Body(...)
 ):
     """
-    Endpoint para registrar una nueva empresa y su usuario administrador.
+    Endpoint to register a new company and its admin user.
     """
     try:
-        # Validar datos requeridos
+        # Validate required fields
         required_fields = [
             "nombre_empresa", "rif", "nombre_responsable", 
             "apellido_responsable", "email", "password",
-            "date_of_birth", "security_question", "security_answer"  # Add new required fields
+            "date_of_birth", "security_question", "security_answer"
         ]
         
         for field in required_fields:
@@ -2037,115 +1984,40 @@ async def register_company(
                     detail=f"El campo '{field}' es requerido"
                 )
         
-        nombre_empresa = company_data["nombre_empresa"]
-        rif = company_data["rif"]
-        email = company_data["email"]
-        password = company_data["password"]
-        date_of_birth = company_data["date_of_birth"]
-        security_question = company_data["security_question"]
-        security_answer = company_data["security_answer"]
-        
-        # Validar formato del RIF (solo números)
-        if not rif.isdigit():
-            raise HTTPException(
-                status_code=400,
-                detail="El RIF debe contener solo números"
-            )
-        
-        # Validar formato de email
-        if not re.match(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$', email):
-            raise HTTPException(
-                status_code=400,
-                detail="El formato del correo electrónico es inválido"
-            )
-        
-        # Validar contraseña
-        is_valid, error_message = validate_password(password)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_message)
-        
-        # Verificar si ya existe una empresa con el mismo nombre o RIF en la colección Empresas
-        existing_company_by_name = collections['Empresas'].find_one({"nombre": nombre_empresa})
-        existing_company_by_rif = collections['Empresas'].find_one({"rif": rif})
-        
-        if existing_company_by_name:
-            raise HTTPException(
-                status_code=409,
-                detail="Ya existe una empresa registrada con este nombre"
-            )
-        
-        if existing_company_by_rif:
-            raise HTTPException(
-                status_code=409,
-                detail="Ya existe una empresa registrada con este RIF"
-            )
-        
-        # Verificar si el email ya está registrado
-        if collections['Users'].find_one({"email": email}):
-            raise HTTPException(
-                status_code=409,
-                detail="Este correo electrónico ya está registrado"
-            )
-        
-        # Crear usuario administrador
-        user_id = get_next_sequence_value("user_id")
-        hashed_password = hash_password(password)
-        hashed_security_answer = hash_password(security_answer)
-        
-        full_name = f"{company_data['nombre_responsable']} {company_data['apellido_responsable']}"
-        
-        # Crear documento de usuario
-        user = {
-            "_id": user_id,
-            "email": email,
-            "password": hashed_password,
-            "full_name": full_name,
-            "role": "admin",  # El primer usuario de una empresa es siempre admin
-            "empresa": nombre_empresa,
-            "rif": rif,
-            "is_active": True,  # Agregar campo is_active como True por defecto
-            "created_at": datetime.utcnow().isoformat(),
-            "date_of_birth": date_of_birth,
-            "security_question": security_question,
-            "security_answer": hashed_security_answer
-        }
-        
-        # Insertar usuario en la base de datos
-        collections['Users'].insert_one(user)
-        
-        # Guardar información de la empresa en la colección Empresas
-        empresa_doc = {
-            "nombre": nombre_empresa,
-            "rif": rif,
-            "created_at": datetime.utcnow().isoformat()
-        }
-        collections['Empresas'].insert_one(empresa_doc)
-        
-        # Crear y devolver token de acceso
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": str(user_id), "empresa": nombre_empresa},
-            expires_delta=access_token_expires
+        # Use the create_company function from the model
+        company_result = create_company(
+            nombre_empresa=company_data["nombre_empresa"],
+            rif=company_data["rif"],
+            nombre_responsable=company_data["nombre_responsable"],
+            apellido_responsable=company_data["apellido_responsable"],
+            email=company_data["email"],
+            password=company_data["password"],
+            date_of_birth=company_data["date_of_birth"],
+            security_question=company_data["security_question"],
+            security_answer=company_data["security_answer"]
         )
         
-        # Inicializar estadísticas SOLO UNA VEZ para la nueva empresa
-        from backend.statistics.incremental_stats import initialize_statistics
-        initialize_statistics(nombre_empresa)
+        # Create access token for the new admin user
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": company_result["admin_user"]["user_id"], "empresa": company_result["empresa"]},
+            expires_delta=access_token_expires
+        )
         
         return {
             "message": "Empresa registrada exitosamente",
             "access_token": access_token,
             "token_type": "bearer",
-            "user_id": str(user_id),
-            "email": email,
-            "full_name": full_name,
+            "user_id": company_result["admin_user"]["user_id"],
+            "email": company_result["admin_user"]["email"],
+            "full_name": company_result["admin_user"]["full_name"],
             "role": "admin",
             "is_active": True,
-            "empresa": nombre_empresa
+            "empresa": company_result["empresa"]
         }
     
     except HTTPException as he:
-        # Re-lanzar excepciones HTTP
+        # Re-raise HTTP exceptions
         raise he
     except Exception as e:
         logger.error(f"Error al registrar empresa: {str(e)}")
@@ -2153,6 +2025,20 @@ async def register_company(
             status_code=500,
             detail=f"Error interno al registrar la empresa: {str(e)}"
         )
+
+@router.delete("/delete-company")
+async def delete_company_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Endpoint to delete the current user's company and all related data.
+    Only company administrators can perform this action.
+    """
+    # Use the delete_company function from the model
+    result = delete_company(
+        empresa=current_user.get("empresa"),
+        admin_user_id=str(current_user.get("_id"))
+    )
+    
+    return result
 
 def initialize_statistics_for_company(empresa: str):
     """
@@ -2199,205 +2085,79 @@ async def regenerate_statistics_for_company(empresa: str):
 
 # Add password recovery endpoints
 @router.post("/forgot-password/verify", status_code=200)
-async def verify_security_info(
+async def verify_security_info_endpoint(
     data: dict = Body(...)
 ):
     """
-    Endpoint para verificar el email, fecha de nacimiento y pregunta de seguridad
-    para recuperar contraseña.
+    Endpoint to verify email, date of birth, and security question/answer for password recovery.
     """
-    try:
-        required_fields = ["email", "date_of_birth", "security_question", "security_answer"]
-        for field in required_fields:
-            if field not in data:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"El campo '{field}' es requerido"
-                )
-        
-        email = data["email"]
-        date_of_birth = data["date_of_birth"]
-        security_question = data["security_question"]
-        security_answer = data["security_answer"]
-        
-        # Buscar el usuario por email
-        user = collections['Users'].find_one({"email": email})
-        if not user:
-            raise HTTPException(
-                status_code=404,
-                detail="Usuario no encontrado con este correo electrónico"
-            )
-        
-        # Verificar fecha de nacimiento
-        if user.get("date_of_birth") != date_of_birth:
+    required_fields = ["email", "date_of_birth", "security_question", "security_answer"]
+    for field in required_fields:
+        if field not in data:
             raise HTTPException(
                 status_code=400,
-                detail="La fecha de nacimiento no coincide"
+                detail=f"El campo '{field}' es requerido"
             )
-        
-        # Verificar pregunta de seguridad
-        if user.get("security_question") != security_question:
-            raise HTTPException(
-                status_code=400,
-                detail="La pregunta de seguridad no coincide"
-            )
-        
-        # Verificar respuesta de seguridad
-        if not verify_password(security_answer, user.get("security_answer", "")):
-            raise HTTPException(
-                status_code=400,
-                detail="La respuesta de seguridad no es correcta"
-            )
-        
-        # Generar token temporal para restablecimiento de contraseña
-        reset_token = create_access_token(
-            data={"sub": str(user["_id"]), "purpose": "password_reset"},
-            expires_delta=timedelta(minutes=15)
-        )
-        
-        return {
-            "message": "Verificación exitosa",
-            "reset_token": reset_token,
-            "user_id": str(user["_id"])
-        }
     
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al verificar información de seguridad: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al verificar información: {str(e)}"
-        )
+    # Use the verify_security_info function from the model
+    verification_result = verify_security_info(
+        email=data["email"],
+        date_of_birth=data["date_of_birth"],
+        security_question=data["security_question"],
+        security_answer=data["security_answer"]
+    )
+    
+    # Generate token for password reset
+    reset_token = create_access_token(
+        data={"sub": verification_result["user_id"], "purpose": "password_reset"},
+        expires_delta=timedelta(minutes=15)
+    )
+    
+    return {
+        "message": "Verificación exitosa",
+        "reset_token": reset_token,
+        "user_id": verification_result["user_id"]
+    }
 
 @router.post("/reset-password", status_code=200)
-async def reset_password(
+async def reset_password_endpoint(
     data: dict = Body(...)
 ):
     """
-    Endpoint para cambiar la contraseña después de la verificación
-    de seguridad.
+    Endpoint to change password after security verification.
     """
+    if "reset_token" not in data or "new_password" not in data:
+        raise HTTPException(
+            status_code=400,
+            detail="Se requieren 'reset_token' y 'new_password'"
+        )
+    
+    reset_token = data["reset_token"]
+    new_password = data["new_password"]
+    
     try:
-        if "reset_token" not in data or "new_password" not in data:
-            raise HTTPException(
-                status_code=400,
-                detail="Se requieren 'reset_token' y 'new_password'"
-            )
+        # Verify the token
+        payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        purpose = payload.get("purpose")
         
-        reset_token = data["reset_token"]
-        new_password = data["new_password"]
-        
-        # Validar la nueva contraseña
-        is_valid, error_message = validate_password(new_password)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_message)
-        
-        try:
-            # Verificar el token
-            payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = payload.get("sub")
-            purpose = payload.get("purpose")
-            
-            if not user_id or purpose != "password_reset":
-                raise HTTPException(
-                    status_code=401,
-                    detail="Token de restablecimiento inválido"
-                )
-        except jwt.PyJWTError:
+        if not user_id or purpose != "password_reset":
             raise HTTPException(
                 status_code=401,
-                detail="Token de restablecimiento inválido o expirado"
+                detail="Token de restablecimiento inválido"
             )
-        
-        # Actualizar la contraseña
-        hashed_password = hash_password(new_password)
-        update_result = collections['Users'].update_one(
-            {"_id": int(user_id)},
-            {"$set": {"password": hashed_password}}
-        )
-        
-        if update_result.modified_count == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Usuario no encontrado"
-            )
-        
-        return {
-            "message": "Contraseña actualizada exitosamente"
-        }
-    
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al restablecer contraseña: {str(e)}")
+    except jwt.PyJWTError:
         raise HTTPException(
-            status_code=500,
-            detail=f"Error al restablecer contraseña: {str(e)}"
+            status_code=401,
+            detail="Token de restablecimiento inválido o expirado"
         )
-
-@router.delete("/delete-company")
-async def delete_company(current_user: dict = Depends(get_current_user)):
-    """
-    Endpoint to delete the current user's company and all related data.
-    Only company administrators can perform this action.
-    """
-    try:
-        # Verify the user is an admin
-        if current_user.get("role") != "admin":
-            raise HTTPException(
-                status_code=403, 
-                detail="Access forbidden: Only company administrators can delete a company"
-            )
-        
-        # Get the company name from the current user
-        empresa = current_user.get("empresa")
-        if not empresa:
-            raise HTTPException(
-                status_code=400,
-                detail="User does not belong to any company"
-            )
-            
-        logger.info(f"Starting deletion of company: {empresa}")
-        
-        # Delete all data related to the company from all collections
-        deleted_counts = {}
-        
-        # List of collections to clean (excluding system collections)
-        collections_to_clean = [
-            'Users', 
-            'Persona_AR', 
-            'Tipo_Producto', 
-            'Tipo_Producto_Zona_Camara'
-        ]
-        
-        # Delete data from each collection
-        for collection_name in collections_to_clean:
-            result = collections[collection_name].delete_many({"empresa": empresa})
-            deleted_counts[collection_name] = result.deleted_count
-            logger.info(f"Deleted {result.deleted_count} documents from {collection_name}")
-        
-        # Delete statistics documents that end with :{empresa}
-        stats_query = {"_id": {"$regex": f":{empresa}$"}}
-        stats_result = collections["Estadisticas"].delete_many(stats_query)
-        deleted_counts["Estadisticas"] = stats_result.deleted_count
-        logger.info(f"Deleted {stats_result.deleted_count} documents from Estadisticas")
-        
-        # Delete the company from the Empresas collection
-        empresa_result = collections["Empresas"].delete_one({"nombre": empresa})
-        deleted_counts["Empresas"] = empresa_result.deleted_count
-        logger.info(f"Deleted {empresa_result.deleted_count} documents from Empresas")
-        
-        # Return success response with deletion counts
-        return {
-            "message": f"Company '{empresa}' and all related data have been successfully deleted",
-            "deleted_counts": deleted_counts
-        }
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as e:
-        logger.error(f"Error deleting company: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error deleting company: {str(e)}")
+    
+    # Use the reset_password function from the model
+    result = reset_password(user_id, new_password)
+    
+    return {
+        "message": "Contraseña actualizada exitosamente"
+    }
 
 @router.post("/migrate-companies")
 async def migrate_existing_companies():
