@@ -3,6 +3,10 @@ import logging
 from fastapi import HTTPException
 from typing import Optional, Dict, Any
 from backend.auth.create_user import hash_password, validate_password
+import base64
+import os
+from datetime import datetime
+from backend.aws import upload_image_to_s3
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -152,4 +156,134 @@ def update_profile_picture(user_id: str, profile_picture_url: str):
         raise
     except Exception as e:
         logger.error(f"Error updating profile picture: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating profile picture: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error updating profile picture: {str(e)}")
+
+def upload_profile_picture_base64(user_id: str, image_base64: str):
+    """
+    Upload a profile picture using base64 encoding
+    """
+    try:
+        if not image_base64:
+            raise HTTPException(status_code=400, detail="Empty image provided")
+        
+        # Decode the base64 image
+        try:
+            image_bytes = base64.b64decode(image_base64)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
+        
+        # Generate a unique filename in the correct folder
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        file_name = f"profile_pictures/{user_id}_{timestamp}.jpeg"
+        
+        # Upload to S3 with public-read ACL
+        s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
+        
+        # Update the user profile with the new picture URL
+        update_result = update_profile_picture(user_id, s3_url)
+        
+        return {
+            "message": "Profile picture updated successfully",
+            "profile_picture_url": s3_url
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading profile picture: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
+
+def upload_profile_picture_file(user_id: str, image_bytes: bytes, content_type: str):
+    """
+    Upload a profile picture from a file
+    """
+    try:
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Empty image file")
+        
+        # Get file extension from content type
+        file_ext = content_type.split('/')[1] if content_type else 'jpg'
+        if file_ext == 'jpeg' or file_ext == 'jpg':
+            file_ext = 'jpg'
+        elif file_ext == 'png':
+            file_ext = 'png'
+        else:
+            file_ext = 'jpg'  # Default to jpg
+        
+        # Generate a unique filename in the correct folder
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        file_name = f"profile_pictures/{user_id}_{timestamp}.{file_ext}"
+        
+        # Upload to S3 with public-read ACL (will fall back if not supported)
+        try:
+            s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
+        except Exception as e:
+            # If setting ACL fails, try without ACL
+            logger.warning(f"Error uploading with ACL, trying without: {e}")
+            s3_url = upload_image_to_s3(image_bytes, file_name)
+        
+        # Update user record with the profile picture URL
+        update_result = update_profile_picture(user_id, s3_url)
+        
+        return {
+            "message": "Profile picture updated successfully",
+            "profile_picture_url": s3_url
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading profile picture: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
+
+def upload_profile_picture_web(user_id: str, image_base64: str, file_name: Optional[str] = None):
+    """
+    Upload a profile picture from web using base64
+    """
+    try:
+        if not image_base64:
+            raise HTTPException(status_code=400, detail="Empty image provided")
+        
+        # Decode the base64 image
+        try:
+            # Strip data URL prefix if present (e.g., "data:image/png;base64,")
+            if "," in image_base64:
+                base64_str = image_base64.split(",")[1]
+            else:
+                base64_str = image_base64
+                
+            image_bytes = base64.b64decode(base64_str)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
+        
+        # Determine file extension from file_name or default to jpg
+        file_ext = "jpg"
+        if file_name:
+            ext = os.path.splitext(file_name)[1].lower()
+            if ext in ['.png', '.jpg', '.jpeg']:
+                file_ext = ext.replace('.', '')
+                if file_ext == 'jpeg':
+                    file_ext = 'jpg'
+        
+        # Generate a unique filename in the correct folder
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        file_name = f"profile_pictures/{user_id}_{timestamp}.{file_ext}"
+        
+        # Upload to S3 with public-read ACL (will fall back if not supported)
+        try:
+            s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
+        except Exception as e:
+            # If setting ACL fails, try without ACL
+            logger.warning(f"Error uploading with ACL, trying without: {e}")
+            s3_url = upload_image_to_s3(image_bytes, file_name)
+        
+        # Update user record with the profile picture URL
+        update_result = update_profile_picture(user_id, s3_url)
+        
+        return {
+            "message": "Profile picture updated successfully",
+            "profile_picture_url": s3_url
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading profile picture: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}") 

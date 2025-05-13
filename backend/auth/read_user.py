@@ -1,7 +1,8 @@
 from backend.database import collections
 import logging
 from fastapi import HTTPException
-from typing import List, Optional
+from typing import List, Optional, Dict
+import bcrypt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -62,45 +63,60 @@ def get_all_users(empresa: str) -> List[dict]:
         logger.error(f"Error fetching users for company '{empresa}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
 
+def get_current_user_profile(current_user: Dict) -> Dict:
+    """
+    Get the current user's profile
+    
+    Args:
+        current_user: The user dictionary from the authentication dependency
+        
+    Returns:
+        Dict: User profile with safe fields (no password)
+    """
+    try:
+        # Create a copy to avoid modifying the original
+        user_profile = current_user.copy()
+        
+        # Remove sensitive fields if they exist
+        if "password" in user_profile:
+            del user_profile["password"]
+        if "security_answer" in user_profile:
+            del user_profile["security_answer"]
+        
+        # Ensure the _id is a string for JSON serialization
+        user_profile["_id"] = str(user_profile["_id"])
+        
+        return user_profile
+    except Exception as e:
+        logger.error(f"Error getting current user profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting user profile: {str(e)}")
+
 def verify_security_info(email: str, date_of_birth: str, security_question: str, security_answer: str):
     """
     Verify user security information for password recovery
     """
     try:
-        from backend.auth.login_user import verify_password
-        
-        # Find user by email
+        # Find the user by email
         user = collections['Users'].find_one({"email": email})
         if not user:
-            raise HTTPException(
-                status_code=404,
-                detail="Usuario no encontrado con este correo electrónico"
-            )
-        
-        # Verify date of birth
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        # Check date of birth
         if user.get("date_of_birth") != date_of_birth:
-            raise HTTPException(
-                status_code=400,
-                detail="La fecha de nacimiento no coincide"
-            )
-        
-        # Verify security question
+            raise HTTPException(status_code=400, detail="Incorrect date of birth")
+            
+        # Check security question
         if user.get("security_question") != security_question:
-            raise HTTPException(
-                status_code=400,
-                detail="La pregunta de seguridad no coincide"
-            )
-        
-        # Verify security answer
-        if not verify_password(security_answer, user.get("security_answer", "")):
-            raise HTTPException(
-                status_code=400,
-                detail="La respuesta de seguridad no es correcta"
-            )
-        
-        # All checks passed
+            raise HTTPException(status_code=400, detail="Incorrect security question")
+            
+        # Check security answer using bcrypt
+        stored_answer = user.get("security_answer")
+        if not stored_answer or not bcrypt.checkpw(security_answer.encode('utf-8'), stored_answer.encode('utf-8')):
+            raise HTTPException(status_code=400, detail="Incorrect security answer")
+            
+        # Return user ID for token generation
         return {"user_id": str(user["_id"])}
-        
+    
     except HTTPException:
         raise
     except Exception as e:

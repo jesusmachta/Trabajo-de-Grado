@@ -7,10 +7,13 @@ from backend.statistics.apis.create_category_api import router as create_categor
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 from backend.auth.dependencies import get_empresa, get_current_user
-from backend.auth.create_user import create_user
-from backend.auth.login_user import login_user, create_access_token
-from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info
-from backend.auth.update_user import update_user_profile, reset_password, update_profile_picture
+from backend.auth.create_user import create_user, hash_password, validate_password, get_next_sequence_value
+from backend.auth.login_user import login_user, create_access_token, verify_password
+from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info, get_current_user_profile
+from backend.auth.update_user import (
+    update_user_profile, reset_password, update_profile_picture,
+    upload_profile_picture_base64, upload_profile_picture_file, upload_profile_picture_web
+)
 from backend.auth.delete_user import delete_user
 from backend.auth.create_company import create_company
 from backend.auth.delete_company import delete_company
@@ -941,12 +944,6 @@ async def save_to_db_endpoint(result_path: str, id_camara: int, empresa: str):  
         raise HTTPException(status_code=500, detail=str(e))
 
 # Helper functions for auth
-def hash_password(password: str) -> str:
-    """Hash a password for storing."""
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against provided password."""
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -963,41 +960,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
-# async def get_current_user(token: str = Depends(oauth2_scheme)):
-#     """Decode JWT token to get current user."""
-#     credentials_exception = HTTPException(
-#         status_code=401,
-#         detail="Could not validate credentials",
-#         headers={"WWW-Authenticate": "Bearer"},
-#     )
-    
-#     try:
-#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-#         user_id: str = payload.get("sub")
-#         company: str = payload.get("empresa")
-#         if user_id is None or company is None:
-#             raise credentials_exception
-#     except jwt.PyJWTError:
-#         raise credentials_exception
-    
-#     try:
-#         # Try to find user with both string and integer ID formats
-#         user = collections['Users'].find_one({"_id": int(user_id)})
-#         if user is None:
-#             # Try with string version as fallback
-#             user = collections['Users'].find_one({"_id": user_id})
-#             if user is None:
-#                 raise credentials_exception
-#     except (ValueError, TypeError):
-#         # If int conversion fails, try with string directly
-#         user = collections['Users'].find_one({"_id": user_id})
-#         if user is None:
-#             raise credentials_exception
-#         if user.get("empresa") != company:
-#            raise HTTPException(status_code=403, detail="User does not belong to the specified company")  
-    
-#     return user
 
 def validate_password(password: str) -> tuple[bool, str]:
     """
@@ -1037,56 +999,35 @@ def validate_password(password: str) -> tuple[bool, str]:
 @router.post("/signup", response_model=Token)
 async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
     """Endpoint for user registration."""
-    # Check if user already exists
-    if collections['Users'].find_one({"email": user_data.email}) is not None:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    # Use the create_user function from the auth module
+    user = create_user(
+        email=user_data.email,
+        password=user_data.password,
+        full_name=user_data.full_name,
+        role=user_data.role,
+        empresa=empresa,
+        date_of_birth=user_data.date_of_birth,
+        security_question=user_data.security_question,
+        security_answer=user_data.security_answer,
+        rif=user_data.rif
+    )
     
-    # Validate password
-    is_valid, error_message = validate_password(user_data.password)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_message)
-    
-    # Create new user
-    user_id = get_next_sequence_value("user_id")
-    hashed_password = hash_password(user_data.password)
-    # Hash security answer
-    hashed_security_answer = hash_password(user_data.security_answer)
-    
-    # Create user document
-    user = {
-        "_id": user_id,
-        "email": user_data.email,
-        "password": hashed_password,
-        "full_name": user_data.full_name,
-        "role": user_data.role,
-        "empresa": empresa,  # Agregar la empresa al documento
-        "created_at": datetime.utcnow().isoformat(),
-        "date_of_birth": user_data.date_of_birth,
-        "security_question": user_data.security_question,
-        "security_answer": hashed_security_answer
-    }
-    if user_data.rif is not None:
-        user["rif"] = user_data.rif
-    
-    # Insert user into database
-    collections['Users'].insert_one(user)
-    
-    # Create and return access token
+    # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user_id), "empresa": empresa}, 
+        data={"sub": user["user_id"], "empresa": empresa}, 
         expires_delta=access_token_expires
     )
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user_id": str(user_id),
-        "email": user.get("email"),
-        "full_name": user.get("full_name"),
-        "role": user.get("role"),
-        "empresa": empresa,  # Incluir la empresa en la respuesta
-        "profile_picture": user.get("profile_picture")  # Include profile picture URL even if it's null
+        "user_id": user["user_id"],
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role": user["role"],
+        "empresa": empresa,
+        "profile_picture": None  # New users don't have a profile picture
     }
 
 @router.post("/login", response_model=Token)
@@ -1124,16 +1065,8 @@ async def get_users(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="User does not belong to any company")
 
     try:
-        # Obtener todos los usuarios de la misma empresa, excluyendo campos sensibles
-        users = list(collections['Users'].find(
-            {"empresa": empresa},  # Filtrar por empresa
-            {"password": 0}  # Excluir el campo password
-        ))
-
-        # Convertir ObjectId a string para serialización JSON
-        for user in users:
-            user["_id"] = str(user["_id"])
-
+        # Use the get_all_users function from the auth module
+        users = get_all_users(empresa)
         return {"message": "Success", "data": users}
     except HTTPException as http_exc:
         # Re-lanzar excepciones HTTP específicas
@@ -1143,12 +1076,11 @@ async def get_users(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Error fetching users.")
 
 @router.get("/users/me", response_model=dict)
-async def get_current_user_profile(current_user: dict = Depends(get_current_user)):
+async def get_current_user_profile_endpoint(current_user: dict = Depends(get_current_user)):
     """Get the current user's profile."""
-    # Convert ObjectId to string for JSON serialization
-    current_user["_id"] = str(current_user["_id"])
-    
-    return {"message": "Success", "data": current_user}
+    # Use the get_current_user_profile function from the auth module
+    user_profile = get_current_user_profile(current_user)
+    return {"message": "Success", "data": user_profile}
 
 # --- Profile Management Routes ---
 class ProfileUpdatePayload(BaseModel):
@@ -1158,7 +1090,7 @@ class ProfileUpdatePayload(BaseModel):
     password: Optional[str] = None
 
 @router.put("/users/profile", response_model=dict)
-async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
+async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
     """Update the current user's profile information."""
     user_id = str(current_user.get("_id"))
     
@@ -1192,7 +1124,7 @@ async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Dep
     }
 
 @router.put("/users/{user_id}", response_model=dict)
-async def update_user(
+async def update_user_endpoint(
     user_id: str,
     user_data: UserUpdate,
     current_user: dict = Depends(get_current_user),
@@ -1214,10 +1146,6 @@ async def update_user(
         # Preparar los datos para la actualización
         update_data = {}
         if user_data.email is not None:
-            # Verificar si el email ya está registrado por otro usuario
-            existing_user = collections['Users'].find_one({"email": user_data.email, "empresa": empresa})
-            if existing_user is not None and str(existing_user["_id"]) != user_id:
-                raise HTTPException(status_code=400, detail="Email already registered")
             update_data["email"] = user_data.email
 
         if user_data.full_name is not None:
@@ -1229,13 +1157,9 @@ async def update_user(
                 raise HTTPException(status_code=403, detail="Only admin can change roles")
             update_data["role"] = user_data.role
 
-        # Actualizar la contraseña si se proporciona
+        # Incluir el campo password si se proporciona
         if user_data.password is not None:
-            # Validar la contraseña
-            is_valid, error_message = validate_password(user_data.password)
-            if not is_valid:
-                raise HTTPException(status_code=400, detail=error_message)
-            update_data["password"] = hash_password(user_data.password)
+            update_data["password"] = user_data.password
 
         # Incluir el campo profile_picture si se proporciona
         if user_data.profile_picture is not None:
@@ -1245,14 +1169,8 @@ async def update_user(
         if user_data.is_active is not None:
             update_data["is_active"] = user_data.is_active
 
-        # Realizar la actualización en la base de datos
-        if update_data:
-            collections['Users'].update_one({"_id": int(user_id)}, {"$set": update_data})
-
-        # Obtener el usuario actualizado
-        updated_user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa}, {"password": 0})
-        if updated_user:
-            updated_user["_id"] = str(updated_user["_id"])
+        # Use the update_user_profile function from the model
+        updated_user = update_user_profile(user_id, update_data)
 
         return {"message": "User updated successfully", "data": updated_user}
 
@@ -1263,7 +1181,7 @@ async def update_user(
         raise HTTPException(status_code=500, detail="Error updating user.")
 
 @router.delete("/users/{user_id}", response_model=dict)
-async def delete_user(
+async def delete_user_endpoint(
     user_id: str,
     current_user: dict = Depends(get_current_user),
     empresa: str = Depends(get_empresa)
@@ -1276,17 +1194,12 @@ async def delete_user(
         raise HTTPException(status_code=403, detail="Access forbidden: Admin only")
     
     try:
-        # Buscar el usuario a eliminar y verificar que pertenezca a la misma empresa
-        user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa})
-        if user is None:
-            raise HTTPException(status_code=404, detail="User not found or does not belong to your company")
-        
         # Prevenir que un usuario elimine su propia cuenta
         if str(current_user.get("_id")) == user_id:
             raise HTTPException(status_code=400, detail="Cannot delete your own account")
         
-        # Eliminar el usuario
-        collections['Users'].delete_one({"_id": int(user_id), "empresa": empresa})
+        # Use the delete_user function from the model
+        result = delete_user(user_id, empresa)
         
         return {"message": "User deleted successfully"}
     except HTTPException as http_exc:
@@ -1300,41 +1213,17 @@ class ProfilePicturePayload(BaseModel):
     image_base64: str
 
 @router.post("/users/profile/picture", response_model=dict)
-async def upload_profile_picture(payload: ProfilePicturePayload, current_user: dict = Depends(get_current_user)):
+async def upload_profile_picture_endpoint(payload: ProfilePicturePayload, current_user: dict = Depends(get_current_user)):
     """Upload a profile picture for the current user."""
-    try:
-        if not payload.image_base64:
-            raise HTTPException(status_code=400, detail="Empty image provided")
-        
-        # Decode the base64 image
-        try:
-            image_bytes = base64.b64decode(payload.image_base64)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
-        
-        # Generate a unique filename in the correct folder
-        user_id = str(current_user.get("_id"))
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"profile_pictures/{user_id}_{timestamp}.jpeg"
-        
-        # Upload to S3 with public-read ACL
-        s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
-        
-        # Update the user profile with the new picture URL
-        update_result = update_profile_picture(user_id, s3_url)
-        
-        return {
-            "message": "Profile picture updated successfully",
-            "profile_picture_url": s3_url
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error uploading profile picture: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
+    user_id = str(current_user.get("_id"))
+    
+    # Use the upload_profile_picture_base64 function from the model
+    result = upload_profile_picture_base64(user_id, payload.image_base64)
+    
+    return result
 
 @router.post("/users/profile/picture/upload", response_model=dict)
-async def upload_profile_picture_file(
+async def upload_profile_picture_file_endpoint(
     file: UploadFile = File(...), 
     current_user: dict = Depends(get_current_user)
 ):
@@ -1347,41 +1236,12 @@ async def upload_profile_picture_file(
         
         # Read the file
         image_bytes = await file.read()
-        if not image_bytes:
-            raise HTTPException(status_code=400, detail="Empty image file")
+        user_id = str(current_user.get("_id"))
         
-        # Get file extension from content type
-        file_ext = content_type.split('/')[1]
-        if file_ext == 'jpeg' or file_ext == 'jpg':
-            file_ext = 'jpg'
-        elif file_ext == 'png':
-            file_ext = 'png'
-        else:
-            file_ext = 'jpg'  # Default to jpg
+        # Use the upload_profile_picture_file function from the model
+        result = upload_profile_picture_file(user_id, image_bytes, content_type)
         
-        # Generate a unique filename in the correct folder
-        user_id = current_user.get("_id")
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"profile_pictures/{user_id}_{timestamp}.{file_ext}"
-        
-        # Upload to S3 with public-read ACL (will fall back if not supported)
-        try:
-            s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
-        except Exception as e:
-            # If setting ACL fails, try without ACL
-            logger.warning(f"Error uploading with ACL, trying without: {e}")
-            s3_url = upload_image_to_s3(image_bytes, file_name)
-        
-        # Update user record with the profile picture URL
-        collections['Users'].update_one(
-            {"_id": user_id},
-            {"$set": {"profile_picture": s3_url}}
-        )
-        
-        return {
-            "message": "Profile picture updated successfully",
-            "profile_picture_url": s3_url
-        }
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -1393,64 +1253,17 @@ class WebProfilePicturePayload(BaseModel):
     file_name: Optional[str] = None
 
 @router.post("/users/profile/picture/upload/web", response_model=dict)
-async def upload_profile_picture_web(
+async def upload_profile_picture_web_endpoint(
     payload: WebProfilePicturePayload,
     current_user: dict = Depends(get_current_user)
 ):
     """Upload a profile picture from web using base64."""
-    try:
-        if not payload.image_base64:
-            raise HTTPException(status_code=400, detail="Empty image provided")
-        
-        # Decode the base64 image
-        try:
-            # Strip data URL prefix if present (e.g., "data:image/png;base64,")
-            if "," in payload.image_base64:
-                base64_str = payload.image_base64.split(",")[1]
-            else:
-                base64_str = payload.image_base64
-                
-            image_bytes = base64.b64decode(base64_str)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
-        
-        # Determine file extension from file_name or default to jpg
-        file_ext = "jpg"
-        if payload.file_name:
-            ext = os.path.splitext(payload.file_name)[1].lower()
-            if ext in ['.png', '.jpg', '.jpeg']:
-                file_ext = ext.replace('.', '')
-                if file_ext == 'jpeg':
-                    file_ext = 'jpg'
-        
-        # Generate a unique filename in the correct folder
-        user_id = current_user.get("_id")
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"profile_pictures/{user_id}_{timestamp}.{file_ext}"
-        
-        # Upload to S3 with public-read ACL (will fall back if not supported)
-        try:
-            s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
-        except Exception as e:
-            # If setting ACL fails, try without ACL
-            logger.warning(f"Error uploading with ACL, trying without: {e}")
-            s3_url = upload_image_to_s3(image_bytes, file_name)
-        
-        # Update user record with the profile picture URL
-        collections['Users'].update_one(
-            {"_id": user_id},
-            {"$set": {"profile_picture": s3_url}}
-        )
-        
-        return {
-            "message": "Profile picture updated successfully",
-            "profile_picture_url": s3_url
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error uploading profile picture: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
+    user_id = str(current_user.get("_id"))
+    
+    # Use the upload_profile_picture_web function from the model
+    result = upload_profile_picture_web(user_id, payload.image_base64, payload.file_name)
+    
+    return result
 
 # --- Camera Routes ---
 
