@@ -1,6 +1,6 @@
 {
-    "name": "frontend",
-    "short_name": "frontend",
+    "name": "StoreSense",
+    "short_name": "StoreSense",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0277BD",

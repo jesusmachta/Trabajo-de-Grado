@@ -98,8 +98,8 @@ class _LoginViewState extends State<LoginView> {
                     Center(
                       child: Image.asset(
                         'assets/images/storesense_logo.png',
-                        height: 80,
-                        width: 80,
+                        height: 120,
+                        width: 120,
                       ),
                     ),
                     const SizedBox(height: 24),
