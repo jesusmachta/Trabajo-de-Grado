@@ -59,6 +59,11 @@ from fastapi.responses import FileResponse, HTMLResponse
 import bcrypt
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+# Import camera CRUD modules
+from backend.cameras.create_camera import create_camera
+from backend.cameras.read_camera import get_cameras_with_details, get_camera_by_id
+from backend.cameras.update_camera import update_camera
+from backend.cameras.delete_camera import delete_camera
 
 
 
@@ -1456,64 +1461,23 @@ def serialize_doc(doc):
     return doc
 
 @router.get("/cameras", response_model=List[Dict[str, Any]], tags=["Cameras"])
-async def get_cameras_with_details(empresa: str = Depends(get_empresa)):
+async def get_cameras_endpoint(empresa: str = Depends(get_empresa)):
     """
     Retrieves all cameras from Tipo_Producto_Zona_Camara and joins them
     with their corresponding product category from Tipo_Producto, filtered by empresa.
     """
     try:
-        # Use aggregation pipeline to join collections and filter by empresa
-        pipeline = [
-            {
-                '$match': {
-                    'empresa': empresa  # Filtrar por la empresa del usuario autenticado
-                }
-            },
-            {
-                '$lookup': {
-                    'from': 'Tipo_Producto',
-                    'let': {'tipoProducto': '$Tipo_Producto'},
-                    'pipeline': [
-                        {
-                            '$match': {
-                                '$expr': {
-                                    '$and': [
-                                        {'$eq': ['$Tipo_Producto', '$$tipoProducto']},
-                                        {'$eq': ['$empresa', empresa]}  # Filtrar por empresa en Tipo_Producto
-                                    ]
-                                }
-                            }
-                        }
-                    ],
-                    'as': 'productDetails'
-                }
-            },
-            {
-                '$unwind': {
-                    'path': '$productDetails',
-                    'preserveNullAndEmptyArrays': True  # Mantener cámaras incluso si no hay coincidencias
-                }
-            },
-            {
-                '$project': {
-                    '_id': 1,
-                    'Id_Camara': 1,
-                    'Tipo_Producto_Id': '$Tipo_Producto',
-                    'Categoria_Producto': '$productDetails.Categoria_Producto',
-                    'isActive': 1
-                }
-            }
-        ]
-        cameras_cursor = collections['Tipo_Producto_Zona_Camara'].aggregate(pipeline)
-        cameras_list = [serialize_doc(camera) for camera in cameras_cursor]
-
+        # Call the model function to get cameras
+        cameras_list = get_cameras_with_details(empresa)
         return cameras_list
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching cameras: {str(e)}")
 
 
 @router.post("/cameras", response_model=Dict[str, Any], status_code=201, tags=["Cameras"])
-async def create_camera(
+async def create_camera_endpoint(
     camera_data: Dict[str, Any] = Body(...),
     empresa: str = Depends(get_empresa)
 ):
@@ -1521,47 +1485,17 @@ async def create_camera(
     Creates a new camera entry in Tipo_Producto_Zona_Camara.
     Expects a body like: {"Id_Camara": <int>, "Tipo_Producto": <int>, "isActive": <bool>}
     """
-    required_fields = ["Id_Camara", "Tipo_Producto", "isActive"]
-    if not all(field in camera_data for field in required_fields):
-        raise HTTPException(status_code=400, detail="Missing required fields: Id_Camara, Tipo_Producto, isActive")
-
     try:
-        # Verificar si el ID de la cámara ya existe para la misma empresa
-        existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({
-            "Id_Camara": camera_data["Id_Camara"],
-            "empresa": empresa
-        })
-        if existing_camera:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Camera with Id_Camara {camera_data['Id_Camara']} already exists for this company."
-            )
-
-        # Verificar si el Tipo_Producto existe y pertenece a la misma empresa
-        product_type = collections['Tipo_Producto'].find_one({
-            "Tipo_Producto": camera_data["Tipo_Producto"],
-            "empresa": empresa
-        })
-        if not product_type:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tipo_Producto {camera_data['Tipo_Producto']} not found for this company."
-            )
-
-        # Agregar el campo empresa al documento de la cámara
-        camera_data["empresa"] = empresa
-
-        # Insertar la nueva cámara en la base de datos
-        insert_result = collections['Tipo_Producto_Zona_Camara'].insert_one(camera_data)
-        created_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": insert_result.inserted_id})
-        return serialize_doc(created_camera)
+        # Call the model function to create camera
+        created_camera = create_camera(camera_data, empresa)
+        return created_camera
     except HTTPException as http_exc:
-        raise http_exc  # Re-raise specific HTTP exceptions
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating camera: {str(e)}")
 
 @router.put("/cameras/{camera_id_mongo}", response_model=Dict[str, Any], tags=["Cameras"])
-async def update_camera_status(
+async def update_camera_endpoint(
     camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to update"),
     update_data: Dict[str, Any] = Body(...),
     empresa: str = Depends(get_empresa)
@@ -1571,69 +1505,9 @@ async def update_camera_status(
     Expects a body like: {"isActive": <bool>, "Id_Camara": <int>, "Tipo_Producto": <int>}
     """
     try:
-        # Validar el formato del ObjectId
-        object_id = ObjectId(camera_id_mongo)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
-
-    # Validar los datos de entrada
-    if not isinstance(update_data, dict):
-        raise HTTPException(status_code=400, detail="Invalid request body format.")
-    
-    # Validar campos opcionales
-    is_active = update_data.get("isActive")
-    id_camara = update_data.get("Id_Camara")
-    tipo_producto = update_data.get("Tipo_Producto")
-
-    if is_active is not None and not isinstance(is_active, bool):
-        raise HTTPException(status_code=400, detail="'isActive' must be a boolean.")
-
-    if id_camara is not None and not isinstance(id_camara, int):
-        raise HTTPException(status_code=400, detail="'Id_Camara' must be an integer.")
-
-    if tipo_producto is not None and not isinstance(tipo_producto, int):
-        raise HTTPException(status_code=400, detail="'Tipo_Producto' must be an integer.")
-
-    try:
-        # Verificar si la cámara pertenece a la empresa
-        camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
-        if not camera:
-            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company.")
-
-        # Verificar si el nuevo `Id_Camara` ya existe para la misma empresa
-        if id_camara is not None:
-            existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara, "empresa": empresa})
-            if existing_camera and str(existing_camera["_id"]) != camera_id_mongo:
-                raise HTTPException(status_code=409, detail=f"Camera with Id_Camara {id_camara} already exists for this company.")
-
-        # Verificar si el `Tipo_Producto` pertenece a la misma empresa
-        if tipo_producto is not None:
-            product_type = collections['Tipo_Producto'].find_one({"Tipo_Producto": tipo_producto, "empresa": empresa})
-            if not product_type:
-                raise HTTPException(status_code=404, detail=f"Tipo_Producto {tipo_producto} not found for this company.")
-
-        # Construir los campos a actualizar
-        update_fields = {}
-        if is_active is not None:
-            update_fields["isActive"] = is_active
-        if id_camara is not None:
-            update_fields["Id_Camara"] = id_camara
-        if tipo_producto is not None:
-            update_fields["Tipo_Producto"] = tipo_producto
-
-        # Actualizar la cámara
-        update_result = collections['Tipo_Producto_Zona_Camara'].update_one(
-            {"_id": object_id, "empresa": empresa},
-            {"$set": update_fields}
-        )
-
-        if update_result.matched_count == 0:
-            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company.")
-
-        # Obtener la cámara actualizada
-        updated_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
-        return serialize_doc(updated_camera)
-
+        # Call the model function to update camera
+        updated_camera = update_camera(camera_id_mongo, update_data, empresa)
+        return updated_camera
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -1641,7 +1515,7 @@ async def update_camera_status(
 
 
 @router.delete("/cameras/{camera_id_mongo}", status_code=204, tags=["Cameras"])
-async def delete_camera(
+async def delete_camera_endpoint(
     camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to delete"),
     empresa: str = Depends(get_empresa)
 ):
@@ -1649,32 +1523,10 @@ async def delete_camera(
     Deletes a camera entry by its MongoDB ObjectId, ensuring it belongs to the authenticated user's company.
     """
     try:
-        # Validar el formato del ObjectId
-        try:
-            object_id = ObjectId(camera_id_mongo)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
-
-        # Verificar si la cámara pertenece a la empresa
-        camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
-        if not camera:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company."
-            )
-
-        # Eliminar la cámara
-        delete_result = collections['Tipo_Producto_Zona_Camara'].delete_one({"_id": object_id, "empresa": empresa})
-
-        if delete_result.deleted_count == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company."
-            )
-
-        # Respuesta exitosa sin contenido
-        return
-
+        # Call the model function to delete camera
+        delete_camera(camera_id_mongo, empresa)
+        # Return 204 No Content on successful deletion
+        return None
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
