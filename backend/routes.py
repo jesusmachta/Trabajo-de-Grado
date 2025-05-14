@@ -244,10 +244,7 @@ def daily_traffic(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas pico de los clientes por día de la semana, filtrado por empresa.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"peak_hours:{empresa}"})
-        if not stats:
-            raise HTTPException(status_code=404, detail="Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_peak_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -261,10 +258,7 @@ def daily_traffic_least(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas menos concurridas por día de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"least_busy_hours:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_least_busy_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -278,10 +272,7 @@ def daily_traffic_busy_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día más concurrido de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"most_busy_day:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_most_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -295,10 +286,7 @@ def daily_traffic_least_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día menos concurrido de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"least_busy_day:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_least_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -312,36 +300,7 @@ def least_visited_category(period: str, date: Optional[str] = None, empresa: str
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"least_visited_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        # Determinar qué período usar
-        if period == "day":
-            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
-            data = stats.get("daily", {}).get(date_key)
-        elif period == "week":
-            if date:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-            else:
-                date_obj = datetime.now()
-            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-            data = stats.get("weekly", {}).get(monday)
-        elif period == "month":
-            if date:
-                month_key = date[:7]
-            else:
-                month_key = datetime.now().strftime("%Y-%m")
-            data = stats.get("monthly", {}).get(month_key)
-        else:
-            raise Exception("Período no válido. Use 'day', 'week', o 'month'.")
-        if not data:
-            data = stats.get("category_counts", {})
-            if data:
-                active_categories = {k: v for k, v in data.items() if v > 0}
-                least_cat = min(active_categories.items(), key=lambda x: x[1]) if active_categories else ("", 0)
-                data = {"category": least_cat[0], "count": least_cat[1]}
-            else:
-                data = {"category": None, "count": 0}
+        data = get_least_visited_category(empresa, period, date)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -354,13 +313,8 @@ def least_visited_category_historical(empresa: str = Depends(get_empresa)):
     Endpoint para obtener la categoría de producto menos visitada utilizando todos los datos históricos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("least_visited", {})
-        if not data or data.get("category") == "":
-            return {"message": "Success", "data": {"least_visited_category": None, "count": 0}}
-        return {"message": "Success", "data": {"least_visited_category": data.get("category"), "count": data.get("count")}}
+        data = get_least_visited_category_historical(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -373,35 +327,8 @@ def most_visited_category(period: str, date: Optional[str] = None, empresa: str 
     Endpoint para obtener la categoría de producto más visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"most_visited_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        if period == "day":
-            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
-            data = stats.get("daily", {}).get(date_key)
-        elif period == "week":
-            if date:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-            else:
-                date_obj = datetime.now()
-            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-            data = stats.get("weekly", {}).get(monday)
-        elif period == "month":
-            if date:
-                month_key = date[:7]
-            else:
-                month_key = datetime.now().strftime("%Y-%m")
-            data = stats.get("monthly", {}).get(month_key)
-        else:
-            raise Exception("Período no válido. Use 'day', 'week', o 'month'.")
-        if not data:
-            data = stats.get("category_counts", {})
-            if data:
-                most_cat = max(data.items(), key=lambda x: x[1]) if data else ("", 0)
-                data = {"category": most_cat[0], "count": most_cat[1]}
-            else:
-                data = {"category": None, "count": 0}
-        return {"message": "Success", "data": {"most_visited_category": data.get("category"), "count": data.get("count")}}
+        data = get_most_visited_category(empresa, period, date)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -413,13 +340,8 @@ def most_visited_category_historical(empresa: str = Depends(get_empresa)):
     Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("most_visited", {})
-        if not data or data.get("category") == "":
-            return {"message": "Success", "data": {"most_visited_category": None, "count": 0}}
-        return {"message": "Success", "data": {"most_visited_category": data.get("category"), "count": data.get("count")}}
+        data = get_most_visited_category_historical(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -432,17 +354,18 @@ def visited_categories_historical(empresa: str= Depends(get_empresa)):
     Endpoint para obtener las categorías de producto más y menos visitadas utilizando todos los datos históricos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        most_visited = stats.get("most_visited", {})
-        least_visited = stats.get("least_visited", {})
+        # Obtenemos tanto la categoría más visitada como la menos visitada históricamente
+        most_visited = get_most_visited_category_historical(empresa)
+        least_visited = get_least_visited_category_historical(empresa)
+        
+        # Combinamos los datos en una sola respuesta
         combined_data = {
-            "most_visited_category": most_visited.get("category", ""),
+            "most_visited_category": most_visited.get("most_visited_category", ""),
             "most_visited_count": most_visited.get("count", 0),
-            "least_visited_category": least_visited.get("category", ""),
+            "least_visited_category": least_visited.get("least_visited_category", ""),
             "least_visited_count": least_visited.get("count", 0)
         }
+        
         return {"message": "Success", "data": combined_data}
     except HTTPException as http_exc:
         raise http_exc
@@ -456,10 +379,7 @@ def emotion_percentage(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el porcentaje de emociones por categoría.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"emotion_percentage_by_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("data", {})
+        data = get_emotion_percentage_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -473,10 +393,7 @@ def most_frequent_emotions(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las emociones más frecuentes.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"most_frequent_emotions:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("data", {})
+        data = get_most_frequent_emotions(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -485,111 +402,42 @@ def most_frequent_emotions(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
 @router.get("/statistics/age-distribution/")
-def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
+def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+                     month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por edad.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"age_distribution:{empresa}"})
-        if not stats:
-            return {"message": "Error", "error": "Estadísticas de edad no encontradas"}
-        if period is None and month is None:
-            return {"message": "Success", "data": stats.get("overall", {})}
-        if period == "week" and date:
-            try:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-                if monday in stats.get("weekly", {}):
-                    return {"message": "Success", "data": stats["weekly"][monday]}
-                return {"message": "Success", "data": {}}
-            except ValueError:
-                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
-        elif month is not None:
-            if not 1 <= month <= 12:
-                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
-            if year is None:
-                year = datetime.now().year
-            month_key = f"{year}-{month:02d}"
-            if month_key in stats.get("monthly", {}):
-                return {"message": "Success", "data": stats["monthly"][month_key]}
-            return {"message": "Success", "data": {}}
-        return {"message": "Success", "data": stats.get("overall", {})}
+        data = get_age_distribution(empresa, period, date, month, year)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/gender-distribution/")
-def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
+def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+                        month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por género.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"gender_distribution:{empresa}"})
-        if not stats:
-            return {"message": "Error", "error": "Estadísticas de género no encontradas"}
-        if period is None and month is None:
-            return {"message": "Success", "data": stats.get("overall", {})}
-        if period == "week" and date:
-            try:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-                if monday in stats.get("weekly", {}):
-                    return {"message": "Success", "data": stats["weekly"][monday]}
-                return {"message": "Success", "data": {}}
-            except ValueError:
-                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
-        elif month is not None:
-            if not 1 <= month <= 12:
-                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
-            if year is None:
-                year = datetime.now().year
-            month_key = f"{year}-{month:02d}"
-            if month_key in stats.get("monthly", {}):
-                return {"message": "Success", "data": stats["monthly"][month_key]}
-            return {"message": "Success", "data": {}}
-        return {"message": "Success", "data": stats.get("overall", {})}
+        data = get_gender_distribution(empresa, period, date, month, year)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/emotion-comparison/")
-def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
+def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, 
+                      month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para comparar emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"emotion_comparison:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        if period == "week":
-            if date:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-                data = stats.get("weekly", {}).get(monday, {})
-                if not data:
-                    return {"message": "Success", "data": {}}
-                return {"message": "Success", "data": data}
-            else:
-                today = datetime.now()
-                monday = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
-                data = stats.get("weekly", {}).get(monday, {})
-                if not data:
-                    return {"message": "Success", "data": {}}
-                return {"message": "Success", "data": data}
-        elif period == "month":
-            current_year = datetime.now().year
-            current_month = datetime.now().month
-            target_month = month or current_month
-            target_year = year or current_year
-            month_key = f"{target_year}-{target_month:02d}"
-            data = stats.get("monthly", {}).get(month_key, {})
-            if not data:
-                return {"message": "Success", "data": {}}
-            return {"message": "Success", "data": data}
-        else:
-            raise ValueError("El período debe ser 'week' o 'month'")
+        data = get_emotion_comparison(empresa, period, date, month, year)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc   
     except Exception as e:
@@ -604,18 +452,7 @@ def preferred_category_by_gender(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las categorías de productos preferidas por género (hombres y mujeres).
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        raw_counts = stats.get("raw_counts", {})
-        if not raw_counts.get("Male") and not raw_counts.get("Female"):
-            logger.info("No hay datos en preferred_category_by_gender, recalculando...")
-            from backend.statistics.incremental_stats import recalculate_all_statistics
-            recalculate_all_statistics(empresa=empresa)
-            stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
-            if not stats:
-                raise Exception("No se pudieron recalcular las estadísticas")
-        data = stats.get("data", {})
+        data = get_preferred_category_by_gender(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -629,30 +466,8 @@ def top_successful_categories(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el top 3 de categorías más exitosas según emociones positivas (HAPPY count).
     """
     try:
-        stats_doc = collections["Estadisticas"].find_one({"_id": f"top_successful_categories:{empresa}"})
-        if not stats_doc:
-            raise HTTPException(status_code=404, detail="Estadísticas de 'top_successful_categories' no encontradas para esta empresa")
-        raw_counts = stats_doc.get("raw_counts")
-        if not raw_counts or not isinstance(raw_counts, dict):
-            raise HTTPException(status_code=404, detail="Datos de 'raw_counts' no encontrados o en formato incorrecto")
-        category_happy_counts = []
-        for category, counts in raw_counts.items():
-            if isinstance(counts, dict) and "HAPPY" in counts:
-                category_happy_counts.append({
-                    "category": category,
-                    "happy_count": counts.get("HAPPY", 0)
-                })
-            else:
-                logger.warning(f"Categoría '{category}' en raw_counts no tiene conteo 'HAPPY' o formato incorrecto. Omitiendo.")
-        category_happy_counts.sort(key=lambda x: x["happy_count"], reverse=True)
-        top_categories_ranked = []
-        for i, item in enumerate(category_happy_counts[:3]):
-            top_categories_ranked.append({
-                "category": item["category"],
-                "happy_count": item["happy_count"],
-                "rank": i + 1
-            })
-        return {"message": "Success", "data": top_categories_ranked}
+        data = calculate_top_categories_by_visits(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         logger.error(f"HTTPException en top_successful_categories: {http_exc.detail}")
         raise http_exc
@@ -668,14 +483,8 @@ def emotional_differences_by_category(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las emociones por género en cada categoría de productos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"emotional_differences_by_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        response_data = {
-            "message": "Success",
-            "data": stats.get("data", {})
-        }
-        return response_data
+        data = get_emotional_differences_by_category(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -687,10 +496,7 @@ def age_gender_distribution_by_category(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las combinaciones de género y rango de edad más frecuentes por categoría de producto.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"age_gender_distribution_by_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("data", {})
+        data = get_age_gender_distribution_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc

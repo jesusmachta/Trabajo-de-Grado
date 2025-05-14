@@ -4,6 +4,11 @@ import pymongo
 import calendar
 import traceback  # Import traceback for detailed error logging
 import time
+from fastapi import HTTPException
+from typing import Optional, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 persona_collection = collections["Persona_AR"]
 
@@ -90,97 +95,63 @@ def _get_date_range_strings(period: str, date_str: str = None, end_date_str: str
 
     return start_date_str_query, end_date_str_query
 
-def get_emotion_comparison(period: str = "week", date: str = None, end_date: str = None, month: int = None, year: int = None):
+def get_emotion_comparison(empresa: str, period: str = "week", date: Optional[str] = None, 
+                          month: Optional[int] = None, year: Optional[int] = None) -> Dict[str, Any]:
     """
-    Compares HAPPY and SAD emotions by day, querying string dates.
+    Obtiene la comparación de emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        period: Período de tiempo (week, month)
+        date: Fecha específica para periodo semanal
+        month: Mes específico (1-12) para filtrar por mes
+        year: Año específico para filtrar por mes
+        
+    Returns:
+        Dictionary containing emotion comparison data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
     """
     try:
-        print(f"Function called with: period={period}, date={date}, end_date={end_date}, month={month}, year={year}")
-        start_date_str, end_date_str = _get_date_range_strings(period, date, end_date, month, year)
+        stats = collections["Estadisticas"].find_one({"_id": f"emotion_comparison:{empresa}"})
+        if not stats:
+            logger.error(f"Emotion comparison statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
         
-        # Query using string dates (YYYY-MM-DD format assumed)
-        query = {
-            "date": {"$gte": start_date_str, "$lte": end_date_str},
-            "emotions": {"$in": ["HAPPY", "SAD"]} # Case-sensitive
-        }
-
-        print(f"Executing MongoDB query: {query}")
-        
-        try:
-            personas = list(persona_collection.find(query))
-        except Exception as db_error:
-            print(f"Database query failed: {db_error}")
-            print(traceback.format_exc())
-            # Return error structure matching potential frontend expectation
-            return {"error": f"Error accessing database: {db_error}"}, 500 
-            
-        print(f"Found {len(personas)} documents matching the query.")
-        if not personas:
-             print("No documents found for the specified criteria.")
-             # Return empty counts but successful structure
-             emotion_counts = {day: {"HAPPY": 0, "SAD": 0} for day in calendar.day_name}
-             response_data = {**emotion_counts, "TOTALS": {"HAPPY": 0, "SAD": 0}}
-             period_info_resp = { "period": period, "query_start_date": start_date_str, "query_end_date": end_date_str }
-             return {"message": "Success (No data)", "data": {**response_data, "period_info": period_info_resp}}
-
-
-        # Initialize counts
-        emotion_counts = { day: {"HAPPY": 0, "SAD": 0} for day in calendar.day_name }
-        
-        # Process results
-        for persona in personas:
-            date_str_from_db = persona.get("date")
-            emotion = persona.get("emotions") # Should be HAPPY or SAD due to query
-
-            if not date_str_from_db or not emotion:
-                print(f"Skipping document {persona.get('_id')} with missing data: Date='{date_str_from_db}', Emotion='{emotion}'")
-                continue
-            
-            if emotion not in ["HAPPY", "SAD"]:
-                 # This shouldn't happen if the query is correct, but check anyway
-                 print(f"Warning: Document {persona.get('_id')} has unexpected emotion '{emotion}' despite query.")
-                 continue
-
-            try:
-                # Parse the date string from DB to get the day name
-                date_obj = datetime.strptime(date_str_from_db, "%Y-%m-%d")
-                day_of_week = date_obj.strftime("%A") # Monday, Tuesday, etc.
-            except ValueError as date_err:
-                print(f"Skipping document {persona.get('_id')} due to unparseable date string '{date_str_from_db}': {date_err}")
-                continue
-
-            if day_of_week in emotion_counts:
-                emotion_counts[day_of_week][emotion] += 1
+        if period == "week":
+            if date:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                data = stats.get("weekly", {}).get(monday, {})
+                if not data:
+                    return {}
+                return data
             else:
-                 print(f"Warning: Encountered unexpected day name '{day_of_week}' for date {date_obj}")
-
-        # Calculate totals
-        total_happy = sum(counts["HAPPY"] for counts in emotion_counts.values())
-        total_sad = sum(counts["SAD"] for counts in emotion_counts.values())
-
-        # Prepare response data
-        response_data = {}
-        for day in calendar.day_name:
-            response_data[day] = emotion_counts.get(day, {"HAPPY": 0, "SAD": 0})
-        response_data["TOTALS"] = { "HAPPY": total_happy, "SAD": total_sad }
-        
-        print(f"Resulting counts: {response_data}")
-        
-        # Simplified response structure (remove nested 'data' to avoid confusion)
-        response_data["period_info"] = {
-            "period": period,
-            "query_start_date": start_date_str,
-            "query_end_date": end_date_str,
-        }
-        
-        return response_data
-
+                today = datetime.now()
+                monday = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+                data = stats.get("weekly", {}).get(monday, {})
+                if not data:
+                    return {}
+                return data
+        elif period == "month":
+            current_year = datetime.now().year
+            current_month = datetime.now().month
+            target_month = month or current_month
+            target_year = year or current_year
+            month_key = f"{target_year}-{target_month:02d}"
+            data = stats.get("monthly", {}).get(month_key, {})
+            if not data:
+                return {}
+            return data
+        else:
+            raise HTTPException(status_code=400, detail="El período debe ser 'week' o 'month'")
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
     except ValueError as ve:
-        print(f"ValueError in get_emotion_comparison: {ve}")
-        print(traceback.format_exc())
-        # Return error structure
-        return {"error": f"Error de parámetros: {ve}"}, 400 
+        logger.error(f"Value error in emotion_comparison: {str(ve)}")
+        raise HTTPException(status_code=400, detail=f"Error de formato: {str(ve)}")
     except Exception as e:
-        print(f"Unexpected error in get_emotion_comparison: {e}")
-        print(traceback.format_exc())
-        return {"error": f"Error inesperado: {e}"}, 500
+        logger.error(f"Error fetching emotion comparison for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching emotion comparison: {str(e)}")

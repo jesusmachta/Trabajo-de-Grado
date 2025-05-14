@@ -1,5 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from backend.database import collections  
+from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 persona_collection = collections["Persona_AR"]
 tipo_producto_collection = collections["Tipo_Producto"]
@@ -7,36 +11,33 @@ tipo_producto_collection = collections["Tipo_Producto"]
 app = FastAPI()
 
 @app.get("/least-visited-category-historical/")
-def get_least_visited_category_historical():
+def get_least_visited_category_historical(empresa: str) -> Dict[str, Any]:
     """
-    Calcula la categoría de producto menos visitada utilizando todos los datos históricos.
-    :return: JSON con la categoría de producto menos visitada y el número de visitas.
+    Obtiene la categoría de producto menos visitada históricamente desde la colección Estadisticas.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        
+    Returns:
+        Dictionary containing the least visited category historical data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
     """
     try:
-        # Obtener todas las categorías disponibles de Tipo_Producto
-        categorias = tipo_producto_collection.find({}, {"Categoria_Producto": 1, "_id": 0})
-        categorias = [categoria["Categoria_Producto"] for categoria in categorias]
-
-        # Diccionario para contar las visitas por categoría
-        category_counts = {categoria: 0 for categoria in categorias}
-
-        # Obtener todos los documentos de Persona_AR
-        personas = persona_collection.find({}, {"categoria_producto": 1})
-
-        # Contar las visitas por categoría
-        for persona in personas:
-            category_name = persona.get("categoria_producto")
-            if category_name in category_counts:
-                category_counts[category_name] += 1
-
-        # Verificar si hay datos
-        if all(count == 0 for count in category_counts.values()):
-            return {"least_visited_category": None, "message": "No data available in the database."}
-
-        # Encontrar la categoría menos visitada
-        least_visited_category = min(category_counts, key=category_counts.get)
-
-        return {"least_visited_category": least_visited_category, "count": category_counts[least_visited_category]}
-
+        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
+        if not stats:
+            logger.error(f"Historical categories statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+        
+        data = stats.get("least_visited", {})
+        if not data or data.get("category") == "":
+            return {"least_visited_category": None, "count": 0}
+            
+        return {"least_visited_category": data.get("category"), "count": data.get("count")}
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error fetching historical least visited category for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching historical_categories.")
