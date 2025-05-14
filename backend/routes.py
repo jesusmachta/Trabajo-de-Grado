@@ -7,6 +7,21 @@ from backend.statistics.apis.create_category_api import router as create_categor
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 from backend.auth.dependencies import get_empresa, get_current_user
+from backend.auth.create_user import create_user, hash_password, validate_password, get_next_sequence_value
+from backend.auth.login_user import login_user, create_access_token, verify_password
+from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info, get_current_user_profile
+from backend.auth.update_user import (
+    update_user_profile, reset_password, update_profile_picture,
+    upload_profile_picture_base64, upload_profile_picture_file, upload_profile_picture_web
+)
+from backend.auth.delete_user import delete_user
+from backend.auth.create_company import create_company
+from backend.auth.delete_company import delete_company
+from backend.auth.auth_models import (  # Import models from auth_models.py
+    UserCreate, UserLogin, Token, UserUpdate, ProfileUpdatePayload,
+    ProfilePicturePayload, WebProfilePicturePayload
+)
+from backend.chat.chat_service import chat_router  # Import chat_router from new module
 import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, Field # Added Field
@@ -48,6 +63,12 @@ from fastapi.responses import FileResponse, HTMLResponse
 import bcrypt
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+# Import camera CRUD modules
+from backend.cameras.create_camera import create_camera
+from backend.cameras.read_camera import get_cameras_with_details, get_camera_by_id
+from backend.cameras.update_camera import update_camera
+from backend.cameras.delete_camera import delete_camera
+from backend.analysis import handle_image_upload
 
 
 
@@ -100,15 +121,6 @@ class Token(BaseModel):
     role: str
     profile_picture: Optional[str] = None
 
-# Chat models (Added)
-class ChatMessage(BaseModel):
-    text: str
-    isUser: bool
-
-class ChatRequest(BaseModel):
-    message: str
-    history: Optional[List[ChatMessage]] = Field(default_factory=list) # Use Field for default factory
-
 # router.include_router(categories_router, prefix="/api", tags=["Categories"])
 
 def get_next_sequence_value(sequence_name):
@@ -137,7 +149,7 @@ def initialize_routes(app):
     app.include_router(update_category_router, prefix="/api")
     app.include_router(delete_category_router, prefix="/api")
     app.include_router(create_category_router, prefix="/api")
-    app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Added chat_router
+    app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Import chat_router from the new module
     app.include_router(categories_router, prefix="/api", tags=["Categories"])
     
     # Configurar evento de apagado para detener el programador
@@ -233,10 +245,7 @@ def daily_traffic(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas pico de los clientes por día de la semana, filtrado por empresa.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"peak_hours:{empresa}"})
-        if not stats:
-            raise HTTPException(status_code=404, detail="Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_peak_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -250,10 +259,7 @@ def daily_traffic_least(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas menos concurridas por día de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"least_busy_hours:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_least_busy_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -267,10 +273,7 @@ def daily_traffic_busy_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día más concurrido de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"most_busy_day:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_most_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -284,10 +287,7 @@ def daily_traffic_least_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día menos concurrido de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"least_busy_day:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas para esta empresa")
-        data = stats.get("data", {})
+        data = get_least_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -301,36 +301,7 @@ def least_visited_category(period: str, date: Optional[str] = None, empresa: str
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"least_visited_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        # Determinar qué período usar
-        if period == "day":
-            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
-            data = stats.get("daily", {}).get(date_key)
-        elif period == "week":
-            if date:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-            else:
-                date_obj = datetime.now()
-            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-            data = stats.get("weekly", {}).get(monday)
-        elif period == "month":
-            if date:
-                month_key = date[:7]
-            else:
-                month_key = datetime.now().strftime("%Y-%m")
-            data = stats.get("monthly", {}).get(month_key)
-        else:
-            raise Exception("Período no válido. Use 'day', 'week', o 'month'.")
-        if not data:
-            data = stats.get("category_counts", {})
-            if data:
-                active_categories = {k: v for k, v in data.items() if v > 0}
-                least_cat = min(active_categories.items(), key=lambda x: x[1]) if active_categories else ("", 0)
-                data = {"category": least_cat[0], "count": least_cat[1]}
-            else:
-                data = {"category": None, "count": 0}
+        data = get_least_visited_category(empresa, period, date)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -343,13 +314,8 @@ def least_visited_category_historical(empresa: str = Depends(get_empresa)):
     Endpoint para obtener la categoría de producto menos visitada utilizando todos los datos históricos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("least_visited", {})
-        if not data or data.get("category") == "":
-            return {"message": "Success", "data": {"least_visited_category": None, "count": 0}}
-        return {"message": "Success", "data": {"least_visited_category": data.get("category"), "count": data.get("count")}}
+        data = get_least_visited_category_historical(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -362,35 +328,8 @@ def most_visited_category(period: str, date: Optional[str] = None, empresa: str 
     Endpoint para obtener la categoría de producto más visitada en un rango de tiempo (día, semana o mes).
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"most_visited_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        if period == "day":
-            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
-            data = stats.get("daily", {}).get(date_key)
-        elif period == "week":
-            if date:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-            else:
-                date_obj = datetime.now()
-            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-            data = stats.get("weekly", {}).get(monday)
-        elif period == "month":
-            if date:
-                month_key = date[:7]
-            else:
-                month_key = datetime.now().strftime("%Y-%m")
-            data = stats.get("monthly", {}).get(month_key)
-        else:
-            raise Exception("Período no válido. Use 'day', 'week', o 'month'.")
-        if not data:
-            data = stats.get("category_counts", {})
-            if data:
-                most_cat = max(data.items(), key=lambda x: x[1]) if data else ("", 0)
-                data = {"category": most_cat[0], "count": most_cat[1]}
-            else:
-                data = {"category": None, "count": 0}
-        return {"message": "Success", "data": {"most_visited_category": data.get("category"), "count": data.get("count")}}
+        data = get_most_visited_category(empresa, period, date)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -402,13 +341,8 @@ def most_visited_category_historical(empresa: str = Depends(get_empresa)):
     Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("most_visited", {})
-        if not data or data.get("category") == "":
-            return {"message": "Success", "data": {"most_visited_category": None, "count": 0}}
-        return {"message": "Success", "data": {"most_visited_category": data.get("category"), "count": data.get("count")}}
+        data = get_most_visited_category_historical(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -421,17 +355,18 @@ def visited_categories_historical(empresa: str= Depends(get_empresa)):
     Endpoint para obtener las categorías de producto más y menos visitadas utilizando todos los datos históricos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"historical_categories:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        most_visited = stats.get("most_visited", {})
-        least_visited = stats.get("least_visited", {})
+        # Obtenemos tanto la categoría más visitada como la menos visitada históricamente
+        most_visited = get_most_visited_category_historical(empresa)
+        least_visited = get_least_visited_category_historical(empresa)
+        
+        # Combinamos los datos en una sola respuesta
         combined_data = {
-            "most_visited_category": most_visited.get("category", ""),
+            "most_visited_category": most_visited.get("most_visited_category", ""),
             "most_visited_count": most_visited.get("count", 0),
-            "least_visited_category": least_visited.get("category", ""),
+            "least_visited_category": least_visited.get("least_visited_category", ""),
             "least_visited_count": least_visited.get("count", 0)
         }
+        
         return {"message": "Success", "data": combined_data}
     except HTTPException as http_exc:
         raise http_exc
@@ -445,10 +380,7 @@ def emotion_percentage(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el porcentaje de emociones por categoría.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"emotion_percentage_by_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("data", {})
+        data = get_emotion_percentage_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -462,10 +394,7 @@ def most_frequent_emotions(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las emociones más frecuentes.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"most_frequent_emotions:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("data", {})
+        data = get_most_frequent_emotions(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -474,111 +403,42 @@ def most_frequent_emotions(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
 @router.get("/statistics/age-distribution/")
-def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
+def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+                     month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por edad.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"age_distribution:{empresa}"})
-        if not stats:
-            return {"message": "Error", "error": "Estadísticas de edad no encontradas"}
-        if period is None and month is None:
-            return {"message": "Success", "data": stats.get("overall", {})}
-        if period == "week" and date:
-            try:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-                if monday in stats.get("weekly", {}):
-                    return {"message": "Success", "data": stats["weekly"][monday]}
-                return {"message": "Success", "data": {}}
-            except ValueError:
-                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
-        elif month is not None:
-            if not 1 <= month <= 12:
-                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
-            if year is None:
-                year = datetime.now().year
-            month_key = f"{year}-{month:02d}"
-            if month_key in stats.get("monthly", {}):
-                return {"message": "Success", "data": stats["monthly"][month_key]}
-            return {"message": "Success", "data": {}}
-        return {"message": "Success", "data": stats.get("overall", {})}
+        data = get_age_distribution(empresa, period, date, month, year)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/gender-distribution/")
-def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
+def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+                        month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por género.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"gender_distribution:{empresa}"})
-        if not stats:
-            return {"message": "Error", "error": "Estadísticas de género no encontradas"}
-        if period is None and month is None:
-            return {"message": "Success", "data": stats.get("overall", {})}
-        if period == "week" and date:
-            try:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-                if monday in stats.get("weekly", {}):
-                    return {"message": "Success", "data": stats["weekly"][monday]}
-                return {"message": "Success", "data": {}}
-            except ValueError:
-                return {"message": "Error", "error": "Formato de fecha inválido. Use YYYY-MM-DD"}
-        elif month is not None:
-            if not 1 <= month <= 12:
-                return {"message": "Error", "error": "El mes debe estar entre 1 y 12"}
-            if year is None:
-                year = datetime.now().year
-            month_key = f"{year}-{month:02d}"
-            if month_key in stats.get("monthly", {}):
-                return {"message": "Success", "data": stats["monthly"][month_key]}
-            return {"message": "Success", "data": {}}
-        return {"message": "Success", "data": stats.get("overall", {})}
+        data = get_gender_distribution(empresa, period, date, month, year)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/emotion-comparison/")
-def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
+def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, 
+                      month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para comparar emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"emotion_comparison:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        if period == "week":
-            if date:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
-                data = stats.get("weekly", {}).get(monday, {})
-                if not data:
-                    return {"message": "Success", "data": {}}
-                return {"message": "Success", "data": data}
-            else:
-                today = datetime.now()
-                monday = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
-                data = stats.get("weekly", {}).get(monday, {})
-                if not data:
-                    return {"message": "Success", "data": {}}
-                return {"message": "Success", "data": data}
-        elif period == "month":
-            current_year = datetime.now().year
-            current_month = datetime.now().month
-            target_month = month or current_month
-            target_year = year or current_year
-            month_key = f"{target_year}-{target_month:02d}"
-            data = stats.get("monthly", {}).get(month_key, {})
-            if not data:
-                return {"message": "Success", "data": {}}
-            return {"message": "Success", "data": data}
-        else:
-            raise ValueError("El período debe ser 'week' o 'month'")
+        data = get_emotion_comparison(empresa, period, date, month, year)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc   
     except Exception as e:
@@ -593,18 +453,7 @@ def preferred_category_by_gender(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las categorías de productos preferidas por género (hombres y mujeres).
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        raw_counts = stats.get("raw_counts", {})
-        if not raw_counts.get("Male") and not raw_counts.get("Female"):
-            logger.info("No hay datos en preferred_category_by_gender, recalculando...")
-            from backend.statistics.incremental_stats import recalculate_all_statistics
-            recalculate_all_statistics(empresa=empresa)
-            stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
-            if not stats:
-                raise Exception("No se pudieron recalcular las estadísticas")
-        data = stats.get("data", {})
+        data = get_preferred_category_by_gender(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -618,30 +467,8 @@ def top_successful_categories(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el top 3 de categorías más exitosas según emociones positivas (HAPPY count).
     """
     try:
-        stats_doc = collections["Estadisticas"].find_one({"_id": f"top_successful_categories:{empresa}"})
-        if not stats_doc:
-            raise HTTPException(status_code=404, detail="Estadísticas de 'top_successful_categories' no encontradas para esta empresa")
-        raw_counts = stats_doc.get("raw_counts")
-        if not raw_counts or not isinstance(raw_counts, dict):
-            raise HTTPException(status_code=404, detail="Datos de 'raw_counts' no encontrados o en formato incorrecto")
-        category_happy_counts = []
-        for category, counts in raw_counts.items():
-            if isinstance(counts, dict) and "HAPPY" in counts:
-                category_happy_counts.append({
-                    "category": category,
-                    "happy_count": counts.get("HAPPY", 0)
-                })
-            else:
-                logger.warning(f"Categoría '{category}' en raw_counts no tiene conteo 'HAPPY' o formato incorrecto. Omitiendo.")
-        category_happy_counts.sort(key=lambda x: x["happy_count"], reverse=True)
-        top_categories_ranked = []
-        for i, item in enumerate(category_happy_counts[:3]):
-            top_categories_ranked.append({
-                "category": item["category"],
-                "happy_count": item["happy_count"],
-                "rank": i + 1
-            })
-        return {"message": "Success", "data": top_categories_ranked}
+        data = calculate_top_categories_by_visits(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         logger.error(f"HTTPException en top_successful_categories: {http_exc.detail}")
         raise http_exc
@@ -657,14 +484,8 @@ def emotional_differences_by_category(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las emociones por género en cada categoría de productos.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"emotional_differences_by_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        response_data = {
-            "message": "Success",
-            "data": stats.get("data", {})
-        }
-        return response_data
+        data = get_emotional_differences_by_category(empresa)
+        return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -676,10 +497,7 @@ def age_gender_distribution_by_category(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las combinaciones de género y rango de edad más frecuentes por categoría de producto.
     """
     try:
-        stats = collections["Estadisticas"].find_one({"_id": f"age_gender_distribution_by_category:{empresa}"})
-        if not stats:
-            raise Exception("Estadísticas no encontradas")
-        data = stats.get("data", {})
+        data = get_age_gender_distribution_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
         raise http_exc
@@ -688,249 +506,28 @@ def age_gender_distribution_by_category(empresa: str = Depends(get_empresa)):
 
 @router.post("/upload-image/")
 async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
+    """
+    Endpoint to receive camera images, process them, and analyze them.
+    The images are enhanced, uploaded to S3, and analyzed with AWS Rekognition.
+    Analysis results are saved to the database for statistics.
+    """
     try:
-        logger.info("Starting upload_image_endpoint")
-        # Leer la imagen en formato Base64
-        image_base64 = payload.image_base64
-        id_camara = payload.id_camara
-        empresa = payload.empresa  # Get the empresa parameter
-
-        # --- VALIDACIÓN DE CÁMARA ACTIVA ---
-        camera = collections['Tipo_Producto_Zona_Camara'].find_one({
-            "Id_Camara": id_camara,
-            "empresa": empresa
-        })
-        if not camera or not camera.get("isActive", False):
-            raise HTTPException(status_code=403, detail="La cámara no está habilitada o está apagada (isActive = False)")
-        # --- FIN VALIDACIÓN ---
-
-        if not image_base64:
-            raise HTTPException(status_code=400, detail="Empty image file provided")
-
-        # Convertir la imagen de Base64 a bytes
-        image_bytes = base64.b64decode(image_base64)
-
-        # Convertir los bytes a formato JPEG
-        image = Image.open(io.BytesIO(image_bytes))
-        image = image.convert("RGB")  # Asegurarse de que esté en formato RGB
-        jpeg_buffer = io.BytesIO()
-        image.save(jpeg_buffer, format="JPEG")
-        jpeg_bytes = jpeg_buffer.getvalue()
-
-        # Mejorar la imagen utilizando OpenCV
-        logger.info("Starting image enhancement with OpenCV")
-        np_image = np.frombuffer(jpeg_bytes, np.uint8)
-        cv_image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
-        
-        # Convertir BGR a RGB (OpenCV carga imágenes en BGR por defecto)
-        cv_image_rgb = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-        
-        # Escalar la imagen (opcional, dependiendo de los requisitos)
-        scale_factor = 1.0  # Sin escala para preservar la imagen original
-        if scale_factor != 1.0:
-            new_width = int(cv_image_rgb.shape[1] * scale_factor)
-            new_height = int(cv_image_rgb.shape[0] * scale_factor)
-            cv_image_rgb = cv2.resize(cv_image_rgb, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-            logger.info(f"Image resized to {new_width}x{new_height}")
-        
-        # Separar la imagen en canales L*a*b para preservar el color mientras mejoramos el brillo
-        lab_image = cv2.cvtColor(cv_image_rgb, cv2.COLOR_RGB2LAB)
-        l_channel, a_channel, b_channel = cv2.split(lab_image)
-        
-        # Aplicar CLAHE solo al canal L (luminosidad) para mejorar el contraste
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced_l_channel = clahe.apply(l_channel)
-        
-        # Reducir ruido manteniendo bordes en el canal de luminosidad
-        enhanced_l_channel = cv2.bilateralFilter(enhanced_l_channel, 5, 50, 50)
-        
-        # Ajuste sutil de contraste en el canal L
-        alpha = 1.1  # Contraste (1.0 = sin cambio)
-        beta = 0     # Brillo (0 = sin cambio)
-        enhanced_l_channel = cv2.convertScaleAbs(enhanced_l_channel, alpha=alpha, beta=beta)
-        
-        # Mejorar nitidez en el canal de luminosidad
-        kernel = np.array([[-0.5, -0.5, -0.5], 
-                          [-0.5,  5.0, -0.5], 
-                          [-0.5, -0.5, -0.5]])
-        enhanced_l_channel = cv2.filter2D(enhanced_l_channel, -1, kernel)
-        
-        # Reconstruir la imagen LAB con los canales de color originales
-        enhanced_lab_image = cv2.merge([enhanced_l_channel, a_channel, b_channel])
-        
-        # Convertir de vuelta a RGB
-        enhanced_rgb_image = cv2.cvtColor(enhanced_lab_image, cv2.COLOR_LAB2RGB)
-        
-        # Convertir a BGR para guardar con OpenCV
-        enhanced_bgr_image = cv2.cvtColor(enhanced_rgb_image, cv2.COLOR_RGB2BGR)
-        
-        # Ajuste final de calidad
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
-        _, enhanced_image_bytes = cv2.imencode('.jpg', enhanced_bgr_image, encode_param)
-        logger.info("Image enhancement with OpenCV completed")
-
-        # Subir la imagen mejorada a S3 - Sin ACL para imágenes de cámara
-        current_time = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"{current_time}_{id_camara}.jpeg"
-        s3_url = upload_image_to_s3(enhanced_image_bytes.tobytes(), file_name)  # Sin ACL para imágenes normales
-        logger.info(f"Image uploaded to S3: {s3_url}")
-
-        # Llamar al siguiente endpoint para analizar la imagen
-        background_tasks.add_task(analyze_image_endpoint, enhanced_image_bytes.tobytes(), id_camara, empresa)  # Pass empresa to the next function
-
-        return {"message": "Image uploaded successfully, processing started."}
-
+        # Call the controller function that orchestrates the entire process
+        return await handle_image_upload(
+            background_tasks=background_tasks,
+            image_base64=payload.image_base64,
+            id_camara=payload.id_camara,
+            empresa=payload.empresa
+        )
     except Exception as e:
-        logger.error(f"Unexpected error in upload_image_endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def analyze_image_endpoint(image_bytes: bytes, id_camara: int, empresa: str):  # Add empresa parameter
-    try:
-        logger.info("Starting analyze_image_endpoint")
-
-        # Analizar la imagen con AWS Rekognition
-        response = analyze_image(image_bytes)
-        logger.info("Image analyzed successfully")
-
-        # Guardar los resultados del análisis en un archivo temporal
-        analysis_result_path = "analysis_result.json"
-        with open(analysis_result_path, "w") as f:
-            json.dump(response, f)
-        logger.info("Analysis results saved to temporary file")
-
-        logger.info("Image analysis completed, calling save_to_db_endpoint")
-
-        # Llamar al siguiente endpoint
-        await save_to_db_endpoint(analysis_result_path, id_camara, empresa)  # Pass empresa to the next function
-        logger.info("save_to_db_endpoint called successfully")
-
-        return {"message": "Image analysis completed successfully, processing started."}
-
-    except Exception as e:
-        logger.error(f"Unexpected error in analyze_image_endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def save_to_db_endpoint(result_path: str, id_camara: int, empresa: str):  # Add empresa parameter
-    try:
-        logger.info("Starting save_to_db_endpoint")
-
-        # Leer los resultados del análisis desde el archivo temporal
-        with open(result_path, "r") as f:
-            response = json.load(f)
-        logger.info("Analysis results loaded from temporary file")
-
-        # Filtrando los resultados para solo obtener AgeRange, Gender y Emotions
-        filtered_faces = []
-        for face_detail in response['FaceDetails']:
-            filtered_face = {
-                'AgeRange': face_detail.get('AgeRange'),
-                'Gender': face_detail.get('Gender'),
-                'Emotions': face_detail.get('Emotions')
-            }
-            filtered_faces.append(filtered_face)
-
-        logger.info(f"Filtered faces: {filtered_faces}")
-        
-        # Obtener el tipo_producto correspondiente al id_camara
-        tipo_producto_zona_camara = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara})
-        if not tipo_producto_zona_camara:
-            raise HTTPException(status_code=404, detail="Id_Camara not found in Tipo_Producto_Zona_Camara")
-
-        tipo_producto = tipo_producto_zona_camara['Tipo_Producto']
-        logger.info(f"Found tipo_producto: {tipo_producto}")
-
-        # Obtener el Categoria_Producto correspondiente al tipo_producto
-        tipo_producto_doc = collections['Tipo_Producto'].find_one({"Tipo_Producto": tipo_producto})
-        if not tipo_producto_doc:
-            raise HTTPException(status_code=404, detail="Tipo_Producto not found in Tipo_Producto")
-
-        categoria_producto = tipo_producto_doc['Categoria_Producto']
-        logger.info(f"Found categoria_producto: {categoria_producto}")
-
-        # Zona horaria de Venezuela
-        venezuela_tz = timezone('America/Caracas')
-
-        # Contador para documentos procesados correctamente
-        documents_processed = 0
-        stats_update_errors = 0
-
-        # Insertar en MongoDB
-        for face in filtered_faces:
-            try:
-                emotions = face['Emotions']
-                primary_emotion = max(emotions, key=lambda x: x['Confidence'])['Type']
-                
-                # Obtener la hora actual en la zona horaria de Venezuela
-                now_venezuela = datetime.now(venezuela_tz)
-                
-                document = {
-                    "id": get_next_sequence_value("persona_id"),  # Obtener un ID único
-                    "date": now_venezuela.strftime("%Y-%m-%d"),  # Fecha como cadena en formato YYYY-MM-DD
-                    "time": now_venezuela.strftime("%H:%M:%S"),  # Hora en formato HH:MM:SS
-                    "id_camara": id_camara,
-                    "categoria_producto": categoria_producto,  # Agregar categoria_producto
-                    "empresa": empresa,  # Add empresa to the document
-                    "gender": face['Gender']['Value'],
-                    "age_range": {
-                        "low": face['AgeRange']['Low'],
-                        "high": face['AgeRange']['High']
-                    },
-                    "emotions": primary_emotion
-                }
-                logger.info(f"Inserting document into MongoDB: {document}")
-                
-                # Insertar en Persona_AR
-                insert_result = collections['Persona_AR'].insert_one(document)
-                
-                # Verificar que la inserción fue exitosa
-                if insert_result.acknowledged:
-                    logger.info(f"Document inserted successfully with ID: {document['id']}")
-                    
-                    # Actualizar las estadísticas de forma incremental
-                    try:
-                        logger.info(f"Updating statistics for document ID: {document['id']}")
-                        from backend.statistics.incremental_stats import update_statistics_on_insert
-                        update_statistics_on_insert(document)
-                        logger.info(f"Statistics updated successfully for document ID: {document['id']}")
-                        documents_processed += 1
-                    except Exception as stats_error:
-                        logger.error(f"Error updating statistics for document ID {document['id']}: {stats_error}")
-                        stats_update_errors += 1
-                        # Continuar con el siguiente documento, no interrumpir el proceso
-                else:
-                    logger.warning(f"Document insertion not acknowledged for face: {face['Gender']['Value']}")
-            except Exception as face_error:
-                logger.error(f"Error processing face {face.get('Gender',{}).get('Value', 'unknown')}: {face_error}")
-                continue
-
-        # Construir respuesta basada en los resultados
-        if documents_processed > 0:
-            status_msg = f"Procesados {documents_processed} documentos exitosamente"
-            if stats_update_errors > 0:
-                status_msg += f", pero hubo {stats_update_errors} errores al actualizar estadísticas"
-            
-            logger.info(status_msg)
-            return {"message": status_msg}
-        else:
-            error_msg = "No se pudo procesar ningún documento correctamente"
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
-
-    except Exception as e:
-        logger.error(f"Unexpected error in save_to_db_endpoint: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in upload_image_endpoint: {e}")
+        # If an HTTPException was raised by the controller, it will propagate up
+        # For other exceptions, wrap them in a 500 error
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail=str(e))
+        raise
 
 # Helper functions for auth
-def hash_password(password: str) -> str:
-    """Hash a password for storing."""
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against provided password."""
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -947,41 +544,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
-# async def get_current_user(token: str = Depends(oauth2_scheme)):
-#     """Decode JWT token to get current user."""
-#     credentials_exception = HTTPException(
-#         status_code=401,
-#         detail="Could not validate credentials",
-#         headers={"WWW-Authenticate": "Bearer"},
-#     )
-    
-#     try:
-#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-#         user_id: str = payload.get("sub")
-#         company: str = payload.get("empresa")
-#         if user_id is None or company is None:
-#             raise credentials_exception
-#     except jwt.PyJWTError:
-#         raise credentials_exception
-    
-#     try:
-#         # Try to find user with both string and integer ID formats
-#         user = collections['Users'].find_one({"_id": int(user_id)})
-#         if user is None:
-#             # Try with string version as fallback
-#             user = collections['Users'].find_one({"_id": user_id})
-#             if user is None:
-#                 raise credentials_exception
-#     except (ValueError, TypeError):
-#         # If int conversion fails, try with string directly
-#         user = collections['Users'].find_one({"_id": user_id})
-#         if user is None:
-#             raise credentials_exception
-#         if user.get("empresa") != company:
-#            raise HTTPException(status_code=403, detail="User does not belong to the specified company")  
-    
-#     return user
 
 def validate_password(password: str) -> tuple[bool, str]:
     """
@@ -1021,105 +583,47 @@ def validate_password(password: str) -> tuple[bool, str]:
 @router.post("/signup", response_model=Token)
 async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
     """Endpoint for user registration."""
-    # Check if user already exists
-    if collections['Users'].find_one({"email": user_data.email}) is not None:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    # Use the create_user function from the auth module
+    user = create_user(
+        email=user_data.email,
+        password=user_data.password,
+        full_name=user_data.full_name,
+        role=user_data.role,
+        empresa=empresa,
+        date_of_birth=user_data.date_of_birth,
+        security_question=user_data.security_question,
+        security_answer=user_data.security_answer,
+        rif=user_data.rif
+    )
     
-    # Validate password
-    is_valid, error_message = validate_password(user_data.password)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_message)
-    
-    # Create new user
-    user_id = get_next_sequence_value("user_id")
-    hashed_password = hash_password(user_data.password)
-    # Hash security answer
-    hashed_security_answer = hash_password(user_data.security_answer)
-    
-    # Create user document
-    user = {
-        "_id": user_id,
-        "email": user_data.email,
-        "password": hashed_password,
-        "full_name": user_data.full_name,
-        "role": user_data.role,
-        "empresa": empresa,  # Agregar la empresa al documento
-        "created_at": datetime.utcnow().isoformat(),
-        "date_of_birth": user_data.date_of_birth,
-        "security_question": user_data.security_question,
-        "security_answer": hashed_security_answer
-    }
-    if user_data.rif is not None:
-        user["rif"] = user_data.rif
-    
-    # Insert user into database
-    collections['Users'].insert_one(user)
-    
-    # Create and return access token
+    # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user_id), "empresa": empresa}, 
+        data={"sub": user["user_id"], "empresa": empresa}, 
         expires_delta=access_token_expires
     )
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user_id": str(user_id),
-        "email": user.get("email"),
-        "full_name": user.get("full_name"),
-        "role": user.get("role"),
-        "empresa": empresa,  # Incluir la empresa en la respuesta
-        "profile_picture": user.get("profile_picture")  # Include profile picture URL even if it's null
+        "user_id": user["user_id"],
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role": user["role"],
+        "empresa": empresa,
+        "profile_picture": None  # New users don't have a profile picture
     }
 
 @router.post("/login", response_model=Token)
-async def login(user_data: UserLogin):
+async def login_endpoint(user_data: UserLogin):
     """Endpoint for user login."""
-    try:
-        # Find user by email
-        user = collections['Users'].find_one({"email": user_data.email})
-        if user is None:
-            logger.warning(f"Login attempt with non-existent email: {user_data.email}")
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        # Verify password
-        if not verify_password(user_data.password, user["password"]):
-            logger.warning(f"Failed login attempt for user: {user_data.email}")
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        empresa = user.get("empresa")
-        if not empresa: 
-            logger.warning(f"User {user_data.email} does not have an associated company")
-            raise HTTPException(status_code=400, detail="User does not have an associated company")
-        
-        # Create and return access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": str(user["_id"]), "empresa": empresa}, 
-            expires_delta=access_token_expires
-        )
-        
-        # Convert _id to string for JSON serialization if it's not already a string
-        user_id = str(user["_id"])
-        
-        logger.info(f"Successful login for user: {user_data.email}")
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user_id": user_id,
-            "email": user.get("email"),
-            "full_name": user.get("full_name"),
-            "role": user.get("role"),
-            "empresa": empresa,
-            "profile_picture": user.get("profile_picture")  # Include profile picture URL
-        }
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error during login: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error during login")
+    # Use the login_user function from the model
+    login_result = login_user(
+        email=user_data.email,
+        password=user_data.password
+    )
+    
+    return login_result
 
 # User management endpoints
 class UserUpdate(BaseModel):
@@ -1145,16 +649,8 @@ async def get_users(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="User does not belong to any company")
 
     try:
-        # Obtener todos los usuarios de la misma empresa, excluyendo campos sensibles
-        users = list(collections['Users'].find(
-            {"empresa": empresa},  # Filtrar por empresa
-            {"password": 0}  # Excluir el campo password
-        ))
-
-        # Convertir ObjectId a string para serialización JSON
-        for user in users:
-            user["_id"] = str(user["_id"])
-
+        # Use the get_all_users function from the auth module
+        users = get_all_users(empresa)
         return {"message": "Success", "data": users}
     except HTTPException as http_exc:
         # Re-lanzar excepciones HTTP específicas
@@ -1164,12 +660,11 @@ async def get_users(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Error fetching users.")
 
 @router.get("/users/me", response_model=dict)
-async def get_current_user_profile(current_user: dict = Depends(get_current_user)):
+async def get_current_user_profile_endpoint(current_user: dict = Depends(get_current_user)):
     """Get the current user's profile."""
-    # Convert ObjectId to string for JSON serialization
-    current_user["_id"] = str(current_user["_id"])
-    
-    return {"message": "Success", "data": current_user}
+    # Use the get_current_user_profile function from the auth module
+    user_profile = get_current_user_profile(current_user)
+    return {"message": "Success", "data": user_profile}
 
 # --- Profile Management Routes ---
 class ProfileUpdatePayload(BaseModel):
@@ -1179,65 +674,41 @@ class ProfileUpdatePayload(BaseModel):
     password: Optional[str] = None
 
 @router.put("/users/profile", response_model=dict)
-async def update_profile(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
+async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
     """Update the current user's profile information."""
-    try:
-        user_id = current_user.get("_id")
+    user_id = str(current_user.get("_id"))
+    
+    # Prepare update data
+    update_data = {}
+    if payload.email is not None:
+        update_data["email"] = payload.email
+    
+    # Build full name from first and last name
+    if payload.first_name is not None or payload.last_name is not None:
+        current_full_name = current_user.get("full_name", "")
+        name_parts = current_full_name.split(" ", 1)
         
-        # Prepare update data
-        update_data = {}
-        if payload.email is not None:
-            # Check if email is already taken by another user
-            existing_user = collections['Users'].find_one({"email": payload.email})
-            if existing_user is not None and existing_user["_id"] != user_id:
-                raise HTTPException(status_code=400, detail="Email already registered")
-            update_data["email"] = payload.email
+        current_first = name_parts[0] if len(name_parts) > 0 else ""
+        current_last = name_parts[1] if len(name_parts) > 1 else ""
         
-        # Build full name from first and last name
-        if payload.first_name is not None or payload.last_name is not None:
-            current_full_name = current_user.get("full_name", "")
-            name_parts = current_full_name.split(" ", 1)
-            
-            current_first = name_parts[0] if len(name_parts) > 0 else ""
-            current_last = name_parts[1] if len(name_parts) > 1 else ""
-            
-            new_first = payload.first_name if payload.first_name is not None else current_first
-            new_last = payload.last_name if payload.last_name is not None else current_last
-            
-            update_data["full_name"] = f"{new_first} {new_last}".strip()
+        new_first = payload.first_name if payload.first_name is not None else current_first
+        new_last = payload.last_name if payload.last_name is not None else current_last
         
-        # Update password if provided
-        if payload.password is not None:
-            # Validate password
-            is_valid, error_message = validate_password(payload.password)
-            if not is_valid:
-                raise HTTPException(status_code=400, detail=error_message)
-            update_data["password"] = hash_password(payload.password)
-        
-        # Update user
-        if update_data:
-            collections['Users'].update_one(
-                {"_id": user_id},
-                {"$set": update_data}
-            )
-        
-        # Get updated user
-        updated_user = collections['Users'].find_one({"_id": user_id}, {"password": 0})
-        if updated_user:
-            updated_user["_id"] = str(updated_user["_id"])
-        
-        return {
-            "message": "Profile updated successfully",
-            "data": updated_user
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating profile: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
+        update_data["full_name"] = f"{new_first} {new_last}".strip()
+    
+    if payload.password is not None:
+        update_data["password"] = payload.password
+    
+    # Use the update_user_profile function from the model
+    updated_user = update_user_profile(user_id, update_data)
+    
+    return {
+        "message": "Profile updated successfully",
+        "data": updated_user
+    }
 
 @router.put("/users/{user_id}", response_model=dict)
-async def update_user(
+async def update_user_endpoint(
     user_id: str,
     user_data: UserUpdate,
     current_user: dict = Depends(get_current_user),
@@ -1259,10 +730,6 @@ async def update_user(
         # Preparar los datos para la actualización
         update_data = {}
         if user_data.email is not None:
-            # Verificar si el email ya está registrado por otro usuario
-            existing_user = collections['Users'].find_one({"email": user_data.email, "empresa": empresa})
-            if existing_user is not None and str(existing_user["_id"]) != user_id:
-                raise HTTPException(status_code=400, detail="Email already registered")
             update_data["email"] = user_data.email
 
         if user_data.full_name is not None:
@@ -1274,13 +741,9 @@ async def update_user(
                 raise HTTPException(status_code=403, detail="Only admin can change roles")
             update_data["role"] = user_data.role
 
-        # Actualizar la contraseña si se proporciona
+        # Incluir el campo password si se proporciona
         if user_data.password is not None:
-            # Validar la contraseña
-            is_valid, error_message = validate_password(user_data.password)
-            if not is_valid:
-                raise HTTPException(status_code=400, detail=error_message)
-            update_data["password"] = hash_password(user_data.password)
+            update_data["password"] = user_data.password
 
         # Incluir el campo profile_picture si se proporciona
         if user_data.profile_picture is not None:
@@ -1290,14 +753,8 @@ async def update_user(
         if user_data.is_active is not None:
             update_data["is_active"] = user_data.is_active
 
-        # Realizar la actualización en la base de datos
-        if update_data:
-            collections['Users'].update_one({"_id": int(user_id)}, {"$set": update_data})
-
-        # Obtener el usuario actualizado
-        updated_user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa}, {"password": 0})
-        if updated_user:
-            updated_user["_id"] = str(updated_user["_id"])
+        # Use the update_user_profile function from the model
+        updated_user = update_user_profile(user_id, update_data)
 
         return {"message": "User updated successfully", "data": updated_user}
 
@@ -1308,7 +765,7 @@ async def update_user(
         raise HTTPException(status_code=500, detail="Error updating user.")
 
 @router.delete("/users/{user_id}", response_model=dict)
-async def delete_user(
+async def delete_user_endpoint(
     user_id: str,
     current_user: dict = Depends(get_current_user),
     empresa: str = Depends(get_empresa)
@@ -1321,17 +778,12 @@ async def delete_user(
         raise HTTPException(status_code=403, detail="Access forbidden: Admin only")
     
     try:
-        # Buscar el usuario a eliminar y verificar que pertenezca a la misma empresa
-        user = collections['Users'].find_one({"_id": int(user_id), "empresa": empresa})
-        if user is None:
-            raise HTTPException(status_code=404, detail="User not found or does not belong to your company")
-        
         # Prevenir que un usuario elimine su propia cuenta
         if str(current_user.get("_id")) == user_id:
             raise HTTPException(status_code=400, detail="Cannot delete your own account")
         
-        # Eliminar el usuario
-        collections['Users'].delete_one({"_id": int(user_id), "empresa": empresa})
+        # Use the delete_user function from the model
+        result = delete_user(user_id, empresa)
         
         return {"message": "User deleted successfully"}
     except HTTPException as http_exc:
@@ -1345,44 +797,17 @@ class ProfilePicturePayload(BaseModel):
     image_base64: str
 
 @router.post("/users/profile/picture", response_model=dict)
-async def upload_profile_picture(payload: ProfilePicturePayload, current_user: dict = Depends(get_current_user)):
+async def upload_profile_picture_endpoint(payload: ProfilePicturePayload, current_user: dict = Depends(get_current_user)):
     """Upload a profile picture for the current user."""
-    try:
-        if not payload.image_base64:
-            raise HTTPException(status_code=400, detail="Empty image provided")
-        
-        # Decode the base64 image
-        try:
-            image_bytes = base64.b64decode(payload.image_base64)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
-        
-        # Generate a unique filename in the correct folder
-        user_id = current_user.get("_id")
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"profile_pictures/{user_id}_{timestamp}.jpeg"
-        
-        # Upload to S3 with public-read ACL
-        s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
-        
-        # Update user record with the profile picture URL
-        collections['Users'].update_one(
-            {"_id": user_id},
-            {"$set": {"profile_picture": s3_url}}
-        )
-        
-        return {
-            "message": "Profile picture updated successfully",
-            "profile_picture_url": s3_url
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error uploading profile picture: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
+    user_id = str(current_user.get("_id"))
+    
+    # Use the upload_profile_picture_base64 function from the model
+    result = upload_profile_picture_base64(user_id, payload.image_base64)
+    
+    return result
 
 @router.post("/users/profile/picture/upload", response_model=dict)
-async def upload_profile_picture_file(
+async def upload_profile_picture_file_endpoint(
     file: UploadFile = File(...), 
     current_user: dict = Depends(get_current_user)
 ):
@@ -1395,41 +820,12 @@ async def upload_profile_picture_file(
         
         # Read the file
         image_bytes = await file.read()
-        if not image_bytes:
-            raise HTTPException(status_code=400, detail="Empty image file")
+        user_id = str(current_user.get("_id"))
         
-        # Get file extension from content type
-        file_ext = content_type.split('/')[1]
-        if file_ext == 'jpeg' or file_ext == 'jpg':
-            file_ext = 'jpg'
-        elif file_ext == 'png':
-            file_ext = 'png'
-        else:
-            file_ext = 'jpg'  # Default to jpg
+        # Use the upload_profile_picture_file function from the model
+        result = upload_profile_picture_file(user_id, image_bytes, content_type)
         
-        # Generate a unique filename in the correct folder
-        user_id = current_user.get("_id")
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"profile_pictures/{user_id}_{timestamp}.{file_ext}"
-        
-        # Upload to S3 with public-read ACL (will fall back if not supported)
-        try:
-            s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
-        except Exception as e:
-            # If setting ACL fails, try without ACL
-            logger.warning(f"Error uploading with ACL, trying without: {e}")
-            s3_url = upload_image_to_s3(image_bytes, file_name)
-        
-        # Update user record with the profile picture URL
-        collections['Users'].update_one(
-            {"_id": user_id},
-            {"$set": {"profile_picture": s3_url}}
-        )
-        
-        return {
-            "message": "Profile picture updated successfully",
-            "profile_picture_url": s3_url
-        }
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -1441,64 +837,17 @@ class WebProfilePicturePayload(BaseModel):
     file_name: Optional[str] = None
 
 @router.post("/users/profile/picture/upload/web", response_model=dict)
-async def upload_profile_picture_web(
+async def upload_profile_picture_web_endpoint(
     payload: WebProfilePicturePayload,
     current_user: dict = Depends(get_current_user)
 ):
     """Upload a profile picture from web using base64."""
-    try:
-        if not payload.image_base64:
-            raise HTTPException(status_code=400, detail="Empty image provided")
-        
-        # Decode the base64 image
-        try:
-            # Strip data URL prefix if present (e.g., "data:image/png;base64,")
-            if "," in payload.image_base64:
-                base64_str = payload.image_base64.split(",")[1]
-            else:
-                base64_str = payload.image_base64
-                
-            image_bytes = base64.b64decode(base64_str)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 image: {str(e)}")
-        
-        # Determine file extension from file_name or default to jpg
-        file_ext = "jpg"
-        if payload.file_name:
-            ext = os.path.splitext(payload.file_name)[1].lower()
-            if ext in ['.png', '.jpg', '.jpeg']:
-                file_ext = ext.replace('.', '')
-                if file_ext == 'jpeg':
-                    file_ext = 'jpg'
-        
-        # Generate a unique filename in the correct folder
-        user_id = current_user.get("_id")
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        file_name = f"profile_pictures/{user_id}_{timestamp}.{file_ext}"
-        
-        # Upload to S3 with public-read ACL (will fall back if not supported)
-        try:
-            s3_url = upload_image_to_s3(image_bytes, file_name, acl="public-read")
-        except Exception as e:
-            # If setting ACL fails, try without ACL
-            logger.warning(f"Error uploading with ACL, trying without: {e}")
-            s3_url = upload_image_to_s3(image_bytes, file_name)
-        
-        # Update user record with the profile picture URL
-        collections['Users'].update_one(
-            {"_id": user_id},
-            {"$set": {"profile_picture": s3_url}}
-        )
-        
-        return {
-            "message": "Profile picture updated successfully",
-            "profile_picture_url": s3_url
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error uploading profile picture: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
+    user_id = str(current_user.get("_id"))
+    
+    # Use the upload_profile_picture_web function from the model
+    result = upload_profile_picture_web(user_id, payload.image_base64, payload.file_name)
+    
+    return result
 
 # --- Camera Routes ---
 
@@ -1509,64 +858,23 @@ def serialize_doc(doc):
     return doc
 
 @router.get("/cameras", response_model=List[Dict[str, Any]], tags=["Cameras"])
-async def get_cameras_with_details(empresa: str = Depends(get_empresa)):
+async def get_cameras_endpoint(empresa: str = Depends(get_empresa)):
     """
     Retrieves all cameras from Tipo_Producto_Zona_Camara and joins them
     with their corresponding product category from Tipo_Producto, filtered by empresa.
     """
     try:
-        # Use aggregation pipeline to join collections and filter by empresa
-        pipeline = [
-            {
-                '$match': {
-                    'empresa': empresa  # Filtrar por la empresa del usuario autenticado
-                }
-            },
-            {
-                '$lookup': {
-                    'from': 'Tipo_Producto',
-                    'let': {'tipoProducto': '$Tipo_Producto'},
-                    'pipeline': [
-                        {
-                            '$match': {
-                                '$expr': {
-                                    '$and': [
-                                        {'$eq': ['$Tipo_Producto', '$$tipoProducto']},
-                                        {'$eq': ['$empresa', empresa]}  # Filtrar por empresa en Tipo_Producto
-                                    ]
-                                }
-                            }
-                        }
-                    ],
-                    'as': 'productDetails'
-                }
-            },
-            {
-                '$unwind': {
-                    'path': '$productDetails',
-                    'preserveNullAndEmptyArrays': True  # Mantener cámaras incluso si no hay coincidencias
-                }
-            },
-            {
-                '$project': {
-                    '_id': 1,
-                    'Id_Camara': 1,
-                    'Tipo_Producto_Id': '$Tipo_Producto',
-                    'Categoria_Producto': '$productDetails.Categoria_Producto',
-                    'isActive': 1
-                }
-            }
-        ]
-        cameras_cursor = collections['Tipo_Producto_Zona_Camara'].aggregate(pipeline)
-        cameras_list = [serialize_doc(camera) for camera in cameras_cursor]
-
+        # Call the model function to get cameras
+        cameras_list = get_cameras_with_details(empresa)
         return cameras_list
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching cameras: {str(e)}")
 
 
 @router.post("/cameras", response_model=Dict[str, Any], status_code=201, tags=["Cameras"])
-async def create_camera(
+async def create_camera_endpoint(
     camera_data: Dict[str, Any] = Body(...),
     empresa: str = Depends(get_empresa)
 ):
@@ -1574,47 +882,17 @@ async def create_camera(
     Creates a new camera entry in Tipo_Producto_Zona_Camara.
     Expects a body like: {"Id_Camara": <int>, "Tipo_Producto": <int>, "isActive": <bool>}
     """
-    required_fields = ["Id_Camara", "Tipo_Producto", "isActive"]
-    if not all(field in camera_data for field in required_fields):
-        raise HTTPException(status_code=400, detail="Missing required fields: Id_Camara, Tipo_Producto, isActive")
-
     try:
-        # Verificar si el ID de la cámara ya existe para la misma empresa
-        existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({
-            "Id_Camara": camera_data["Id_Camara"],
-            "empresa": empresa
-        })
-        if existing_camera:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Camera with Id_Camara {camera_data['Id_Camara']} already exists for this company."
-            )
-
-        # Verificar si el Tipo_Producto existe y pertenece a la misma empresa
-        product_type = collections['Tipo_Producto'].find_one({
-            "Tipo_Producto": camera_data["Tipo_Producto"],
-            "empresa": empresa
-        })
-        if not product_type:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Tipo_Producto {camera_data['Tipo_Producto']} not found for this company."
-            )
-
-        # Agregar el campo empresa al documento de la cámara
-        camera_data["empresa"] = empresa
-
-        # Insertar la nueva cámara en la base de datos
-        insert_result = collections['Tipo_Producto_Zona_Camara'].insert_one(camera_data)
-        created_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": insert_result.inserted_id})
-        return serialize_doc(created_camera)
+        # Call the model function to create camera
+        created_camera = create_camera(camera_data, empresa)
+        return created_camera
     except HTTPException as http_exc:
-        raise http_exc  # Re-raise specific HTTP exceptions
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating camera: {str(e)}")
 
 @router.put("/cameras/{camera_id_mongo}", response_model=Dict[str, Any], tags=["Cameras"])
-async def update_camera_status(
+async def update_camera_endpoint(
     camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to update"),
     update_data: Dict[str, Any] = Body(...),
     empresa: str = Depends(get_empresa)
@@ -1624,69 +902,9 @@ async def update_camera_status(
     Expects a body like: {"isActive": <bool>, "Id_Camara": <int>, "Tipo_Producto": <int>}
     """
     try:
-        # Validar el formato del ObjectId
-        object_id = ObjectId(camera_id_mongo)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
-
-    # Validar los datos de entrada
-    if not isinstance(update_data, dict):
-        raise HTTPException(status_code=400, detail="Invalid request body format.")
-    
-    # Validar campos opcionales
-    is_active = update_data.get("isActive")
-    id_camara = update_data.get("Id_Camara")
-    tipo_producto = update_data.get("Tipo_Producto")
-
-    if is_active is not None and not isinstance(is_active, bool):
-        raise HTTPException(status_code=400, detail="'isActive' must be a boolean.")
-
-    if id_camara is not None and not isinstance(id_camara, int):
-        raise HTTPException(status_code=400, detail="'Id_Camara' must be an integer.")
-
-    if tipo_producto is not None and not isinstance(tipo_producto, int):
-        raise HTTPException(status_code=400, detail="'Tipo_Producto' must be an integer.")
-
-    try:
-        # Verificar si la cámara pertenece a la empresa
-        camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
-        if not camera:
-            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company.")
-
-        # Verificar si el nuevo `Id_Camara` ya existe para la misma empresa
-        if id_camara is not None:
-            existing_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"Id_Camara": id_camara, "empresa": empresa})
-            if existing_camera and str(existing_camera["_id"]) != camera_id_mongo:
-                raise HTTPException(status_code=409, detail=f"Camera with Id_Camara {id_camara} already exists for this company.")
-
-        # Verificar si el `Tipo_Producto` pertenece a la misma empresa
-        if tipo_producto is not None:
-            product_type = collections['Tipo_Producto'].find_one({"Tipo_Producto": tipo_producto, "empresa": empresa})
-            if not product_type:
-                raise HTTPException(status_code=404, detail=f"Tipo_Producto {tipo_producto} not found for this company.")
-
-        # Construir los campos a actualizar
-        update_fields = {}
-        if is_active is not None:
-            update_fields["isActive"] = is_active
-        if id_camara is not None:
-            update_fields["Id_Camara"] = id_camara
-        if tipo_producto is not None:
-            update_fields["Tipo_Producto"] = tipo_producto
-
-        # Actualizar la cámara
-        update_result = collections['Tipo_Producto_Zona_Camara'].update_one(
-            {"_id": object_id, "empresa": empresa},
-            {"$set": update_fields}
-        )
-
-        if update_result.matched_count == 0:
-            raise HTTPException(status_code=404, detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company.")
-
-        # Obtener la cámara actualizada
-        updated_camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
-        return serialize_doc(updated_camera)
-
+        # Call the model function to update camera
+        updated_camera = update_camera(camera_id_mongo, update_data, empresa)
+        return updated_camera
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -1694,7 +912,7 @@ async def update_camera_status(
 
 
 @router.delete("/cameras/{camera_id_mongo}", status_code=204, tags=["Cameras"])
-async def delete_camera(
+async def delete_camera_endpoint(
     camera_id_mongo: str = Path(..., title="The MongoDB ObjectId of the camera to delete"),
     empresa: str = Depends(get_empresa)
 ):
@@ -1702,32 +920,10 @@ async def delete_camera(
     Deletes a camera entry by its MongoDB ObjectId, ensuring it belongs to the authenticated user's company.
     """
     try:
-        # Validar el formato del ObjectId
-        try:
-            object_id = ObjectId(camera_id_mongo)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid MongoDB ObjectId format.")
-
-        # Verificar si la cámara pertenece a la empresa
-        camera = collections['Tipo_Producto_Zona_Camara'].find_one({"_id": object_id, "empresa": empresa})
-        if not camera:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company."
-            )
-
-        # Eliminar la cámara
-        delete_result = collections['Tipo_Producto_Zona_Camara'].delete_one({"_id": object_id, "empresa": empresa})
-
-        if delete_result.deleted_count == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Camera with id {camera_id_mongo} not found or does not belong to your company."
-            )
-
-        # Respuesta exitosa sin contenido
-        return
-
+        # Call the model function to delete camera
+        delete_camera(camera_id_mongo, empresa)
+        # Return 204 No Content on successful deletion
+        return None
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -1848,186 +1044,20 @@ async def regenerate_preferred_gender_stats():
         logger.error(traceback.format_exc())
         return {"message": "Error", "error": str(e)}
 
-# --- Chat API Endpoint ---
-chat_router = APIRouter() # Define the router
-
-# Replace Cohere constants with Gemini constants
-# COHERE_API_KEY = "bw3NSooils3gjvHP0i2RfdsBobJ9raA94lHRrNXk"
-# COHERE_API_URL = "https://api.cohere.com/v2/chat" # Use v2 Chat endpoint
-# COHERE_MODEL = "command-r-plus"
-
-GEMINI_API_KEY = "AIzaSyAVNc67HMNDH4rjZCi55DteVXOWwp8OZP4"
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-
-def serialize_docs(docs):
-    """Helper to serialize MongoDB documents, handling ObjectId."""
-    # Use json_util to handle BSON types like ObjectId
-    return json.loads(json_util.dumps(docs))
-
-@chat_router.post("/chat/ai", tags=["Chat"]) # Added tag
-async def chat_ai(
-    payload: ChatRequest,
-    current_user: dict = Depends(get_current_user) # Optional: Get user context if needed
-):
-    """Handles chat requests, interacts with DB and Gemini."""
-    try:
-        # 1. Fetch relevant data (Example: Fetch recent activities or user-specific data)
-        #    Refine this query based on what information the AI should access.
-        #    Let's fetch the last 5 interactions related to this user (if available) or general data.
-        user_email = current_user.get("email") # Example: Use user info
-        # A more robust implementation would filter data based on payload.message or user context
-        # Ensure correct sorting syntax for PyMongo
-        docs = list(collections["Persona_AR"].find().sort("date", pymongo.DESCENDING).limit(5))
-        serialized_docs = serialize_docs(docs)
-        context = f"Recent store activity data:\n{json.dumps(serialized_docs, indent=2)}\n"
-        context += f"User info: email={user_email}, name={current_user.get('full_name')}\n"
-
-        # 2. Construct the prompt for Gemini, including history
-        # System prompt instructing the AI
-        system_prompt = """
-        # StoreSense AI Assistant
-
-        Eres StoreSense AI, un asistente inteligente especializado para la aplicación StoreSense, un sistema avanzado de análisis de comportamiento de clientes en tiendas físicas.
-
-        ## Sobre StoreSense
-        StoreSense utiliza cámaras con análisis facial para recopilar datos demográficos anónimos de los clientes (edad, género) y sus emociones mientras interactúan con diferentes categorías de productos. Esto ayuda a los gerentes de tiendas a entender mejor el comportamiento del consumidor y optimizar la disposición de productos.
-
-        ## Tus capacidades:
-        1. Analizar y explicar datos de interacción de clientes con productos
-        2. Interpretar estadísticas sobre demografía de clientes (distribución por género y edad)
-        3. Explicar patrones emocionales de los clientes frente a distintas categorías
-        4. Proporcionar información sobre horas pico de visita
-        5. Sugerir estrategias de merchandising basadas en datos
-        6. Ayudar con la configuración de cámaras y categorías de productos
-
-        ## Funcionalidades clave de StoreSense:
-        - **Análisis demográfico**: Captura información sobre edad y género de los visitantes
-        - **Reconocimiento emocional**: Detecta emociones principales (felicidad, tristeza, neutralidad, etc.)
-        - **Mapeo de categorías**: Asocia reacciones a categorías específicas de productos
-        - **Estadísticas temporales**: Análisis por hora, día, semana y mes
-        - **Panel administrativo**: Para gestionar usuarios, cámaras y categorías
-
-        ## Estructura de datos:
-        - Persona_AR: Registro de interacciones de clientes (id_camara, categoria_producto, género, edad, emoción)
-        - Tipo_Producto_Zona_Camara: Asociación entre cámaras y tipos de productos
-        - Tipo_Producto: Clasificación de productos por categoría
-        - Estadísticas: Diversos documentos con análisis estadísticos de los datos capturados
-
-        ## Resumen del contexto actual:
-        {data_context}
-
-        Utiliza toda esta información para ayudar al usuario con sus consultas. Mantén un tono profesional pero amigable.
-        Si te preguntan por datos que no tienes disponibles en el contexto, puedes indicarlo y sugerir qué información sería útil.
-        """.format(data_context=context)
-
-        # Use Gemini message format ("contents" list)
-        gemini_history = []
-        # Add system prompt if history is empty or as the first message
-        if not payload.history:
-             gemini_history.append({"role": "user", "parts": [{"text": system_prompt}]})
-             gemini_history.append({"role": "model", "parts": [{"text": "¡Hola! Soy StoreSense AI. ¿En qué puedo ayudarte hoy con los datos de la tienda?"}]}) # Initial greeting
-
-        # Convert history format from List[ChatMessage] to Gemini format (user/model roles)
-        for msg in payload.history:
-            # Map roles: isUser=true -> "user", isUser=false -> "model"
-            role = "user" if msg.isUser else "model"
-            gemini_history.append({"role": role, "parts": [{"text": msg.text}]})
-
-        # Add the new user message
-        gemini_history.append({"role": "user", "parts": [{"text": payload.message}]})
-
-
-        # 3. Call the Gemini API
-        api_payload = {
-            "contents": gemini_history,
-             "generationConfig": { # Optional: Configure generation parameters
-                "temperature": 0.7,
-                "maxOutputTokens": 500,
-            }
-            # Add safetySettings if needed
-        }
-        
-        # Use API Key in query parameters for Gemini
-        params = {"key": GEMINI_API_KEY}
-        headers = {"Content-Type": "application/json"} # Reset headers
-
-        # logger.info(f"Sending payload to Gemini: {json.dumps(api_payload, indent=2)}")
-
-        response = requests.post(GEMINI_API_URL, params=params, headers=headers, json=api_payload)
-        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-
-        data = response.json()
-        # logger.info(f"Received response from Gemini: {json.dumps(data, indent=2)}")
-
-        # Extract the reply - adapt back to Gemini format
-        ai_reply = "Lo siento, no pude procesar la respuesta del asistente." # Default error message
-        candidates = data.get("candidates")
-        if candidates and isinstance(candidates, list) and len(candidates) > 0:
-            content = candidates[0].get("content")
-            if content and isinstance(content, dict):
-                parts = content.get("parts")
-                if parts and isinstance(parts, list) and len(parts) > 0:
-                    text = parts[0].get("text")
-                    if text and isinstance(text, str):
-                        ai_reply = text
-
-        # Check if the response might be blocked due to safety settings
-        if not data.get("candidates") and data.get("promptFeedback"):
-             block_reason = data["promptFeedback"].get("blockReason")
-             if block_reason:
-                 ai_reply = f"Mi respuesta fue bloqueada debido a: {block_reason}. Por favor, reformula tu pregunta."
-                 logger.warning(f"Gemini response blocked: {block_reason}")
-             else:
-                 logger.error(f"Gemini response missing candidates, promptFeedback: {data.get('promptFeedback')}")
-        # Handle other potential errors if needed
-        elif not data.get("candidates") and data.get("error"):
-            error_details = data["error"].get("message", "Unknown error")
-            ai_reply = f"Error de la API Gemini: {error_details}"
-            logger.error(f"Gemini API error: {data['error']}")
-
-
-        return {"reply": ai_reply.strip()}
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error calling Gemini API: {e}")
-        # Reuse the more detailed error handling from Cohere attempt
-        status_code = 502
-        detail = f"Error communicating with AI service: {e}"
-        if e.response is not None:
-             status_code = e.response.status_code
-             try:
-                 error_data = e.response.json()
-                 detail = error_data.get('message', str(e))
-                 # Specific check for Gemini API key issues
-                 if status_code == 400 and "API key not valid" in detail:
-                      detail = "API key de Gemini no válida. Verifica la clave en el backend."
-                      logger.error("Invalid Gemini API Key detected.")
-             except json.JSONDecodeError:
-                 detail = e.response.text # Use raw text if not JSON
-             logger.error(f"Gemini API Request failed: Status {status_code}, Detail: {detail}")
-        raise HTTPException(status_code=status_code, detail=detail)
-
-    except HTTPException as e:
-        # Re-raise HTTP exceptions from this function or dependencies
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error in chat_ai: {e}", exc_info=True) # Log full traceback
-        raise HTTPException(status_code=500, detail=f"Internal server error in chat AI: {str(e)}")
-
 @router.post("/register-company", status_code=201)
-async def register_company(
+async def register_company_endpoint(
     background_tasks: BackgroundTasks,
     company_data: dict = Body(...)
 ):
     """
-    Endpoint para registrar una nueva empresa y su usuario administrador.
+    Endpoint to register a new company and its admin user.
     """
     try:
-        # Validar datos requeridos
+        # Validate required fields
         required_fields = [
             "nombre_empresa", "rif", "nombre_responsable", 
             "apellido_responsable", "email", "password",
-            "date_of_birth", "security_question", "security_answer"  # Add new required fields
+            "date_of_birth", "security_question", "security_answer"
         ]
         
         for field in required_fields:
@@ -2037,115 +1067,40 @@ async def register_company(
                     detail=f"El campo '{field}' es requerido"
                 )
         
-        nombre_empresa = company_data["nombre_empresa"]
-        rif = company_data["rif"]
-        email = company_data["email"]
-        password = company_data["password"]
-        date_of_birth = company_data["date_of_birth"]
-        security_question = company_data["security_question"]
-        security_answer = company_data["security_answer"]
-        
-        # Validar formato del RIF (solo números)
-        if not rif.isdigit():
-            raise HTTPException(
-                status_code=400,
-                detail="El RIF debe contener solo números"
-            )
-        
-        # Validar formato de email
-        if not re.match(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$', email):
-            raise HTTPException(
-                status_code=400,
-                detail="El formato del correo electrónico es inválido"
-            )
-        
-        # Validar contraseña
-        is_valid, error_message = validate_password(password)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_message)
-        
-        # Verificar si ya existe una empresa con el mismo nombre o RIF en la colección Empresas
-        existing_company_by_name = collections['Empresas'].find_one({"nombre": nombre_empresa})
-        existing_company_by_rif = collections['Empresas'].find_one({"rif": rif})
-        
-        if existing_company_by_name:
-            raise HTTPException(
-                status_code=409,
-                detail="Ya existe una empresa registrada con este nombre"
-            )
-        
-        if existing_company_by_rif:
-            raise HTTPException(
-                status_code=409,
-                detail="Ya existe una empresa registrada con este RIF"
-            )
-        
-        # Verificar si el email ya está registrado
-        if collections['Users'].find_one({"email": email}):
-            raise HTTPException(
-                status_code=409,
-                detail="Este correo electrónico ya está registrado"
-            )
-        
-        # Crear usuario administrador
-        user_id = get_next_sequence_value("user_id")
-        hashed_password = hash_password(password)
-        hashed_security_answer = hash_password(security_answer)
-        
-        full_name = f"{company_data['nombre_responsable']} {company_data['apellido_responsable']}"
-        
-        # Crear documento de usuario
-        user = {
-            "_id": user_id,
-            "email": email,
-            "password": hashed_password,
-            "full_name": full_name,
-            "role": "admin",  # El primer usuario de una empresa es siempre admin
-            "empresa": nombre_empresa,
-            "rif": rif,
-            "is_active": True,  # Agregar campo is_active como True por defecto
-            "created_at": datetime.utcnow().isoformat(),
-            "date_of_birth": date_of_birth,
-            "security_question": security_question,
-            "security_answer": hashed_security_answer
-        }
-        
-        # Insertar usuario en la base de datos
-        collections['Users'].insert_one(user)
-        
-        # Guardar información de la empresa en la colección Empresas
-        empresa_doc = {
-            "nombre": nombre_empresa,
-            "rif": rif,
-            "created_at": datetime.utcnow().isoformat()
-        }
-        collections['Empresas'].insert_one(empresa_doc)
-        
-        # Crear y devolver token de acceso
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": str(user_id), "empresa": nombre_empresa},
-            expires_delta=access_token_expires
+        # Use the create_company function from the model
+        company_result = create_company(
+            nombre_empresa=company_data["nombre_empresa"],
+            rif=company_data["rif"],
+            nombre_responsable=company_data["nombre_responsable"],
+            apellido_responsable=company_data["apellido_responsable"],
+            email=company_data["email"],
+            password=company_data["password"],
+            date_of_birth=company_data["date_of_birth"],
+            security_question=company_data["security_question"],
+            security_answer=company_data["security_answer"]
         )
         
-        # Inicializar estadísticas SOLO UNA VEZ para la nueva empresa
-        from backend.statistics.incremental_stats import initialize_statistics
-        initialize_statistics(nombre_empresa)
+        # Create access token for the new admin user
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": company_result["admin_user"]["user_id"], "empresa": company_result["empresa"]},
+            expires_delta=access_token_expires
+        )
         
         return {
             "message": "Empresa registrada exitosamente",
             "access_token": access_token,
             "token_type": "bearer",
-            "user_id": str(user_id),
-            "email": email,
-            "full_name": full_name,
+            "user_id": company_result["admin_user"]["user_id"],
+            "email": company_result["admin_user"]["email"],
+            "full_name": company_result["admin_user"]["full_name"],
             "role": "admin",
             "is_active": True,
-            "empresa": nombre_empresa
+            "empresa": company_result["empresa"]
         }
     
     except HTTPException as he:
-        # Re-lanzar excepciones HTTP
+        # Re-raise HTTP exceptions
         raise he
     except Exception as e:
         logger.error(f"Error al registrar empresa: {str(e)}")
@@ -2153,6 +1108,20 @@ async def register_company(
             status_code=500,
             detail=f"Error interno al registrar la empresa: {str(e)}"
         )
+
+@router.delete("/delete-company")
+async def delete_company_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Endpoint to delete the current user's company and all related data.
+    Only company administrators can perform this action.
+    """
+    # Use the delete_company function from the model
+    result = delete_company(
+        empresa=current_user.get("empresa"),
+        admin_user_id=str(current_user.get("_id"))
+    )
+    
+    return result
 
 def initialize_statistics_for_company(empresa: str):
     """
@@ -2199,205 +1168,79 @@ async def regenerate_statistics_for_company(empresa: str):
 
 # Add password recovery endpoints
 @router.post("/forgot-password/verify", status_code=200)
-async def verify_security_info(
+async def verify_security_info_endpoint(
     data: dict = Body(...)
 ):
     """
-    Endpoint para verificar el email, fecha de nacimiento y pregunta de seguridad
-    para recuperar contraseña.
+    Endpoint to verify email, date of birth, and security question/answer for password recovery.
     """
-    try:
-        required_fields = ["email", "date_of_birth", "security_question", "security_answer"]
-        for field in required_fields:
-            if field not in data:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"El campo '{field}' es requerido"
-                )
-        
-        email = data["email"]
-        date_of_birth = data["date_of_birth"]
-        security_question = data["security_question"]
-        security_answer = data["security_answer"]
-        
-        # Buscar el usuario por email
-        user = collections['Users'].find_one({"email": email})
-        if not user:
-            raise HTTPException(
-                status_code=404,
-                detail="Usuario no encontrado con este correo electrónico"
-            )
-        
-        # Verificar fecha de nacimiento
-        if user.get("date_of_birth") != date_of_birth:
+    required_fields = ["email", "date_of_birth", "security_question", "security_answer"]
+    for field in required_fields:
+        if field not in data:
             raise HTTPException(
                 status_code=400,
-                detail="La fecha de nacimiento no coincide"
+                detail=f"El campo '{field}' es requerido"
             )
-        
-        # Verificar pregunta de seguridad
-        if user.get("security_question") != security_question:
-            raise HTTPException(
-                status_code=400,
-                detail="La pregunta de seguridad no coincide"
-            )
-        
-        # Verificar respuesta de seguridad
-        if not verify_password(security_answer, user.get("security_answer", "")):
-            raise HTTPException(
-                status_code=400,
-                detail="La respuesta de seguridad no es correcta"
-            )
-        
-        # Generar token temporal para restablecimiento de contraseña
-        reset_token = create_access_token(
-            data={"sub": str(user["_id"]), "purpose": "password_reset"},
-            expires_delta=timedelta(minutes=15)
-        )
-        
-        return {
-            "message": "Verificación exitosa",
-            "reset_token": reset_token,
-            "user_id": str(user["_id"])
-        }
     
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al verificar información de seguridad: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al verificar información: {str(e)}"
-        )
+    # Use the verify_security_info function from the model
+    verification_result = verify_security_info(
+        email=data["email"],
+        date_of_birth=data["date_of_birth"],
+        security_question=data["security_question"],
+        security_answer=data["security_answer"]
+    )
+    
+    # Generate token for password reset
+    reset_token = create_access_token(
+        data={"sub": verification_result["user_id"], "purpose": "password_reset"},
+        expires_delta=timedelta(minutes=15)
+    )
+    
+    return {
+        "message": "Verificación exitosa",
+        "reset_token": reset_token,
+        "user_id": verification_result["user_id"]
+    }
 
 @router.post("/reset-password", status_code=200)
-async def reset_password(
+async def reset_password_endpoint(
     data: dict = Body(...)
 ):
     """
-    Endpoint para cambiar la contraseña después de la verificación
-    de seguridad.
+    Endpoint to change password after security verification.
     """
+    if "reset_token" not in data or "new_password" not in data:
+        raise HTTPException(
+            status_code=400,
+            detail="Se requieren 'reset_token' y 'new_password'"
+        )
+    
+    reset_token = data["reset_token"]
+    new_password = data["new_password"]
+    
     try:
-        if "reset_token" not in data or "new_password" not in data:
-            raise HTTPException(
-                status_code=400,
-                detail="Se requieren 'reset_token' y 'new_password'"
-            )
+        # Verify the token
+        payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        purpose = payload.get("purpose")
         
-        reset_token = data["reset_token"]
-        new_password = data["new_password"]
-        
-        # Validar la nueva contraseña
-        is_valid, error_message = validate_password(new_password)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_message)
-        
-        try:
-            # Verificar el token
-            payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = payload.get("sub")
-            purpose = payload.get("purpose")
-            
-            if not user_id or purpose != "password_reset":
-                raise HTTPException(
-                    status_code=401,
-                    detail="Token de restablecimiento inválido"
-                )
-        except jwt.PyJWTError:
+        if not user_id or purpose != "password_reset":
             raise HTTPException(
                 status_code=401,
-                detail="Token de restablecimiento inválido o expirado"
+                detail="Token de restablecimiento inválido"
             )
-        
-        # Actualizar la contraseña
-        hashed_password = hash_password(new_password)
-        update_result = collections['Users'].update_one(
-            {"_id": int(user_id)},
-            {"$set": {"password": hashed_password}}
-        )
-        
-        if update_result.modified_count == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Usuario no encontrado"
-            )
-        
-        return {
-            "message": "Contraseña actualizada exitosamente"
-        }
-    
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al restablecer contraseña: {str(e)}")
+    except jwt.PyJWTError:
         raise HTTPException(
-            status_code=500,
-            detail=f"Error al restablecer contraseña: {str(e)}"
+            status_code=401,
+            detail="Token de restablecimiento inválido o expirado"
         )
-
-@router.delete("/delete-company")
-async def delete_company(current_user: dict = Depends(get_current_user)):
-    """
-    Endpoint to delete the current user's company and all related data.
-    Only company administrators can perform this action.
-    """
-    try:
-        # Verify the user is an admin
-        if current_user.get("role") != "admin":
-            raise HTTPException(
-                status_code=403, 
-                detail="Access forbidden: Only company administrators can delete a company"
-            )
-        
-        # Get the company name from the current user
-        empresa = current_user.get("empresa")
-        if not empresa:
-            raise HTTPException(
-                status_code=400,
-                detail="User does not belong to any company"
-            )
-            
-        logger.info(f"Starting deletion of company: {empresa}")
-        
-        # Delete all data related to the company from all collections
-        deleted_counts = {}
-        
-        # List of collections to clean (excluding system collections)
-        collections_to_clean = [
-            'Users', 
-            'Persona_AR', 
-            'Tipo_Producto', 
-            'Tipo_Producto_Zona_Camara'
-        ]
-        
-        # Delete data from each collection
-        for collection_name in collections_to_clean:
-            result = collections[collection_name].delete_many({"empresa": empresa})
-            deleted_counts[collection_name] = result.deleted_count
-            logger.info(f"Deleted {result.deleted_count} documents from {collection_name}")
-        
-        # Delete statistics documents that end with :{empresa}
-        stats_query = {"_id": {"$regex": f":{empresa}$"}}
-        stats_result = collections["Estadisticas"].delete_many(stats_query)
-        deleted_counts["Estadisticas"] = stats_result.deleted_count
-        logger.info(f"Deleted {stats_result.deleted_count} documents from Estadisticas")
-        
-        # Delete the company from the Empresas collection
-        empresa_result = collections["Empresas"].delete_one({"nombre": empresa})
-        deleted_counts["Empresas"] = empresa_result.deleted_count
-        logger.info(f"Deleted {empresa_result.deleted_count} documents from Empresas")
-        
-        # Return success response with deletion counts
-        return {
-            "message": f"Company '{empresa}' and all related data have been successfully deleted",
-            "deleted_counts": deleted_counts
-        }
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as e:
-        logger.error(f"Error deleting company: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error deleting company: {str(e)}")
+    
+    # Use the reset_password function from the model
+    result = reset_password(user_id, new_password)
+    
+    return {
+        "message": "Contraseña actualizada exitosamente"
+    }
 
 @router.post("/migrate-companies")
 async def migrate_existing_companies():

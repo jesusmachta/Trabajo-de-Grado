@@ -220,8 +220,8 @@ class _HomeViewState extends State<HomeView> {
           children: [
             Image.asset(
               'assets/images/storesense_logo.png',
-              height: 40,
-              width: 40,
+              height: 50,
+              width: 50,
             ),
             const SizedBox(width: 8),
             Text(
@@ -347,8 +347,8 @@ class _HomeViewState extends State<HomeView> {
                 children: [
                   Image.asset(
                     'assets/images/storesense_logo.png',
-                    height: 40,
-                    width: 40,
+                    height: 50,
+                    width: 50,
                   ),
                   const SizedBox(width: 8),
                   const Text(

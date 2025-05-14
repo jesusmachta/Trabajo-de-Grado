@@ -1,46 +1,44 @@
+from fastapi import HTTPException
+from typing import Dict, Any
 from backend.database import collections
-from collections import defaultdict
+import logging
 
-persona_collection = collections["Persona_AR"]
+logger = logging.getLogger(__name__)
 
-def get_preferred_category_by_gender():
+def get_preferred_category_by_gender(empresa: str) -> Dict[str, Any]:
     """
-    Calcula las categorías de productos preferidas por género (hombres y mujeres).
-    :return: JSON con las categorías más frecuentadas por hombres y mujeres.
+    Obtiene las categorías de productos preferidas por género desde la colección Estadisticas.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        
+    Returns:
+        Dictionary containing preferred category by gender data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
     """
     try:
-        # Diccionarios para contar las visitas por categoría y género
-        gender_category_counts = {
-            "male": defaultdict(int),
-            "female": defaultdict(int)
-        }
-
-        # Obtener todos los documentos de la colección Persona_AR
-        personas = persona_collection.find({}, {"gender": 1, "categoria_producto": 1})
-
-        for persona in personas:
-            gender = persona.get("gender", "").lower()
-            categoria_producto = persona.get("categoria_producto", "")
-
-            if gender in ["male", "female"] and categoria_producto:
-                gender_category_counts[gender][categoria_producto] += 1
-
-        # Determinar la categoría más frecuentada por cada género
-        preferred_categories = {}
-        for gender, categories in gender_category_counts.items():
-            if categories:
-                preferred_category = max(categories, key=categories.get)
-                preferred_categories[gender] = {
-                    "category": preferred_category,
-                    "count": categories[preferred_category]
-                }
-            else:
-                preferred_categories[gender] = {
-                    "category": None,
-                    "count": 0
-                }
-
-        return preferred_categories
-
+        stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
+        if not stats:
+            logger.error(f"Preferred category by gender statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+        
+        raw_counts = stats.get("raw_counts", {})
+        if not raw_counts.get("Male") and not raw_counts.get("Female"):
+            logger.info(f"No hay datos en preferred_category_by_gender para empresa '{empresa}', recalculando...")
+            from backend.statistics.incremental_stats import recalculate_all_statistics
+            recalculate_all_statistics(empresa=empresa)
+            stats = collections["Estadisticas"].find_one({"_id": f"preferred_category_by_gender:{empresa}"})
+            if not stats:
+                logger.error(f"No se pudieron recalcular las estadísticas para empresa '{empresa}'")
+                raise HTTPException(status_code=500, detail="No se pudieron recalcular las estadísticas")
+        
+        data = stats.get("data", {})
+        return data
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
     except Exception as e:
-        raise Exception(f"Unexpected error: {e}")
+        logger.error(f"Error fetching preferred category by gender for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching preferred category by gender: {str(e)}")
