@@ -5,10 +5,22 @@ import logging
 from fastapi import HTTPException
 from datetime import datetime
 from typing import Optional
+from pydantic import BaseModel, EmailStr
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class UserCreate(BaseModel):
+    """Model for user creation request"""
+    email: EmailStr
+    password: str
+    full_name: str
+    role: str = "user"  # default role
+    date_of_birth: str  # Add date of birth field
+    security_question: str  # Add security question field
+    security_answer: str  # Add security answer field
+    rif: Optional[int] = None
 
 def hash_password(password: str) -> str:
     """Hash a password for storing."""

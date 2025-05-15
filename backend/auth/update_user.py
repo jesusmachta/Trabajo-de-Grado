@@ -7,10 +7,48 @@ import base64
 import os
 from datetime import datetime
 from backend.aws import upload_image_to_s3
+from pydantic import BaseModel, EmailStr
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class UserUpdate(BaseModel):
+    """Model for user update request"""
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+    profile_picture: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ProfileUpdatePayload(BaseModel):
+    """Model for profile update request"""
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+
+class ProfilePicturePayload(BaseModel):
+    """Model for profile picture upload"""
+    image_base64: str
+
+class WebProfilePicturePayload(BaseModel):
+    """Model for profile picture upload from web"""
+    image_base64: str
+    file_name: Optional[str] = None
+
+class PasswordResetRequest(BaseModel):
+    """Model for password reset verification"""
+    email: EmailStr
+    date_of_birth: str
+    security_question: str
+    security_answer: str
+
+class PasswordResetConfirm(BaseModel):
+    """Model for password reset confirmation"""
+    reset_token: str
+    new_password: str
 
 def update_user_profile(user_id: str, update_data: Dict[str, Any]):
     """

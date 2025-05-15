@@ -7,20 +7,18 @@ from backend.statistics.apis.create_category_api import router as create_categor
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 from backend.auth.dependencies import get_empresa, get_current_user
-from backend.auth.create_user import create_user, hash_password, validate_password, get_next_sequence_value
-from backend.auth.login_user import login_user, create_access_token, verify_password
+from backend.auth.create_user import create_user, hash_password, validate_password, get_next_sequence_value, UserCreate
+from backend.auth.login_user import login_user, create_access_token, verify_password, UserLogin, Token
 from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info, get_current_user_profile
 from backend.auth.update_user import (
     update_user_profile, reset_password, update_profile_picture,
-    upload_profile_picture_base64, upload_profile_picture_file, upload_profile_picture_web
+    upload_profile_picture_base64, upload_profile_picture_file, upload_profile_picture_web,
+    UserUpdate, ProfileUpdatePayload, ProfilePicturePayload, WebProfilePicturePayload,
+    PasswordResetRequest, PasswordResetConfirm
 )
 from backend.auth.delete_user import delete_user
-from backend.auth.create_company import create_company
+from backend.auth.create_company import create_company, CompanyRegistration
 from backend.auth.delete_company import delete_company
-from backend.auth.auth_models import (  # Import models from auth_models.py
-    UserCreate, UserLogin, Token, UserUpdate, ProfileUpdatePayload,
-    ProfilePicturePayload, WebProfilePicturePayload
-)
 from backend.chat.chat_service import chat_router  # Import chat_router from new module
 import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
@@ -96,30 +94,6 @@ class ImagePayload(BaseModel):
     image_base64: str
     id_camara: int
     empresa: str  # Added empresa field
-
-# User models
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
-    role: str = "user"  # default role
-    date_of_birth: str  # Add date of birth field
-    security_question: str  # Add security question field
-    security_answer: str  # Add security answer field
-    rif: Optional[int] = None  # <-- AGREGADO
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user_id: str
-    email: str
-    full_name: str
-    role: str
-    profile_picture: Optional[str] = None
 
 # router.include_router(categories_router, prefix="/api", tags=["Categories"])
 
@@ -626,14 +600,6 @@ async def login_endpoint(user_data: UserLogin):
     return login_result
 
 # User management endpoints
-class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    role: Optional[str] = None
-    password: Optional[str] = None
-    profile_picture: Optional[str] = None
-    is_active: Optional[bool] = None  # <-- AGREGADO
-
 @router.get("/users", response_model=dict)
 async def get_users(current_user: dict = Depends(get_current_user)):
     """
@@ -667,12 +633,6 @@ async def get_current_user_profile_endpoint(current_user: dict = Depends(get_cur
     return {"message": "Success", "data": user_profile}
 
 # --- Profile Management Routes ---
-class ProfileUpdatePayload(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    password: Optional[str] = None
-
 @router.put("/users/profile", response_model=dict)
 async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
     """Update the current user's profile information."""
@@ -793,9 +753,6 @@ async def delete_user_endpoint(
         raise HTTPException(status_code=500, detail="Error deleting user.")
 
 # --- Profile Picture Management ---
-class ProfilePicturePayload(BaseModel):
-    image_base64: str
-
 @router.post("/users/profile/picture", response_model=dict)
 async def upload_profile_picture_endpoint(payload: ProfilePicturePayload, current_user: dict = Depends(get_current_user)):
     """Upload a profile picture for the current user."""
@@ -831,10 +788,6 @@ async def upload_profile_picture_file_endpoint(
     except Exception as e:
         logger.error(f"Error uploading profile picture: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
-
-class WebProfilePicturePayload(BaseModel):
-    image_base64: str
-    file_name: Optional[str] = None
 
 @router.post("/users/profile/picture/upload/web", response_model=dict)
 async def upload_profile_picture_web_endpoint(

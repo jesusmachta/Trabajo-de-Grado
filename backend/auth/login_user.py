@@ -4,10 +4,27 @@ import logging
 from fastapi import HTTPException
 from datetime import datetime, timedelta
 from backend.auth.jwt_settings import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class UserLogin(BaseModel):
+    """Model for user login request"""
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    """Model for JWT token response"""
+    access_token: str
+    token_type: str
+    user_id: str
+    email: str
+    full_name: str
+    role: str
+    profile_picture: Optional[str] = None
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against provided password."""

@@ -5,10 +5,23 @@ from datetime import datetime
 import re
 from backend.auth.create_user import create_user
 from backend.statistics.incremental_stats import initialize_statistics
+from pydantic import BaseModel, EmailStr
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class CompanyRegistration(BaseModel):
+    """Model for company registration"""
+    nombre_empresa: str
+    rif: str
+    nombre_responsable: str
+    apellido_responsable: str
+    email: EmailStr
+    password: str
+    date_of_birth: str
+    security_question: str
+    security_answer: str
 
 def create_company(nombre_empresa: str, rif: str, nombre_responsable: str, 
                   apellido_responsable: str, email: str, password: str,
