@@ -1,9 +1,3 @@
-from backend.categories.categories_api import get_categories
-from backend.categories.categories_api import router as categories_router
-from backend.categories.update_category_api import update_category
-from backend.categories.update_category_api import router as update_category_router
-from backend.categories.delete_category_api import router as delete_category_router
-from backend.categories.create_category_api import router as create_category_router
 from backend.statistics.apis.regenerate_stats_api import router as regenerate_stats_router
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
@@ -71,6 +65,8 @@ from backend.cameras.read_camera import get_cameras_with_details, get_camera_by_
 from backend.cameras.update_camera import update_camera
 from backend.cameras.delete_camera import delete_camera
 from backend.analysis import handle_image_upload
+from backend.categories.category_model import CategoryModel
+from backend.categories.schemas import CategoryCreate, CategoryUpdate, CategoryResponse
 
 
 
@@ -124,14 +120,10 @@ def initialize_routes(app):
     
     # Incluir rutas API
     app.include_router(router, prefix="/api")
-    app.include_router(update_category_router, prefix="/api")
-    app.include_router(delete_category_router, prefix="/api")
-    app.include_router(create_category_router, prefix="/api")
     app.include_router(regenerate_stats_router, prefix="/api", tags=["Statistics"])
     app.include_router(password_recovery_router, prefix="/api", tags=["Auth"])
     app.include_router(company_migration_router, prefix="/api", tags=["Auth"])
     app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Import chat_router from the new module
-    app.include_router(categories_router, prefix="/api", tags=["Categories"])
     
     # Configurar evento de apagado para detener el programador
     @app.on_event("shutdown")
@@ -922,3 +914,52 @@ def initialize_statistics_for_company(empresa: str):
     """
     # Esta función ya no es necesaria, la inicialización se hace directamente con initialize_statistics
     pass
+
+# Category endpoints
+@router.get("/categories", tags=["Categories"], response_model=dict)
+def get_categories_endpoint(empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para obtener todas las categorías tal como están en la base de datos (sincrónico).
+    """
+    category_model = CategoryModel()
+    categories = category_model.get_all_categories(empresa)
+    return {"message": "Success", "data": categories}
+
+@router.post("/categories/create", tags=["Categories"], response_model=dict)
+async def create_category_endpoint(request: CategoryCreate, empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para crear una nueva categoría.
+    """
+    category_model = CategoryModel()
+    category_id = category_model.create_category(
+        tipo_producto=request.Tipo_Producto,
+        categoria_producto=request.Categoria_Producto,
+        is_active=request.isActive,
+        icon=request.icon,
+        empresa=empresa
+    )
+    return {"message": "Categoría creada exitosamente", "id": category_id}
+
+@router.put("/categories/{category_id}", tags=["Categories"], response_model=dict)
+def update_category_endpoint(category_id: str, request: CategoryUpdate, empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para actualizar una categoría por su ID, asociada a la empresa del usuario autenticado.
+    """
+    category_model = CategoryModel()
+    category_model.update_category(
+        category_id=category_id,
+        categoria_producto=request.Categoria_Producto,
+        is_active=request.isActive,
+        icon=request.icon,
+        empresa=empresa
+    )
+    return {"message": "Categoría actualizada exitosamente"}
+
+@router.delete("/categories/{category_id}", tags=["Categories"], response_model=dict)
+async def delete_category_endpoint(category_id: str, empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para eliminar una categoría por su ID, asociada a la empresa del usuario autenticado.
+    """
+    category_model = CategoryModel()
+    category_model.delete_category(category_id=category_id, empresa=empresa)
+    return {"message": "Categoría eliminada exitosamente"}
