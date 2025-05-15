@@ -218,6 +218,7 @@ def daily_traffic(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas pico de los clientes por día de la semana, filtrado por empresa.
     """
     try:
+        # Call model function to get data
         data = get_peak_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -232,6 +233,7 @@ def daily_traffic_least(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas menos concurridas por día de la semana.
     """
     try:
+        # Call model function to get data
         data = get_least_busy_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -246,6 +248,7 @@ def daily_traffic_busy_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día más concurrido de la semana.
     """
     try:
+        # Call model function to get data
         data = get_most_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -260,6 +263,7 @@ def daily_traffic_least_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día menos concurrido de la semana.
     """
     try:
+        # Call model function to get data
         data = get_least_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -274,6 +278,7 @@ def least_visited_category(period: str, date: Optional[str] = None, empresa: str
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
+        # Call model function to get data
         data = get_least_visited_category(empresa, period, date)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -282,11 +287,12 @@ def least_visited_category(period: str, date: Optional[str] = None, empresa: str
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/least-visited-historical/")
-def least_visited_category_historical(empresa: str = Depends(get_empresa)):
+def least_visited_category_historical_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la categoría de producto menos visitada utilizando todos los datos históricos.
     """
     try:
+        # Call model function to get data
         data = get_least_visited_category_historical(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -296,11 +302,12 @@ def least_visited_category_historical(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching historical_categories.")
 
 @router.get("/statistics/most-visited/")
-def most_visited_category(period: str, date: Optional[str] = None, empresa: str = Depends(get_empresa)):
+def most_visited_category_endpoint(period: str, date: Optional[str] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la categoría de producto más visitada en un rango de tiempo (día, semana o mes).
     """
     try:
+        # Call model function to get data
         data = get_most_visited_category(empresa, period, date)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -309,11 +316,12 @@ def most_visited_category(period: str, date: Optional[str] = None, empresa: str 
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/most-visited-historical/")
-def most_visited_category_historical(empresa: str = Depends(get_empresa)):
+def most_visited_category_historical_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
     """
     try:
+        # Call model function to get data
         data = get_most_visited_category_historical(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -328,7 +336,7 @@ def visited_categories_historical(empresa: str= Depends(get_empresa)):
     Endpoint para obtener las categorías de producto más y menos visitadas utilizando todos los datos históricos.
     """
     try:
-        # Obtenemos tanto la categoría más visitada como la menos visitada históricamente
+        # Call model functions to get data
         most_visited = get_most_visited_category_historical(empresa)
         least_visited = get_least_visited_category_historical(empresa)
         
@@ -348,11 +356,12 @@ def visited_categories_historical(empresa: str= Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching historical_categories.")
 
 @router.get("/statistics/emotion-percentage/")
-def emotion_percentage(empresa: str = Depends(get_empresa)):
+def emotion_percentage_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener el porcentaje de emociones por categoría.
     """
     try:
+        # Call model function to get data
         data = get_emotion_percentage_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -362,11 +371,12 @@ def emotion_percentage(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
 @router.get("/statistics/most-frequent-emotions/")
-def most_frequent_emotions(empresa: str = Depends(get_empresa)):
+def most_frequent_emotions_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las emociones más frecuentes.
     """
     try:
+        # Call model function to get data
         data = get_most_frequent_emotions(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -376,12 +386,13 @@ def most_frequent_emotions(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
 @router.get("/statistics/age-distribution/")
-def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+def age_distribution_endpoint(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
                      month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por edad.
     """
     try:
+        # Call model function to get data
         data = get_age_distribution(empresa, period, date, month, year)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -390,12 +401,13 @@ def age_distribution(period: str = None, date: Optional[str] = None, end_date: O
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/gender-distribution/")
-def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+def gender_distribution_endpoint(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
                         month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por género.
     """
     try:
+        # Call model function to get data
         data = get_gender_distribution(empresa, period, date, month, year)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -404,12 +416,13 @@ def gender_distribution(period: str = None, date: Optional[str] = None, end_date
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/emotion-comparison/")
-def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, 
+def emotion_comparison_endpoint(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, 
                       month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para comparar emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
     """
     try:
+        # Call model function to get data
         data = get_emotion_comparison(empresa, period, date, month, year)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -421,11 +434,12 @@ def emotion_comparison(period: str = "week", date: Optional[str] = None, end_dat
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/preferred-category-by-gender/")
-def preferred_category_by_gender(empresa: str = Depends(get_empresa)):
+def preferred_category_by_gender_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las categorías de productos preferidas por género (hombres y mujeres).
     """
     try:
+        # Call model function to get data
         data = get_preferred_category_by_gender(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -435,11 +449,12 @@ def preferred_category_by_gender(empresa: str = Depends(get_empresa)):
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/top-successful-categories/")
-def top_successful_categories(empresa: str = Depends(get_empresa)):
+def top_successful_categories_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener el top 3 de categorías más exitosas según emociones positivas (HAPPY count).
     """
     try:
+        # Call model function to get data
         data = calculate_top_categories_by_visits(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -452,11 +467,12 @@ def top_successful_categories(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail=f"Failed to calculate top categories: {str(e)}")
 
 @router.get("/statistics/emotional-differences-by-category/")
-def emotional_differences_by_category(empresa: str = Depends(get_empresa)):
+def emotional_differences_by_category_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las emociones por género en cada categoría de productos.
     """
     try:
+        # Call model function to get data
         data = get_emotional_differences_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -465,11 +481,12 @@ def emotional_differences_by_category(empresa: str = Depends(get_empresa)):
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/age-gender-distribution-by-category/")
-def age_gender_distribution_by_category(empresa: str = Depends(get_empresa)):
+def age_gender_distribution_by_category_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las combinaciones de género y rango de edad más frecuentes por categoría de producto.
     """
     try:
+        # Call model function to get data
         data = get_age_gender_distribution_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
