@@ -42,4 +42,4 @@ def update_category(category_id: str, request: UpdateCategoryRequest, empresa: s
 
         return {"message": "Categoría actualizada exitosamente"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar categoría: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar categoría: {str(e)}") 

@@ -1,9 +1,9 @@
-from backend.statistics.apis.categories_api import get_categories
-from backend.statistics.apis.categories_api import router as categories_router
-from backend.statistics.apis.update_category_api import update_category
-from backend.statistics.apis.update_category_api import router as update_category_router
-from backend.statistics.apis.delete_category_api import router as delete_category_router
-from backend.statistics.apis.create_category_api import router as create_category_router
+from backend.categories.categories_api import get_categories
+from backend.categories.categories_api import router as categories_router
+from backend.categories.update_category_api import update_category
+from backend.categories.update_category_api import router as update_category_router
+from backend.categories.delete_category_api import router as delete_category_router
+from backend.categories.create_category_api import router as create_category_router
 from backend.statistics.apis.regenerate_stats_api import router as regenerate_stats_router
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler

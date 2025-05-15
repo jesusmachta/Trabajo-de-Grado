@@ -27,4 +27,4 @@ async def delete_category(category_id: str, empresa: str = Depends(get_empresa))
 
         return {"message": "Categoría eliminada exitosamente"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al eliminar categoría: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al eliminar categoría: {str(e)}") 

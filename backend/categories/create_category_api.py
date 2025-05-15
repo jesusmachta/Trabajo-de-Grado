@@ -60,4 +60,4 @@ async def create_category(request: CreateCategoryRequest, empresa: str = Depends
 
         return {"message": "Categoría creada exitosamente", "id": str(result.inserted_id)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al crear categoría: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al crear categoría: {str(e)}") 

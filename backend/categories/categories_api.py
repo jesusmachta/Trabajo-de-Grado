@@ -39,4 +39,4 @@ def get_categories(empresa: str= Depends (get_empresa)):
         return {"message": "Success", "data": serialized_categories}
     except Exception as e:
         print("Error:", str(e))
-        raise HTTPException(status_code=500, detail=f"Error al obtener categorías: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener categorías: {str(e)}") 
