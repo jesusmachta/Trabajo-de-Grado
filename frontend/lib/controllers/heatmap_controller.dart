@@ -11,6 +11,51 @@ class HeatmapController {
 
   HeatmapController(this.context);
 
+  // Get store categories from Tipo_Producto collection
+  Future<List<StoreCategory>> getStoreCategories() async {
+    try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/categories'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['message'] == 'Success' &&
+            responseData['data'] != null) {
+          final List<dynamic> data = responseData['data'];
+          final categories = data
+              .where((category) => category['isActive'] == true)
+              .map((category) => StoreCategory.fromJson(category))
+              .toList();
+
+          print('Fetched ${categories.length} active categories');
+          return categories;
+        } else {
+          throw Exception(
+              'Failed to load categories: ${responseData['message']}');
+        }
+      } else {
+        throw Exception('Failed to load categories: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getStoreCategories: $e');
+      throw Exception('Failed to load store categories: $e');
+    }
+  }
+
   // Get aggregated heatmap data
   Future<List<HeatmapLocation>> getAggregatedHeatmapData() async {
     try {

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../controllers/heatmap_controller.dart';
 import '../models/heatmap_data.dart';
 import '../widgets/heatmap_legend.dart';
+import '../controllers/categories_controller.dart';
 
 class HeatmapView extends StatefulWidget {
   const HeatmapView({Key? key}) : super(key: key);
@@ -14,11 +15,12 @@ class HeatmapView extends StatefulWidget {
 class _HeatmapViewState extends State<HeatmapView> {
   late HeatmapController _controller;
   List<HeatmapLocation> _heatmapData = [];
+  List<StoreCategory> _categories = [];
   bool _isLoading = true;
   String _errorMessage = '';
 
   // Store layout
-  final StoreLayout _storeLayout = demoStoreLayout;
+  StoreLayout? _storeLayout;
 
   // Maximum activity value for scaling
   double _maxActivity = 0;
@@ -34,36 +36,51 @@ class _HeatmapViewState extends State<HeatmapView> {
     super.didChangeDependencies();
     // Inicializar el controlador una vez que el context esté disponible
     _controller = HeatmapController(context);
-    _fetchHeatmapData();
+    _loadData();
   }
 
-  Future<void> _fetchHeatmapData() async {
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
 
     try {
-      final data = await _controller.getAggregatedHeatmapData();
+      // 1. Load categories first
+      final categories = await _controller.getStoreCategories();
+
+      // 2. Then load heatmap data
+      final heatmapData = await _controller.getAggregatedHeatmapData();
 
       // Find max activity for scaling
       double maxVal = 0;
-      for (var location in data) {
+      for (var location in heatmapData) {
         if (location.avgCount > maxVal) {
           maxVal = location.avgCount;
         }
       }
 
+      // 3. Generate store layout from categories
+      final storeLayout = StoreLayout.fromCategories(categories);
+
       setState(() {
-        _heatmapData = data;
+        _categories = categories;
+        _heatmapData = heatmapData;
+        _storeLayout = storeLayout;
         _maxActivity = maxVal > 0 ? maxVal : 1; // Avoid division by zero
         _isLoading = false;
       });
+
+      // Debug logs
+      print('Loaded ${_categories.length} categories');
+      print('Loaded ${_heatmapData.length} heatmap data points');
+      print('Max activity value: $_maxActivity');
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
       });
+      print('Error loading data: $e');
     }
   }
 
@@ -71,11 +88,11 @@ class _HeatmapViewState extends State<HeatmapView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Store Heat Map'),
+        title: const Text('Mapa de Calor'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchHeatmapData,
+            onPressed: _loadData,
           ),
         ],
       ),
@@ -83,46 +100,50 @@ class _HeatmapViewState extends State<HeatmapView> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
               ? Center(child: Text('Error: $_errorMessage'))
-              : Column(
-                  children: [
-                    Expanded(
-                      child: InteractiveViewer(
-                        boundaryMargin: const EdgeInsets.all(20),
-                        minScale: 0.1,
-                        maxScale: 3.0,
-                        child: Center(
-                          child: Container(
-                            width: _storeLayout.width,
-                            height: _storeLayout.height,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black),
-                              color: Colors.grey[200],
-                            ),
-                            child: Stack(
-                              children: [
-                                // Draw store zones
-                                ..._storeLayout.zones.map((zone) => Positioned(
-                                      left: zone.x,
-                                      top: zone.y,
-                                      width: zone.width,
-                                      height: zone.height,
-                                      child: _buildZone(zone),
-                                    )),
-                              ],
+              : _storeLayout == null
+                  ? const Center(child: Text('No hay categorías disponibles'))
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: InteractiveViewer(
+                            boundaryMargin: const EdgeInsets.all(20),
+                            minScale: 0.1,
+                            maxScale: 3.0,
+                            child: Center(
+                              child: Container(
+                                width: _storeLayout!.width,
+                                height: _storeLayout!.height,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.black),
+                                  color: Colors.grey[200],
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Draw store zones
+                                    ..._storeLayout!.zones
+                                        .map((zone) => Positioned(
+                                              left: zone.x,
+                                              top: zone.y,
+                                              width: zone.width,
+                                              height: zone.height,
+                                              child: _buildZone(zone),
+                                            )),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        // Add legend at bottom
+                        const HeatmapLegend(),
+                      ],
                     ),
-                    // Add legend at bottom
-                    const HeatmapLegend(),
-                  ],
-                ),
     );
   }
 
   Widget _buildZone(ZoneDefinition zone) {
     // Find the heatmap data for this zone
+    // The locationId in heatmap data should match the category ID (Tipo_Producto)
     final zoneData = _heatmapData.firstWhere(
       (element) => element.locationId == zone.id,
       orElse: () => HeatmapLocation(
@@ -135,13 +156,27 @@ class _HeatmapViewState extends State<HeatmapView> {
     );
 
     // Calculate intensity between 0.0 and 1.0
-    final intensity =
-        _maxActivity > 0 ? (zoneData.avgCount / _maxActivity) : 0.0;
+    final intensity = _maxActivity > 0
+        ? (zoneData.avgCount / _maxActivity).clamp(0.0, 1.0)
+        : 0.0;
+
+    // For debugging
+    print(
+        'Zone ${zone.id} (${zone.name}): avgCount=${zoneData.avgCount}, intensity=$intensity');
+
+    // Choose color based on zone type and intensity
+    Color zoneColor;
+    if (zone.id == 'entrance') {
+      // Entrance is always red regardless of intensity
+      zoneColor = Colors.red.withOpacity(0.7);
+    } else {
+      zoneColor = _getHeatColor(intensity);
+    }
 
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black45),
-        color: _getHeatColor(intensity),
+        color: zoneColor,
       ),
       child: Stack(
         children: [
@@ -157,6 +192,16 @@ class _HeatmapViewState extends State<HeatmapView> {
               ),
             ),
           ),
+          // Icon
+          Positioned(
+            top: 5,
+            right: 5,
+            child: Icon(
+              IconDataHelper.getIconByName(zone.icon),
+              color: Colors.black54,
+              size: 20,
+            ),
+          ),
           // Activity level
           Positioned(
             bottom: 5,
@@ -168,7 +213,7 @@ class _HeatmapViewState extends State<HeatmapView> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                'Activity: ${zoneData.avgCount.toStringAsFixed(1)}',
+                'Actividad: ${zoneData.avgCount.toStringAsFixed(1)}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -208,5 +253,50 @@ class _HeatmapViewState extends State<HeatmapView> {
         (intensity - 0.7) / 0.3,
       )!;
     }
+  }
+}
+
+// Helper class for icon conversion
+class IconDataHelper {
+  static IconData getIconByName(String name) {
+    // Map of icon names to IconData objects
+    Map<String, IconData> iconMap = {
+      'category': Icons.category,
+      'shopping_basket': Icons.shopping_basket,
+      'fastfood': Icons.fastfood,
+      'local_drink': Icons.local_drink,
+      'bakery_dining': Icons.bakery_dining,
+      'restaurant': Icons.restaurant,
+      'liquor': Icons.liquor,
+      'local_mall': Icons.local_mall,
+      'checkroom': Icons.checkroom,
+      'diamond': Icons.diamond,
+      'watch': Icons.watch,
+      'devices': Icons.devices,
+      'phone_android': Icons.phone_android,
+      'tv': Icons.tv,
+      'laptop': Icons.laptop,
+      'headphones': Icons.headphones,
+      'camera_alt': Icons.camera_alt,
+      'sports_basketball': Icons.sports_basketball,
+      'sports_soccer': Icons.sports_soccer,
+      'sports_tennis': Icons.sports_tennis,
+      'fitness_center': Icons.fitness_center,
+      'home': Icons.home,
+      'bed': Icons.bed,
+      'chair': Icons.chair,
+      'kitchen': Icons.kitchen,
+      'format_paint': Icons.format_paint,
+      'toys': Icons.toys,
+      'pets': Icons.pets,
+      'child_friendly': Icons.child_friendly,
+      'book': Icons.book,
+      'auto_stories': Icons.auto_stories,
+      'medical_services': Icons.medical_services,
+      'spa': Icons.spa,
+      'storefront': Icons.storefront,
+    };
+
+    return iconMap[name] ?? Icons.category;
   }
 }

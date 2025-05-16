@@ -24,6 +24,32 @@ class HeatmapLocation {
   }
 }
 
+class StoreCategory {
+  final String id;
+  final String name;
+  final int tipoProducto;
+  final String icon;
+  final bool isActive;
+
+  StoreCategory({
+    required this.id,
+    required this.name,
+    required this.tipoProducto,
+    required this.icon,
+    required this.isActive,
+  });
+
+  factory StoreCategory.fromJson(Map<String, dynamic> json) {
+    return StoreCategory(
+      id: json['_id'],
+      name: json['Categoria_Producto'],
+      tipoProducto: json['Tipo_Producto'],
+      icon: json['icon'] ?? 'category',
+      isActive: json['isActive'] ?? false,
+    );
+  }
+}
+
 class StoreLayout {
   final double width;
   final double height;
@@ -34,6 +60,64 @@ class StoreLayout {
     required this.height,
     required this.zones,
   });
+
+  // Create a StoreLayout from a list of categories
+  factory StoreLayout.fromCategories(List<StoreCategory> categories) {
+    // Create a layout with the categories arranged in a grid
+    const double width = 1000;
+    const double height = 700;
+    int numCategories = categories.length;
+
+    // Determine grid layout based on number of categories
+    int rows = (numCategories > 4) ? 2 : 1;
+    int cols = (numCategories / rows).ceil();
+
+    double cellWidth = width / cols;
+    double cellHeight = height / rows;
+
+    List<ZoneDefinition> zones = [];
+
+    // Add entrance zone
+    zones.add(
+      ZoneDefinition(
+        id: 'entrance',
+        name: 'Entrada',
+        x: 50,
+        y: height - 100,
+        width: 150,
+        height: 80,
+        category: 'Entrada',
+        tipoProducto: 0,
+        icon: 'storefront',
+      ),
+    );
+
+    // Add category zones in a grid layout
+    for (int i = 0; i < categories.length; i++) {
+      int row = i ~/ cols;
+      int col = i % cols;
+
+      zones.add(
+        ZoneDefinition(
+          id: categories[i].tipoProducto.toString(),
+          name: categories[i].name,
+          x: col * cellWidth + 50,
+          y: row * cellHeight + 100,
+          width: cellWidth - 50,
+          height: cellHeight - 50,
+          category: categories[i].name,
+          tipoProducto: categories[i].tipoProducto,
+          icon: categories[i].icon,
+        ),
+      );
+    }
+
+    return StoreLayout(
+      width: width,
+      height: height,
+      zones: zones,
+    );
+  }
 }
 
 class ZoneDefinition {
@@ -44,6 +128,8 @@ class ZoneDefinition {
   final double width;
   final double height;
   final String category;
+  final int tipoProducto;
+  final String icon;
 
   ZoneDefinition({
     required this.id,
@@ -53,58 +139,7 @@ class ZoneDefinition {
     required this.width,
     required this.height,
     required this.category,
+    required this.tipoProducto,
+    required this.icon,
   });
 }
-
-// Example store layout for testing
-final demoStoreLayout = StoreLayout(
-  width: 1000,
-  height: 700,
-  zones: [
-    ZoneDefinition(
-      id: 'ZONE_1',
-      name: 'Entrance',
-      x: 50,
-      y: 600,
-      width: 150,
-      height: 80,
-      category: 'Entrance',
-    ),
-    ZoneDefinition(
-      id: 'ZONE_2',
-      name: 'Electronics',
-      x: 250,
-      y: 100,
-      width: 300,
-      height: 200,
-      category: 'Electronics',
-    ),
-    ZoneDefinition(
-      id: 'ZONE_3',
-      name: 'Clothing',
-      x: 600,
-      y: 100,
-      width: 300,
-      height: 200,
-      category: 'Clothing',
-    ),
-    ZoneDefinition(
-      id: 'ZONE_4',
-      name: 'Grocery',
-      x: 250,
-      y: 400,
-      width: 300,
-      height: 200,
-      category: 'Grocery',
-    ),
-    ZoneDefinition(
-      id: 'ZONE_5',
-      name: 'Home & Kitchen',
-      x: 600,
-      y: 400,
-      width: 300,
-      height: 200,
-      category: 'Home',
-    ),
-  ],
-);

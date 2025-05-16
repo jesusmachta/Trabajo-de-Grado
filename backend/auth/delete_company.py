@@ -50,6 +50,7 @@ class CompanyDeletionManager:
                 'Persona_AR', 
                 'Tipo_Producto', 
                 'Tipo_Producto_Zona_Camara',
+                'HeatMap',
                 'Cameras',
                 'Categories',
                 'Chats',

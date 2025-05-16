@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 from backend.database import collections  
 from typing import Dict, Any
 import logging
@@ -8,9 +8,6 @@ logger = logging.getLogger(__name__)
 persona_collection = collections["Persona_AR"]
 tipo_producto_collection = collections["Tipo_Producto"]
 
-app = FastAPI()
-
-@app.get("/emotion-percentage-by-category/")
 def get_emotion_percentage_by_category(empresa: str) -> Dict[str, Any]:
     """
     Obtiene el porcentaje de emociones por categoría desde la colección Estadisticas.
