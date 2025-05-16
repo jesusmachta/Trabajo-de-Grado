@@ -12,7 +12,7 @@ class HeatmapView extends StatefulWidget {
 }
 
 class _HeatmapViewState extends State<HeatmapView> {
-  final HeatmapController _controller = HeatmapController();
+  late HeatmapController _controller;
   List<HeatmapLocation> _heatmapData = [];
   bool _isLoading = true;
   String _errorMessage = '';
@@ -26,6 +26,14 @@ class _HeatmapViewState extends State<HeatmapView> {
   @override
   void initState() {
     super.initState();
+    // El controller se inicializará en didChangeDependencies
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Inicializar el controlador una vez que el context esté disponible
+    _controller = HeatmapController(context);
     _fetchHeatmapData();
   }
 

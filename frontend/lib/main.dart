@@ -101,6 +101,18 @@ final GoRouter router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/heatmap',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'heatmap',
+      ),
+    ),
+    GoRoute(
       path: '/help',
       builder: (context, state) => const HelpView(),
     ),

@@ -12,6 +12,7 @@ import '../main.dart'; // Importar para acceder al themeController
 import 'cameras_view.dart';
 import 'profile_view.dart';
 import '../controllers/chat_controller.dart'; // Import ChatController
+import 'heatmap_view.dart'; // Import HeatmapView
 
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
@@ -102,6 +103,7 @@ class _HomeViewState extends State<HomeView> {
       if (isAdmin) UsersView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CategoriesView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CamerasView(toggleTheme: widget.toggleTheme),
+      const HeatmapView(), // Mapa de Calor view
     ];
     _titles = [
       'Dashboard',
@@ -109,6 +111,7 @@ class _HomeViewState extends State<HomeView> {
       if (isAdmin) 'Gestión de Usuarios',
       if (isAdmin) 'Categorías',
       if (isAdmin) 'Gestión de Cámaras',
+      'Mapa de Calor',
     ];
     // Si el usuario no es admin y el índice actual es > 1, volver al dashboard
     if (!isAdmin && _currentIndex > 1) {
@@ -194,6 +197,9 @@ class _HomeViewState extends State<HomeView> {
         break;
       case 4:
         path = '/cameras';
+        break;
+      case 5:
+        path = '/heatmap';
         break;
     }
 
@@ -682,6 +688,51 @@ class _HomeViewState extends State<HomeView> {
                 ),
               ),
             ],
+
+            // Heat Map button (available for all users)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: () {
+                  _navigateToView(5);
+                  Navigator.pop(context);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _currentIndex == 5
+                        ? const Color(
+                            0xFFE1F5FF) // Light blue background for selected item
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.heat_pump_outlined,
+                        size: 28,
+                        color: _currentIndex == 5
+                            ? const Color(0xFF223A5E)
+                            : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Mapa de Calor',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: _currentIndex == 5
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
             const Divider(height: 32),
 

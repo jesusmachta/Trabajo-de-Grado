@@ -1,16 +1,22 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import '../models/heatmap_data.dart';
 import '../utils/api_constants.dart';
-import '../utils/auth_service.dart';
+import 'auth_controller.dart';
 
 class HeatmapController {
-  final AuthService _authService = AuthService();
+  final BuildContext context;
+
+  HeatmapController(this.context);
 
   // Get aggregated heatmap data
   Future<List<HeatmapLocation>> getAggregatedHeatmapData() async {
     try {
-      final token = await _authService.getToken();
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
 
       if (token == null) {
         throw Exception('Authentication token not found');
@@ -47,7 +53,9 @@ class HeatmapController {
   // Get raw heatmap data for a specific time period
   Future<List<dynamic>> getHeatmapData({int hours = 24}) async {
     try {
-      final token = await _authService.getToken();
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
 
       if (token == null) {
         throw Exception('Authentication token not found');
