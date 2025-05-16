@@ -1,26 +1,22 @@
-from backend.statistics.apis.categories_api import get_categories
-from backend.statistics.apis.categories_api import router as categories_router
-from backend.statistics.apis.update_category_api import update_category
-from backend.statistics.apis.update_category_api import router as update_category_router
-from backend.statistics.apis.delete_category_api import router as delete_category_router
-from backend.statistics.apis.create_category_api import router as create_category_router
+from backend.statistics.apis.regenerate_stats_api import router as regenerate_stats_router
 from backend.statistics.incremental_stats import initialize_statistics, update_statistics_on_insert
 from backend.statistics.scheduled_stats_update import start_scheduler, shutdown_scheduler
 from backend.auth.dependencies import get_empresa, get_current_user
-from backend.auth.create_user import create_user, hash_password, validate_password, get_next_sequence_value
-from backend.auth.login_user import login_user, create_access_token, verify_password
+from backend.auth.create_user import create_user, get_next_sequence_value, UserCreate, validate_password
+from backend.auth.login_user import login_user, verify_password, UserLogin, Token
+from backend.auth.jwt_settings import create_access_token, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info, get_current_user_profile
 from backend.auth.update_user import (
     update_user_profile, reset_password, update_profile_picture,
-    upload_profile_picture_base64, upload_profile_picture_file, upload_profile_picture_web
+    upload_profile_picture_base64, upload_profile_picture_file, upload_profile_picture_web,
+    UserUpdate, ProfileUpdatePayload, ProfilePicturePayload, WebProfilePicturePayload,
+    PasswordResetRequest, PasswordResetConfirm
 )
 from backend.auth.delete_user import delete_user
-from backend.auth.create_company import create_company
+from backend.auth.create_company import create_company, CompanyRegistration
 from backend.auth.delete_company import delete_company
-from backend.auth.auth_models import (  # Import models from auth_models.py
-    UserCreate, UserLogin, Token, UserUpdate, ProfileUpdatePayload,
-    ProfilePicturePayload, WebProfilePicturePayload
-)
+from backend.auth.password_recovery import router as password_recovery_router
+from backend.auth.company_migration import router as company_migration_router
 from backend.chat.chat_service import chat_router  # Import chat_router from new module
 import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
@@ -69,6 +65,8 @@ from backend.cameras.read_camera import get_cameras_with_details, get_camera_by_
 from backend.cameras.update_camera import update_camera
 from backend.cameras.delete_camera import delete_camera
 from backend.analysis import handle_image_upload
+from backend.categories.category_model import CategoryModel
+from backend.categories.schemas import CategoryCreate, CategoryUpdate, CategoryResponse
 
 
 
@@ -97,30 +95,6 @@ class ImagePayload(BaseModel):
     id_camara: int
     empresa: str  # Added empresa field
 
-# User models
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
-    role: str = "user"  # default role
-    date_of_birth: str  # Add date of birth field
-    security_question: str  # Add security question field
-    security_answer: str  # Add security answer field
-    rif: Optional[int] = None  # <-- AGREGADO
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user_id: str
-    email: str
-    full_name: str
-    role: str
-    profile_picture: Optional[str] = None
-
 # router.include_router(categories_router, prefix="/api", tags=["Categories"])
 
 def get_next_sequence_value(sequence_name):
@@ -146,11 +120,10 @@ def initialize_routes(app):
     
     # Incluir rutas API
     app.include_router(router, prefix="/api")
-    app.include_router(update_category_router, prefix="/api")
-    app.include_router(delete_category_router, prefix="/api")
-    app.include_router(create_category_router, prefix="/api")
+    app.include_router(regenerate_stats_router, prefix="/api", tags=["Statistics"])
+    app.include_router(password_recovery_router, prefix="/api", tags=["Auth"])
+    app.include_router(company_migration_router, prefix="/api", tags=["Auth"])
     app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Import chat_router from the new module
-    app.include_router(categories_router, prefix="/api", tags=["Categories"])
     
     # Configurar evento de apagado para detener el programador
     @app.on_event("shutdown")
@@ -245,6 +218,7 @@ def daily_traffic(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas pico de los clientes por día de la semana, filtrado por empresa.
     """
     try:
+        # Call model function to get data
         data = get_peak_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -259,6 +233,7 @@ def daily_traffic_least(empresa: str = Depends(get_empresa)):
     Endpoint para obtener las horas menos concurridas por día de la semana.
     """
     try:
+        # Call model function to get data
         data = get_least_busy_hours(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -273,6 +248,7 @@ def daily_traffic_busy_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día más concurrido de la semana.
     """
     try:
+        # Call model function to get data
         data = get_most_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -287,6 +263,7 @@ def daily_traffic_least_days(empresa: str = Depends(get_empresa)):
     Endpoint para obtener el día menos concurrido de la semana.
     """
     try:
+        # Call model function to get data
         data = get_least_busy_day(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -301,6 +278,7 @@ def least_visited_category(period: str, date: Optional[str] = None, empresa: str
     Endpoint para obtener la categoría de producto menos visitada en un rango de tiempo (día, semana o mes).
     """
     try:
+        # Call model function to get data
         data = get_least_visited_category(empresa, period, date)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -309,11 +287,12 @@ def least_visited_category(period: str, date: Optional[str] = None, empresa: str
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/least-visited-historical/")
-def least_visited_category_historical(empresa: str = Depends(get_empresa)):
+def least_visited_category_historical_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la categoría de producto menos visitada utilizando todos los datos históricos.
     """
     try:
+        # Call model function to get data
         data = get_least_visited_category_historical(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -323,11 +302,12 @@ def least_visited_category_historical(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching historical_categories.")
 
 @router.get("/statistics/most-visited/")
-def most_visited_category(period: str, date: Optional[str] = None, empresa: str = Depends(get_empresa)):
+def most_visited_category_endpoint(period: str, date: Optional[str] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la categoría de producto más visitada en un rango de tiempo (día, semana o mes).
     """
     try:
+        # Call model function to get data
         data = get_most_visited_category(empresa, period, date)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -336,11 +316,12 @@ def most_visited_category(period: str, date: Optional[str] = None, empresa: str 
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/most-visited-historical/")
-def most_visited_category_historical(empresa: str = Depends(get_empresa)):
+def most_visited_category_historical_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la categoría de producto más visitada utilizando todos los datos históricos.
     """
     try:
+        # Call model function to get data
         data = get_most_visited_category_historical(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -355,7 +336,7 @@ def visited_categories_historical(empresa: str= Depends(get_empresa)):
     Endpoint para obtener las categorías de producto más y menos visitadas utilizando todos los datos históricos.
     """
     try:
-        # Obtenemos tanto la categoría más visitada como la menos visitada históricamente
+        # Call model functions to get data
         most_visited = get_most_visited_category_historical(empresa)
         least_visited = get_least_visited_category_historical(empresa)
         
@@ -375,11 +356,12 @@ def visited_categories_historical(empresa: str= Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching historical_categories.")
 
 @router.get("/statistics/emotion-percentage/")
-def emotion_percentage(empresa: str = Depends(get_empresa)):
+def emotion_percentage_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener el porcentaje de emociones por categoría.
     """
     try:
+        # Call model function to get data
         data = get_emotion_percentage_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -389,11 +371,12 @@ def emotion_percentage(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
 @router.get("/statistics/most-frequent-emotions/")
-def most_frequent_emotions(empresa: str = Depends(get_empresa)):
+def most_frequent_emotions_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las emociones más frecuentes.
     """
     try:
+        # Call model function to get data
         data = get_most_frequent_emotions(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -403,12 +386,13 @@ def most_frequent_emotions(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
 @router.get("/statistics/age-distribution/")
-def age_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+def age_distribution_endpoint(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
                      month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por edad.
     """
     try:
+        # Call model function to get data
         data = get_age_distribution(empresa, period, date, month, year)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -417,12 +401,13 @@ def age_distribution(period: str = None, date: Optional[str] = None, end_date: O
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/gender-distribution/")
-def gender_distribution(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
+def gender_distribution_endpoint(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 
                         month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener la distribución de visitantes por género.
     """
     try:
+        # Call model function to get data
         data = get_gender_distribution(empresa, period, date, month, year)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -431,12 +416,13 @@ def gender_distribution(period: str = None, date: Optional[str] = None, end_date
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/emotion-comparison/")
-def emotion_comparison(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, 
+def emotion_comparison_endpoint(period: str = "week", date: Optional[str] = None, end_date: Optional[str] = None, 
                       month: Optional[int] = None, year: Optional[int] = None, empresa: str = Depends(get_empresa)):
     """
     Endpoint para comparar emociones positivas (HAPPY) y negativas (SAD) por día de la semana.
     """
     try:
+        # Call model function to get data
         data = get_emotion_comparison(empresa, period, date, month, year)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -448,11 +434,12 @@ def emotion_comparison(period: str = "week", date: Optional[str] = None, end_dat
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/preferred-category-by-gender/")
-def preferred_category_by_gender(empresa: str = Depends(get_empresa)):
+def preferred_category_by_gender_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las categorías de productos preferidas por género (hombres y mujeres).
     """
     try:
+        # Call model function to get data
         data = get_preferred_category_by_gender(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -462,11 +449,12 @@ def preferred_category_by_gender(empresa: str = Depends(get_empresa)):
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/top-successful-categories/")
-def top_successful_categories(empresa: str = Depends(get_empresa)):
+def top_successful_categories_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener el top 3 de categorías más exitosas según emociones positivas (HAPPY count).
     """
     try:
+        # Call model function to get data
         data = calculate_top_categories_by_visits(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -479,11 +467,12 @@ def top_successful_categories(empresa: str = Depends(get_empresa)):
         raise HTTPException(status_code=500, detail=f"Failed to calculate top categories: {str(e)}")
 
 @router.get("/statistics/emotional-differences-by-category/")
-def emotional_differences_by_category(empresa: str = Depends(get_empresa)):
+def emotional_differences_by_category_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las emociones por género en cada categoría de productos.
     """
     try:
+        # Call model function to get data
         data = get_emotional_differences_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -492,11 +481,12 @@ def emotional_differences_by_category(empresa: str = Depends(get_empresa)):
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/age-gender-distribution-by-category/")
-def age_gender_distribution_by_category(empresa: str = Depends(get_empresa)):
+def age_gender_distribution_by_category_endpoint(empresa: str = Depends(get_empresa)):
     """
     Endpoint para obtener las combinaciones de género y rango de edad más frecuentes por categoría de producto.
     """
     try:
+        # Call model function to get data
         data = get_age_gender_distribution_by_category(empresa)
         return {"message": "Success", "data": data}
     except HTTPException as http_exc:
@@ -526,59 +516,6 @@ async def upload_image_endpoint(background_tasks: BackgroundTasks, payload: Imag
         if not isinstance(e, HTTPException):
             raise HTTPException(status_code=500, detail=str(e))
         raise
-
-# Helper functions for auth
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a stored password against provided password."""
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    """Create JWT token."""
-    to_encode = data.copy()
-    
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-def validate_password(password: str) -> tuple[bool, str]:
-    """
-    Validates a password against the following criteria:
-    - Minimum 6 characters
-    - Minimum 1 uppercase letter
-    - Minimum 1 lowercase letter
-    - Minimum 1 special character
-    - Minimum 1 number
-    
-    Returns:
-    - (True, "") if password is valid
-    - (False, error_message) if not valid
-    """
-    # Check minimum length
-    if len(password) < 6:
-        return False, "La contraseña debe tener al menos 6 caracteres"
-    
-    # Check if contains at least one uppercase letter
-    if not re.search(r'[A-Z]', password):
-        return False, "La contraseña debe contener al menos una letra mayúscula"
-    
-    # Check if contains at least one lowercase letter
-    if not re.search(r'[a-z]', password):
-        return False, "La contraseña debe contener al menos una letra minúscula"
-    
-    # Check if contains at least one special character
-    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]', password):
-        return False, "La contraseña debe contener al menos un carácter especial"
-    
-    # Check if contains at least one number
-    if not re.search(r'[0-9]', password):
-        return False, "La contraseña debe contener al menos un número"
-    
-    return True, ""
 
 @router.post("/signup", response_model=Token)
 async def signup(user_data: UserCreate, empresa: str = Depends(get_empresa)):
@@ -626,14 +563,6 @@ async def login_endpoint(user_data: UserLogin):
     return login_result
 
 # User management endpoints
-class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    role: Optional[str] = None
-    password: Optional[str] = None
-    profile_picture: Optional[str] = None
-    is_active: Optional[bool] = None  # <-- AGREGADO
-
 @router.get("/users", response_model=dict)
 async def get_users(current_user: dict = Depends(get_current_user)):
     """
@@ -667,12 +596,6 @@ async def get_current_user_profile_endpoint(current_user: dict = Depends(get_cur
     return {"message": "Success", "data": user_profile}
 
 # --- Profile Management Routes ---
-class ProfileUpdatePayload(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    password: Optional[str] = None
-
 @router.put("/users/profile", response_model=dict)
 async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: dict = Depends(get_current_user)):
     """Update the current user's profile information."""
@@ -793,9 +716,6 @@ async def delete_user_endpoint(
         raise HTTPException(status_code=500, detail="Error deleting user.")
 
 # --- Profile Picture Management ---
-class ProfilePicturePayload(BaseModel):
-    image_base64: str
-
 @router.post("/users/profile/picture", response_model=dict)
 async def upload_profile_picture_endpoint(payload: ProfilePicturePayload, current_user: dict = Depends(get_current_user)):
     """Upload a profile picture for the current user."""
@@ -831,10 +751,6 @@ async def upload_profile_picture_file_endpoint(
     except Exception as e:
         logger.error(f"Error uploading profile picture: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error uploading profile picture: {str(e)}")
-
-class WebProfilePicturePayload(BaseModel):
-    image_base64: str
-    file_name: Optional[str] = None
 
 @router.post("/users/profile/picture/upload/web", response_model=dict)
 async def upload_profile_picture_web_endpoint(
@@ -929,121 +845,6 @@ async def delete_camera_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting camera: {str(e)}")
 
-@router.post("/statistics/regenerate/")
-async def regenerate_statistics():
-    """
-    Endpoint para regenerar todas las estadísticas desde cero usando los datos históricos.
-    Este es un proceso costoso que puede tomar tiempo, dependiendo de la cantidad de datos.
-    """
-    try:
-        # Importar función de recálculo
-        from backend.statistics.incremental_stats import recalculate_all_statistics
-        
-        # Regenerar estadísticas en segundo plano
-        background_tasks = BackgroundTasks()
-        background_tasks.add_task(recalculate_all_statistics)
-        
-        return {
-            "message": "Success", 
-            "detail": "Iniciado proceso de regeneración de estadísticas en segundo plano"
-        }
-    except Exception as e:
-        logger.error(f"Error iniciando regeneración de estadísticas: {e}")
-        return {"message": "Error", "error": str(e)}
-
-@router.post("/statistics/regenerate-preferred-gender/")
-async def regenerate_preferred_gender_stats():
-    """
-    Endpoint para regenerar solo las estadísticas de categorías preferidas por género.
-    """
-    try:
-        logger.info("Iniciando regeneración de estadísticas de categorías preferidas por género...")
-        
-        # 1. Eliminar el documento actual
-        collections["Estadisticas"].delete_one({"_id": "preferred_category_by_gender"})
-        
-        # 2. Crear nuevo documento limpio
-        preferred_doc = {
-            "_id": "preferred_category_by_gender",
-            "description": "Categorías preferidas por género",
-            "data": {
-                "Male": {"category": "", "count": 0},
-                "Female": {"category": "", "count": 0}
-            },
-            "raw_counts": {
-                "Male": {},
-                "Female": {}
-            },
-            "last_updated": datetime.utcnow().isoformat()
-        }
-        collections["Estadisticas"].insert_one(preferred_doc)
-        
-        # 3. Procesar todos los documentos de Persona_AR para esta estadística específica
-        total_docs = collections["Persona_AR"].count_documents({})
-        processed = 0
-        male_categories = {}
-        female_categories = {}
-        
-        cursor = collections["Persona_AR"].find({})
-        for document in cursor:
-            try:
-                gender = document.get("gender")
-                category = document.get("categoria_producto")
-                
-                if gender and category:
-                    if gender == "Male":
-                        male_categories[category] = male_categories.get(category, 0) + 1
-                    elif gender == "Female":
-                        female_categories[category] = female_categories.get(category, 0) + 1
-                
-                processed += 1
-            except Exception as e:
-                logger.error(f"Error procesando documento: {e}")
-                continue
-        
-        # 4. Calcular categorías preferidas
-        male_preferred = {"category": "", "count": 0}
-        if male_categories:
-            max_male = max(male_categories.items(), key=lambda x: x[1])
-            male_preferred = {"category": max_male[0], "count": max_male[1]}
-        
-        female_preferred = {"category": "", "count": 0}
-        if female_categories:
-            max_female = max(female_categories.items(), key=lambda x: x[1])
-            female_preferred = {"category": max_female[0], "count": max_female[1]}
-        
-        # 5. Actualizar documento con resultados
-        collections["Estadisticas"].update_one(
-            {"_id": "preferred_category_by_gender"},
-            {"$set": {
-                "data": {
-                    "Male": male_preferred,
-                    "Female": female_preferred
-                },
-                "raw_counts": {
-                    "Male": male_categories,
-                    "Female": female_categories
-                },
-                "last_updated": datetime.utcnow().isoformat()
-            }}
-        )
-        
-        logger.info(f"Regeneración completada. Procesados {processed} documentos.")
-        
-        return {
-            "message": "Success", 
-            "detail": "Estadísticas de categorías preferidas por género regeneradas correctamente",
-            "data": {
-                "Male": male_preferred,
-                "Female": female_preferred
-            }
-        }
-    except Exception as e:
-        logger.error(f"Error en regeneración de estadísticas preferred_category_by_gender: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return {"message": "Error", "error": str(e)}
-
 @router.post("/register-company", status_code=201)
 async def register_company_endpoint(
     background_tasks: BackgroundTasks,
@@ -1131,170 +932,51 @@ def initialize_statistics_for_company(empresa: str):
     # Esta función ya no es necesaria, la inicialización se hace directamente con initialize_statistics
     pass
 
-# En la regeneración, eliminar por _id que termine con :empresa
-@router.post("/statistics/regenerate-for-company/")
-async def regenerate_statistics_for_company(empresa: str):
+# Category endpoints
+@router.get("/categories", tags=["Categories"], response_model=dict)
+def get_categories_endpoint(empresa: str = Depends(get_empresa)):
     """
-    Endpoint para regenerar todas las estadísticas para una empresa específica.
-    Este es un proceso que puede tomar tiempo según la cantidad de datos.
+    Endpoint para obtener todas las categorías tal como están en la base de datos (sincrónico).
     """
-    try:
-        # Eliminar todos los documentos de estadísticas existentes para esta empresa
-        deleted = collections["Estadisticas"].delete_many({"_id": {"$regex": f":{empresa}$"}})
-        logger.info(f"Se eliminaron {deleted.deleted_count} documentos de estadísticas para la empresa '{empresa}'")
-        # Inicializar nuevos documentos de estadísticas para la empresa
-        initialize_statistics_for_company(empresa)
-        # Recalcular las estadísticas usando los datos históricos de esta empresa
-        count = 0
-        cursor = collections["Persona_AR"].find({"empresa": empresa})
-        for document in cursor:
-            try:
-                from backend.statistics.incremental_stats import update_statistics_on_insert
-                update_statistics_on_insert(document)
-                count += 1
-            except Exception as doc_error:
-                logger.error(f"Error al procesar documento {document.get('id', 'unknown')}: {str(doc_error)}")
-                continue
-        return {
-            "message": "Success", 
-            "detail": f"Se regeneraron las estadísticas para la empresa '{empresa}'. Procesados {count} documentos."
-        }
-    except Exception as e:
-        logger.error(f"Error al regenerar estadísticas para empresa '{empresa}': {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error al regenerar estadísticas: {str(e)}"
-        )
+    category_model = CategoryModel()
+    categories = category_model.get_all_categories(empresa)
+    return {"message": "Success", "data": categories}
 
-# Add password recovery endpoints
-@router.post("/forgot-password/verify", status_code=200)
-async def verify_security_info_endpoint(
-    data: dict = Body(...)
-):
+@router.post("/categories/create", tags=["Categories"], response_model=dict)
+async def create_category_endpoint(request: CategoryCreate, empresa: str = Depends(get_empresa)):
     """
-    Endpoint to verify email, date of birth, and security question/answer for password recovery.
+    Endpoint para crear una nueva categoría.
     """
-    required_fields = ["email", "date_of_birth", "security_question", "security_answer"]
-    for field in required_fields:
-        if field not in data:
-            raise HTTPException(
-                status_code=400,
-                detail=f"El campo '{field}' es requerido"
-            )
-    
-    # Use the verify_security_info function from the model
-    verification_result = verify_security_info(
-        email=data["email"],
-        date_of_birth=data["date_of_birth"],
-        security_question=data["security_question"],
-        security_answer=data["security_answer"]
+    category_model = CategoryModel()
+    category_id = category_model.create_category(
+        tipo_producto=request.Tipo_Producto,
+        categoria_producto=request.Categoria_Producto,
+        is_active=request.isActive,
+        icon=request.icon,
+        empresa=empresa
     )
-    
-    # Generate token for password reset
-    reset_token = create_access_token(
-        data={"sub": verification_result["user_id"], "purpose": "password_reset"},
-        expires_delta=timedelta(minutes=15)
+    return {"message": "Categoría creada exitosamente", "id": category_id}
+
+@router.put("/categories/{category_id}", tags=["Categories"], response_model=dict)
+def update_category_endpoint(category_id: str, request: CategoryUpdate, empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para actualizar una categoría por su ID, asociada a la empresa del usuario autenticado.
+    """
+    category_model = CategoryModel()
+    category_model.update_category(
+        category_id=category_id,
+        categoria_producto=request.Categoria_Producto,
+        is_active=request.isActive,
+        icon=request.icon,
+        empresa=empresa
     )
-    
-    return {
-        "message": "Verificación exitosa",
-        "reset_token": reset_token,
-        "user_id": verification_result["user_id"]
-    }
+    return {"message": "Categoría actualizada exitosamente"}
 
-@router.post("/reset-password", status_code=200)
-async def reset_password_endpoint(
-    data: dict = Body(...)
-):
+@router.delete("/categories/{category_id}", tags=["Categories"], response_model=dict)
+async def delete_category_endpoint(category_id: str, empresa: str = Depends(get_empresa)):
     """
-    Endpoint to change password after security verification.
+    Endpoint para eliminar una categoría por su ID, asociada a la empresa del usuario autenticado.
     """
-    if "reset_token" not in data or "new_password" not in data:
-        raise HTTPException(
-            status_code=400,
-            detail="Se requieren 'reset_token' y 'new_password'"
-        )
-    
-    reset_token = data["reset_token"]
-    new_password = data["new_password"]
-    
-    try:
-        # Verify the token
-        payload = jwt.decode(reset_token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        purpose = payload.get("purpose")
-        
-        if not user_id or purpose != "password_reset":
-            raise HTTPException(
-                status_code=401,
-                detail="Token de restablecimiento inválido"
-            )
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Token de restablecimiento inválido o expirado"
-        )
-    
-    # Use the reset_password function from the model
-    result = reset_password(user_id, new_password)
-    
-    return {
-        "message": "Contraseña actualizada exitosamente"
-    }
-
-@router.post("/migrate-companies")
-async def migrate_existing_companies():
-    """
-    Endpoint para migrar las empresas existentes a la colección Empresas.
-    Este es un endpoint de uso único para migración de datos.
-    """
-    try:
-        # Obtener todas las empresas únicas de la colección Users
-        pipeline = [
-            {"$group": {"_id": {"empresa": "$empresa", "rif": "$rif"}}},
-            {"$project": {"nombre": "$_id.empresa", "rif": "$_id.rif", "_id": 0}}
-        ]
-        
-        unique_companies = list(collections['Users'].aggregate(pipeline))
-        
-        # Contador de empresas migradas y empresas ya existentes
-        migrated_count = 0
-        already_exists_count = 0
-        
-        for company in unique_companies:
-            nombre = company.get("nombre")
-            rif = company.get("rif")
-            
-            # Validar que tengamos nombre y RIF
-            if not nombre:
-                logger.warning(f"Empresa sin nombre encontrada, omitiendo: {company}")
-                continue
-                
-            # Verificar si ya existe en la colección Empresas
-            existing = collections['Empresas'].find_one({"nombre": nombre})
-            if existing:
-                already_exists_count += 1
-                continue
-                
-            # Crear documento de empresa
-            empresa_doc = {
-                "nombre": nombre,
-                "rif": rif,
-                "created_at": datetime.utcnow().isoformat(),
-                "migrated": True  # Marcar como migrada para referencia
-            }
-            
-            # Insertar en la colección Empresas
-            collections['Empresas'].insert_one(empresa_doc)
-            migrated_count += 1
-            
-        return {
-            "message": "Migración completada",
-            "migrated_count": migrated_count,
-            "already_exists_count": already_exists_count,
-            "total_processed": len(unique_companies)
-        }
-    
-    except Exception as e:
-        logger.error(f"Error al migrar empresas: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error al migrar empresas: {str(e)}")
+    category_model = CategoryModel()
+    category_model.delete_category(category_id=category_id, empresa=empresa)
+    return {"message": "Categoría eliminada exitosamente"}

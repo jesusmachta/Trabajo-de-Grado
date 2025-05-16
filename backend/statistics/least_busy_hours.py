@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
 from fastapi import HTTPException
-from typing import Optional
+from typing import Dict, Any
 from backend.database import collections
 import logging
 
 logger = logging.getLogger(__name__)
 
-def get_least_busy_hours(empresa: str):
+def get_least_busy_hours(empresa: str) -> Dict[str, Any]:
     """
     Obtiene las horas menos concurridas por día de la semana desde la colección Estadisticas.
     
