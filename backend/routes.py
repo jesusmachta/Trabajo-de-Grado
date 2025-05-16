@@ -5,6 +5,7 @@ from backend.auth.dependencies import get_empresa, get_current_user
 from backend.auth.create_user import create_user, get_next_sequence_value, UserCreate, validate_password
 from backend.auth.login_user import login_user, verify_password, UserLogin, Token
 from backend.auth.jwt_settings import create_access_token, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from backend.heatmap.apis.heatmap_api import router as heatmap_router
 from backend.auth.read_user import get_user_by_id, get_all_users, verify_security_info, get_current_user_profile
 from backend.auth.update_user import (
     update_user_profile, reset_password, update_profile_picture,
@@ -124,6 +125,7 @@ def initialize_routes(app):
     app.include_router(password_recovery_router, prefix="/api", tags=["Auth"])
     app.include_router(company_migration_router, prefix="/api", tags=["Auth"])
     app.include_router(chat_router, prefix="/api", tags=["Chat"]) # Import chat_router from the new module
+    app.include_router(heatmap_router, prefix="/api", tags=["HeatMap"])
     
     # Configurar evento de apagado para detener el programador
     @app.on_event("shutdown")
