@@ -558,27 +558,77 @@ class StatisticsController {
     ];
   }
 
-  // --- NUEVO: Obtener semanas y meses disponibles para gender/age ---
+  // Obtener semanas disponibles para estadísticas demográficas
   Future<List<String>> getAvailableWeeks({required String token}) async {
-    final genderResp = await getStatistics('gender-distribution', token: token);
-    final Set<String> weeks = {};
-    if (genderResp['data'] != null && genderResp['data']['weekly'] != null) {
-      weeks.addAll((genderResp['data']['weekly'] as Map<String, dynamic>).keys);
+    try {
+      // Get raw response directly from gender-distribution endpoint
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/statistics/gender-distribution/'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        print('Error getting weeks: ${response.statusCode}');
+        return [];
+      }
+
+      // Parse the response
+      final data = jsonDecode(response.body);
+
+      // Get weekly keys directly from the response structure
+      final Set<String> weeks = {};
+      if (data != null && data.containsKey('weekly')) {
+        weeks.addAll((data['weekly'] as Map<String, dynamic>).keys);
+      }
+
+      print('Found ${weeks.length} available weeks: $weeks');
+
+      // Sort weeks with most recent first
+      final sorted = weeks.toList()..sort((a, b) => b.compareTo(a));
+      return sorted;
+    } catch (e) {
+      print('Error fetching available weeks: $e');
+      return [];
     }
-    final sorted = weeks.toList()
-      ..sort((a, b) => b.compareTo(a)); // Más reciente primero
-    return sorted;
   }
 
+  // Obtener meses disponibles para estadísticas demográficas
   Future<List<String>> getAvailableMonths({required String token}) async {
-    final genderResp = await getStatistics('gender-distribution', token: token);
-    final Set<String> months = {};
-    if (genderResp['data'] != null && genderResp['data']['monthly'] != null) {
-      months
-          .addAll((genderResp['data']['monthly'] as Map<String, dynamic>).keys);
+    try {
+      // Get raw response directly from gender-distribution endpoint
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/statistics/gender-distribution/'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        print('Error getting months: ${response.statusCode}');
+        return [];
+      }
+
+      // Parse the response
+      final data = jsonDecode(response.body);
+
+      // Get monthly keys directly from the response structure
+      final Set<String> months = {};
+      if (data != null && data.containsKey('monthly')) {
+        months.addAll((data['monthly'] as Map<String, dynamic>).keys);
+      }
+
+      print('Found ${months.length} available months: $months');
+
+      // Sort months with most recent first
+      final sorted = months.toList()..sort((a, b) => b.compareTo(a));
+      return sorted;
+    } catch (e) {
+      print('Error fetching available months: $e');
+      return [];
     }
-    final sorted = months.toList()
-      ..sort((a, b) => b.compareTo(a)); // Más reciente primero
-    return sorted;
   }
 }

@@ -25,6 +25,9 @@ class _HeatmapViewState extends State<HeatmapView> {
   // Maximum activity value for scaling
   double _maxActivity = 0;
 
+  // Track hovered card
+  String? _hoveredZoneId;
+
   @override
   void initState() {
     super.initState();
@@ -86,64 +89,126 @@ class _HeatmapViewState extends State<HeatmapView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mapa de Calor'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage.isNotEmpty
-              ? Center(child: Text('Error: $_errorMessage'))
-              : _storeLayout == null
-                  ? const Center(child: Text('No hay categorías disponibles'))
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: InteractiveViewer(
-                            boundaryMargin: const EdgeInsets.all(20),
-                            minScale: 0.1,
-                            maxScale: 3.0,
-                            child: Center(
-                              child: Container(
-                                width: _storeLayout!.width,
-                                height: _storeLayout!.height,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.black),
-                                  color: Colors.grey[200],
+      // Removed AppBar for a cleaner look
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage.isNotEmpty
+                ? Center(child: Text('Error: $_errorMessage'))
+                : _storeLayout == null
+                    ? const Center(child: Text('No hay categorías disponibles'))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Custom title bar with refresh button
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Mapa de Calor',
+                                  style:
+                                      theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : const Color(0xFF223A5E),
+                                  ),
                                 ),
-                                child: Stack(
-                                  children: [
-                                    // Draw store zones
-                                    ..._storeLayout!.zones
-                                        .map((zone) => Positioned(
-                                              left: zone.x,
-                                              top: zone.y,
-                                              width: zone.width,
-                                              height: zone.height,
-                                              child: _buildZone(zone),
-                                            )),
-                                  ],
+                                // Floating refresh button with nicer styling
+                                FloatingActionButton.small(
+                                  tooltip: 'Actualizar',
+                                  onPressed: _loadData,
+                                  elevation: 2,
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: theme.colorScheme.onPrimary,
+                                  child: const Icon(Icons.refresh),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Brief description
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 8.0),
+                            child: Text(
+                              'Visualización de la actividad en cada zona de la tienda en tiempo real',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+
+                          // The actual heatmap
+                          Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Card(
+                                elevation: 2,
+                                clipBehavior: Clip.antiAlias,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                color: isDarkMode
+                                    ? Colors.grey[850]
+                                    : Colors.grey[50],
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: _buildCategoryGrid(isDarkMode),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        // Add legend at bottom
-                        const HeatmapLegend(),
-                      ],
-                    ),
+
+                          // Simplified legend at bottom as in image
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: HeatmapLegend(),
+                          ),
+                        ],
+                      ),
+      ),
     );
   }
 
-  Widget _buildZone(ZoneDefinition zone) {
+  Widget _buildCategoryGrid(bool isDarkMode) {
+    final filteredZones = _storeLayout!.zones
+        .where((zone) => zone.id != 'entrance') // Filter out entrance
+        .toList();
+
+    if (filteredZones.isEmpty) {
+      return Center(
+        child: Text(
+          'No hay categorías disponibles',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white70 : Colors.black54,
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 300,
+        childAspectRatio: 1.5, // Make cards shorter in height
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: filteredZones.length,
+      itemBuilder: (context, index) {
+        final zone = filteredZones[index];
+        return _buildZoneCard(zone, isDarkMode);
+      },
+    );
+  }
+
+  Widget _buildZoneCard(ZoneDefinition zone, bool isDarkMode) {
     // Find the heatmap data for this zone
-    // The locationId in heatmap data should match the category ID (Tipo_Producto)
     final zoneData = _heatmapData.firstWhere(
       (element) => element.locationId == zone.id,
       orElse: () => HeatmapLocation(
@@ -160,98 +225,87 @@ class _HeatmapViewState extends State<HeatmapView> {
         ? (zoneData.avgCount / _maxActivity).clamp(0.0, 1.0)
         : 0.0;
 
-    // For debugging
-    print(
-        'Zone ${zone.id} (${zone.name}): avgCount=${zoneData.avgCount}, intensity=$intensity');
-
     // Choose color based on zone type and intensity
-    Color zoneColor;
-    if (zone.id == 'entrance') {
-      // Entrance is always red regardless of intensity
-      zoneColor = Colors.red.withOpacity(0.7);
-    } else {
-      zoneColor = _getHeatColor(intensity);
-    }
+    Color zoneColor = _getHeatColor(intensity);
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black45),
-        color: zoneColor,
-      ),
-      child: Stack(
-        children: [
-          // Zone name
-          Positioned(
-            top: 5,
-            left: 5,
-            child: Text(
-              zone.name,
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
+    final isHovered = _hoveredZoneId == zone.id;
+
+    // Better looking container with hover effect
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredZoneId = zone.id),
+      onExit: (_) => setState(() => _hoveredZoneId = null),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform: isHovered
+            ? Matrix4.translationValues(0, -5, 0)
+            : Matrix4.translationValues(0, 0, 0),
+        decoration: BoxDecoration(
+          color: zoneColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isHovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with icon and name
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Category name
+                  Expanded(
+                    child: Text(
+                      zone.name,
+                      style: TextStyle(
+                        color: isDarkMode || intensity > 0.7
+                            ? Colors.white
+                            : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Category icon
+                  Icon(
+                    IconDataHelper.getIconByName(zone.icon),
+                    color: isDarkMode || intensity > 0.7
+                        ? Colors.white70
+                        : Colors.black54,
+                    size: 24,
+                  ),
+                ],
               ),
-            ),
+            ],
           ),
-          // Icon
-          Positioned(
-            top: 5,
-            right: 5,
-            child: Icon(
-              IconDataHelper.getIconByName(zone.icon),
-              color: Colors.black54,
-              size: 20,
-            ),
-          ),
-          // Activity level
-          Positioned(
-            bottom: 5,
-            right: 5,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'Actividad: ${zoneData.avgCount.toStringAsFixed(1)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // Function to get color based on intensity
+  // Function to get color based on intensity with more attractive colors
   Color _getHeatColor(double intensity) {
     // Clamp intensity between 0.0 and 1.0
     intensity = intensity.clamp(0.0, 1.0);
 
     if (intensity < 0.3) {
-      // Blue to green (cold)
-      return Color.lerp(
-        Colors.blue.withOpacity(0.5),
-        Colors.green.withOpacity(0.5),
-        intensity / 0.3,
-      )!;
+      // Low activity (blue)
+      return Colors.blue.shade200;
     } else if (intensity < 0.7) {
-      // Green to yellow (moderate)
-      return Color.lerp(
-        Colors.green.withOpacity(0.5),
-        Colors.yellow.withOpacity(0.7),
-        (intensity - 0.3) / 0.4,
-      )!;
+      // Medium activity (yellow)
+      return Colors.amber.shade300;
     } else {
-      // Yellow to red (hot)
-      return Color.lerp(
-        Colors.yellow.withOpacity(0.7),
-        Colors.red.withOpacity(0.8),
-        (intensity - 0.7) / 0.3,
-      )!;
+      // High activity (red)
+      return Colors.red.shade400;
     }
   }
 }
