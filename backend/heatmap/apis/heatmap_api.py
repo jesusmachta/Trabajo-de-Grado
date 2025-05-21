@@ -26,11 +26,17 @@ async def upload_heatmap_data(data: Dict[str, Any] = Body(...)):
         # Create model instance
         heatmap_model = HeatmapModel()
         
+        # Get optional fields with defaults
+        medium = data.get("medium", 0)
+        far = data.get("far", 0)
+        
         # Store data
         result_id = heatmap_model.store_heatmap_data(
             location_id=data["location_id"],
             count=data["count"],
-            empresa=data["empresa"]
+            empresa=data["empresa"],
+            medium=medium,
+            far=far
         )
         
         return {"message": "Heat map data received successfully", "id": result_id}

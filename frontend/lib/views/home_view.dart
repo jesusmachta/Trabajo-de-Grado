@@ -694,18 +694,9 @@ class _HomeViewState extends State<HomeView> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: InkWell(
                 onTap: () {
-                  // Direct navigation to heatmap without waiting
-                  Navigator.pop(context); // Close drawer first
-
-                  // Set current index
-                  setState(() {
-                    _currentIndex = 5;
-                  });
-
-                  // Force navigation to heatmap route immediately
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    GoRouter.of(context).go('/heatmap');
-                  });
+                  // Direct navigation to heatmap similar to other menu items
+                  _navigateToView(5);
+                  Navigator.pop(context);
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(

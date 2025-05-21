@@ -265,21 +265,13 @@ class _OnboardingViewState extends State<OnboardingView> {
                         flex: 6,
                         child: Container(
                           width: double.infinity,
-                          height: 500,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  spreadRadius: 5,
-                                )
-                              ]),
+                          height:
+                              400, // Tamaño estándar para todas las imágenes
+                          alignment: Alignment.center,
+                          // Quitar decoración de fondo y sombra
                           child: Image.asset(
                             step.image,
-                            fit: BoxFit.contain,
+                            fit: BoxFit.contain, // No recorta la imagen
                           ),
                         ),
                       ),

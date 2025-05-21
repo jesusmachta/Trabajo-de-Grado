@@ -3,6 +3,7 @@
  *
  * This code detects Bluetooth devices nearby to estimate foot traffic
  * and sends the data to the backend server to create a heat map for a specific category.
+ * It uses RSSI signal strength to determine proximity to the category.
  */
 
 #include <WiFi.h>
@@ -13,8 +14,8 @@
 #include <BLEAdvertisedDevice.h>
 
 // WiFi credentials
-const char *ssid = "HABIBI";
-const char *password = "mihabibi2203#";
+const char *ssid = "REFUGIO";
+const char *password = "mirefugio2203#";
 
 // Your backend API endpoint
 const char *serverName = "https://trabajo-de-grado.onrender.com/api/heatmap/data";
@@ -24,10 +25,17 @@ const char *serverName = "https://trabajo-de-grado.onrender.com/api/heatmap/data
 const int TIPO_PRODUCTO = 1; // Set this to match your category ID
 String empresa = "CataSus";  // Company identifier
 
+// RSSI threshold values for proximity determination
+const int RSSI_CLOSE = -60;  // Strong signal (very close) - Main category
+const int RSSI_MEDIUM = -75; // Medium signal (medium distance) - Medium category
+const int RSSI_FAR = -90;    // Weak signal (far distance) - Far category
+
 // Bluetooth scanning parameters
 int scanTime = 5; // Seconds to scan for BLE devices
 BLEScan *pBLEScan;
-int deviceCount = 0;
+int closeCount = 0;  // Count of devices in close proximity (main category)
+int mediumCount = 0; // Count of devices at medium distance
+int farCount = 0;    // Count of devices at far distance
 unsigned long lastScanTime = 0;
 const unsigned long scanInterval = 60000; // Scan every minute
 
@@ -35,9 +43,27 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks
 {
     void onResult(BLEAdvertisedDevice advertisedDevice)
     {
-        // Count each unique device found
-        deviceCount++;
-        Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
+        // Get RSSI for the discovered device
+        int rssi = advertisedDevice.getRSSI();
+
+        // Categorize by RSSI strength
+        if (rssi >= RSSI_CLOSE)
+        {
+            // Strong signal - device is very close to this category
+            closeCount++;
+        }
+        else if (rssi >= RSSI_MEDIUM)
+        {
+            // Medium signal - device is at medium distance
+            mediumCount++;
+        }
+        else if (rssi >= RSSI_FAR)
+        {
+            // Weak signal - device is far away
+            farCount++;
+        }
+
+        Serial.printf("Advertised Device: %s - RSSI: %d\n", advertisedDevice.toString().c_str(), rssi);
     }
 };
 
@@ -81,20 +107,26 @@ void loop()
     // Check if it's time to perform a scan
     if (currentTime - lastScanTime >= scanInterval)
     {
-        // Reset device count before scanning
-        deviceCount = 0;
+        // Reset device counts before scanning
+        closeCount = 0;
+        mediumCount = 0;
+        farCount = 0;
 
         // Start BLE scan
         Serial.println("Starting BLE scan...");
         pBLEScan->start(scanTime, false);
 
-        Serial.print("Devices found: ");
-        Serial.println(deviceCount);
+        Serial.print("Close proximity devices (main category): ");
+        Serial.println(closeCount);
+        Serial.print("Medium distance devices: ");
+        Serial.println(mediumCount);
+        Serial.print("Far distance devices: ");
+        Serial.println(farCount);
 
         // Send data to server
         if (WiFi.status() == WL_CONNECTED)
         {
-            sendHeatMapData();
+            sendHeatMapData(closeCount, mediumCount, farCount);
         }
         else
         {
@@ -112,7 +144,7 @@ void loop()
     delay(1000); // Small delay in the main loop
 }
 
-void sendHeatMapData()
+void sendHeatMapData(int count, int medium, int far)
 {
     HTTPClient http;
 
@@ -127,7 +159,9 @@ void sendHeatMapData()
 
     // Prepare JSON data
     String httpRequestData = "{\"location_id\":\"" + locationId +
-                             "\",\"count\":" + String(deviceCount) +
+                             "\",\"count\":" + String(count) +
+                             ",\"medium\":" + String(medium) +
+                             ",\"far\":" + String(far) +
                              ",\"empresa\":\"" + empresa + "\"}";
 
     Serial.print("Sending data: ");

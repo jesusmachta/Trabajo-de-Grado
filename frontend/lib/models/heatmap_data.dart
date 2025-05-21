@@ -1,6 +1,8 @@
 class HeatmapLocation {
   final String locationId;
   final double avgCount;
+  final double avgMedium;
+  final double avgFar;
   final int maxCount;
   final int totalReadings;
   final DateTime lastUpdate;
@@ -8,18 +10,33 @@ class HeatmapLocation {
   HeatmapLocation({
     required this.locationId,
     required this.avgCount,
+    required this.avgMedium,
+    required this.avgFar,
     required this.maxCount,
     required this.totalReadings,
     required this.lastUpdate,
   });
 
   factory HeatmapLocation.fromJson(Map<String, dynamic> json) {
+    // Debug para ver qué contiene el JSON
+    print('JSON recibido: $json');
+
     return HeatmapLocation(
       locationId: json['location_id'],
-      avgCount: json['avgCount'].toDouble(),
-      maxCount: json['maxCount'],
-      totalReadings: json['totalReadings'],
-      lastUpdate: DateTime.parse(json['lastUpdate']),
+      avgCount: json['avgCount']?.toDouble() ?? 0.0,
+      // Corregir la extracción para buscar avgMedium o medium directamente en el JSON
+      avgMedium: json.containsKey('avgMedium')
+          ? json['avgMedium']?.toDouble() ?? 0.0
+          : json['medium']?.toDouble() ?? 0.0,
+      // Corregir la extracción para buscar avgFar o far directamente en el JSON
+      avgFar: json.containsKey('avgFar')
+          ? json['avgFar']?.toDouble() ?? 0.0
+          : json['far']?.toDouble() ?? 0.0,
+      maxCount: json['maxCount'] ?? 0,
+      totalReadings: json['totalReadings'] ?? 0,
+      lastUpdate: json.containsKey('lastUpdate')
+          ? DateTime.parse(json['lastUpdate'])
+          : DateTime.now(),
     );
   }
 }
