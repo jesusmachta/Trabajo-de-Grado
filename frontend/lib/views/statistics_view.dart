@@ -1278,15 +1278,45 @@ class StatisticsViewState extends State<StatisticsView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Text(
-              selectedStatOption['label']!, // Title
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+          // Modificar el título para agregar fondo azul como las demás estadísticas
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Theme.of(context).colorScheme.surface.withOpacity(0.5)
+                  : Theme.of(context)
+                      .colorScheme
+                      .surfaceVariant
+                      .withOpacity(0.3),
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).dividerColor
+                      : Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _getIconForStatistic(_selectedStat),
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    selectedStatOption['label']!,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : null,
+                        ),
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -1333,10 +1363,7 @@ class StatisticsViewState extends State<StatisticsView> {
             const SizedBox(height: 8),
           ],
 
-          Text(
-            'Resultados:',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          // Eliminamos el texto "Resultados:"
           const SizedBox(height: 16),
 
           Expanded(
@@ -1690,20 +1717,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Categorías Preferidas por Sexo',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Estas estadísticas muestran las preferencias de compra por sexo basadas en todos los datos históricos recopilados.',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
+          // Eliminados el título y subtítulo
           const SizedBox(height: 24),
 
           // Responsive layout for the gender cards
@@ -1755,15 +1769,8 @@ class StatisticsViewState extends State<StatisticsView> {
             },
           ),
 
-          // Explanation text
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0),
-            child: Text(
-              'Estas estadísticas muestran las preferencias de compra por sexo basadas en todos los datos históricos recopilados.',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ),
+          // Eliminado el texto explicativo de abajo
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -2453,15 +2460,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Título (mantener color azul como se indicó)
-          Text(
-            'Días de la Semana con Más y Menos Afluencia',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-          ),
+          // Eliminamos el título pero mantenemos el espacio
           const SizedBox(height: 24),
 
           // Calendario semanal (diseño según la imagen)
@@ -3295,23 +3294,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Visualización de emociones por categoría',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Emociones por categorías.',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-
-          // Removed scroll indicator since we're using page-level scrolling
-
+          // Eliminados el título y subtítulo
           const SizedBox(height: 16), // Added spacing
 
           // Center the horizontally scrollable row of charts
@@ -3534,18 +3517,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, // Alineado a la izquierda
         children: [
-          Text(
-            'Emociones más frecuentes',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Emociones predominantes detectadas entre los clientes',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          // Eliminamos el título y subtítulo
           const SizedBox(height: 24),
 
           // Usar Wrap para que las tarjetas se ajusten
@@ -3733,20 +3705,8 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
-          ),
+          // Eliminamos título y descripción
           const SizedBox(height: 8),
-          Text(
-            'Comparación entre felicidad y tristeza detectada',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
           const SizedBox(height: 16),
 
           // Leyenda
@@ -4199,27 +4159,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  'Diferencias Emocionales por Categoría',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Emociones detectadas por sexo en cada categoría',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
+          // Eliminados el título y subtítulo
           const SizedBox(height: 24),
 
           // Category cards
@@ -4885,20 +4825,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Categorías Más y Menos Visitadas',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Comparativa entre las categorías con mayor y menor número de visitas',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
+          // Eliminamos el título y subtítulo
           const SizedBox(height: 24),
 
           // Responsive layout for the cards
@@ -4950,16 +4877,9 @@ class StatisticsViewState extends State<StatisticsView> {
             },
           ),
 
-          // Explanation text
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0),
-            child: Text(
-              'Estas estadísticas muestran las preferencias históricas de los clientes al visitar las diferentes categorías de productos de la tienda.',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 8),
+          // Eliminamos el texto explicativo, solo mantenemos el texto de datos históricos
+          const SizedBox(height: 24),
+
           // Show that this is historical data
           Text(
             'Datos históricos acumulados',
@@ -5273,18 +5193,8 @@ class StatisticsViewState extends State<StatisticsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Título principal
-            Center(
-              child: Text(
-                'Distribución demográfica',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
+            // Eliminado el título principal
+            // Solo mostramos el período seleccionado
             Center(
               child: Text(
                 periodTitle,
@@ -5353,15 +5263,7 @@ class StatisticsViewState extends State<StatisticsView> {
 
             // -- SECCIÓN DE EDAD --
             if (hasAgeData) ...[
-              Text(
-                'Distribución por Rangos de Edad',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
+              // Eliminado el título de rangos de edad
               GridView.count(
                 crossAxisCount: MediaQuery.of(context).size.width > 600 ? 5 : 2,
                 crossAxisSpacing: 12,
@@ -5800,13 +5702,7 @@ class StatisticsViewState extends State<StatisticsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Título
-            Text(
-              'Distribución por sexo',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
+            // Eliminado el título
             const SizedBox(height: 16),
 
             // Mostrar datos en tarjetas
@@ -6011,20 +5907,7 @@ class StatisticsViewState extends State<StatisticsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'Categorías Más y Menos Visitadas Históricamente',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Comparativa entre las categorías con mayor y menor número de visitas históricamente',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
+          // Eliminamos el título y subtítulo
           const SizedBox(height: 24),
 
           // Responsive layout for the cards
@@ -6076,15 +5959,8 @@ class StatisticsViewState extends State<StatisticsView> {
             },
           ),
 
-          // Explanation text
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0),
-            child: Text(
-              'Estas estadísticas muestran las preferencias de los clientes al visitar las diferentes categorías de productos de la tienda históricamente.',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ),
+          // Eliminamos el texto explicativo
+          const SizedBox(height: 24),
         ],
       ),
     );

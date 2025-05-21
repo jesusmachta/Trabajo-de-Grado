@@ -103,13 +103,6 @@ class HelpView extends StatelessWidget {
             ),
             _buildFAQItem(
               context,
-              question:
-                  '¿Puedo exportar los datos para un análisis más detallado?',
-              answer:
-                  'Actualmente, puedes visualizar todos los datos directamente en la aplicación. La funcionalidad de exportación está en desarrollo y estará disponible en futuras actualizaciones.',
-            ),
-            _buildFAQItem(
-              context,
               question: '¿Cómo puedo obtener ayuda adicional?',
               answer:
                   'Si necesitas asistencia técnica o tienes preguntas específicas, puedes contactar al equipo de soporte a través del correo electrónico: soporte@storesense.com',

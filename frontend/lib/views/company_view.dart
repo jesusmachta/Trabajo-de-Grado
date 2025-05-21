@@ -121,155 +121,165 @@ class _CompanyViewState extends State<CompanyView> {
                 children: [
                   // Company icon and name
                   Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 120,
-                          width: 120,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.business,
-                              size: 64,
-                              color: theme.colorScheme.primary,
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 32, horizontal: 24),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 100,
+                              width: 100,
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.colorScheme.primary.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.business,
+                                  size: 56,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          currentUser.empresa ?? 'Mi Empresa',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        if (currentUser.rif != null)
-                          Text(
-                            'RIF: ${currentUser.rif}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color:
-                                  theme.colorScheme.onSurface.withOpacity(0.7),
+                            const SizedBox(height: 16),
+                            Text(
+                              currentUser.empresa ?? 'Mi Empresa',
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                      ],
+                            if (currentUser.rif != null)
+                              Text(
+                                'RIF: ${currentUser.rif}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.7),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
 
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
 
-                  // Danger Zone
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.red, width: 1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Zona de Peligro',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Eliminar empresa',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Esta acción eliminará permanentemente todos los datos de la empresa, incluyendo usuarios, cámaras, categorías y estadísticas. Esta acción no puede ser revertida.',
-                          style: TextStyle(
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (!_showDeleteConfirmation) ...[
-                          ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _showDeleteDialog,
-                            icon: const Icon(Icons.delete_forever,
-                                color: Colors.white),
-                            label: const Text('Eliminar Empresa',
-                                style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ] else ...[
-                          // Delete confirmation
-                          const Text(
-                            'Para confirmar, escriba el nombre de la empresa:',
-                            style: TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _confirmController,
-                            decoration: InputDecoration(
-                              hintText: currentUser.empresa,
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                  // Eliminar empresa (más elegante)
+                  Card(
+                    color: Colors.red[50],
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
                             children: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _showDeleteConfirmation = false;
-                                  });
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey,
+                              Icon(Icons.delete_forever,
+                                  color: Colors.red[400]),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Eliminar empresa',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red,
                                 ),
-                                child: const Text('Cancelar',
-                                    style: TextStyle(color: Colors.white)),
-                              ),
-                              const SizedBox(width: 16),
-                              ElevatedButton(
-                                onPressed: _isLoading ||
-                                        _confirmController.text !=
-                                            (currentUser.empresa ?? '')
-                                    ? null
-                                    : _deleteCompany,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text('Confirmar eliminación',
-                                        style: TextStyle(color: Colors.white)),
                               ),
                             ],
                           ),
-                        ],
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.red[700]),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Esta acción eliminará permanentemente todos los datos asociados a la empresa. Por favor, confirma para continuar.',
+                            style: TextStyle(fontSize: 15),
                           ),
+                          const SizedBox(height: 16),
+                          if (!_showDeleteConfirmation) ...[
+                            ElevatedButton.icon(
+                              onPressed: _isLoading ? null : _showDeleteDialog,
+                              icon: const Icon(Icons.delete_forever,
+                                  color: Colors.white),
+                              label: const Text('Eliminar Empresa',
+                                  style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ] else ...[
+                            // Delete confirmation
+                            const Text(
+                              'Para confirmar, escriba el nombre de la empresa:',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _confirmController,
+                              decoration: InputDecoration(
+                                hintText: currentUser.empresa,
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _showDeleteConfirmation = false;
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey,
+                                  ),
+                                  child: const Text('Cancelar',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
+                                const SizedBox(width: 16),
+                                ElevatedButton(
+                                  onPressed: _isLoading ||
+                                          _confirmController.text !=
+                                              (currentUser.empresa ?? '')
+                                      ? null
+                                      : _deleteCompany,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text('Confirmar eliminación',
+                                          style:
+                                              TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red[700]),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],
