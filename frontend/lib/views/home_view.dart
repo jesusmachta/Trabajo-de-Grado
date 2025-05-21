@@ -17,11 +17,13 @@ import 'heatmap_view.dart'; // Import HeatmapView
 class HomeView extends StatefulWidget {
   final Function toggleTheme;
   final String? initialView;
+  final String? initialStat;
 
   const HomeView({
     super.key,
     required this.toggleTheme,
     this.initialView,
+    this.initialStat,
   });
 
   @override
@@ -80,6 +82,12 @@ class _HomeViewState extends State<HomeView> {
               _showStatisticsSubmenu = false; // Hide statistics submenu
             });
             break;
+          case 'heatmap':
+            setState(() {
+              _currentIndex = 5;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
           default:
             setState(() {
               _currentIndex = 0;
@@ -99,7 +107,11 @@ class _HomeViewState extends State<HomeView> {
     final isAdmin = authController.currentUser?.role == 'admin';
     _pages = [
       DashboardView(toggleTheme: widget.toggleTheme),
-      StatisticsView(key: _statisticsViewKey, toggleTheme: widget.toggleTheme),
+      StatisticsView(
+        key: _statisticsViewKey,
+        toggleTheme: widget.toggleTheme,
+        initialStat: widget.initialStat,
+      ),
       if (isAdmin) UsersView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CategoriesView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CamerasView(toggleTheme: widget.toggleTheme),
@@ -509,40 +521,14 @@ class _HomeViewState extends State<HomeView> {
                           title: Text(option['label']!,
                               style: const TextStyle(fontSize: 14)),
                           onTap: () {
-                            // Obtener la estadística seleccionada antes de cerrar el drawer
                             final String statValue = option['value']!;
-                            print(
-                                'HomeView - Seleccionada estadística: $statValue');
-
-                            // Cerrar el drawer primero
                             Navigator.pop(context);
-
-                            // Actualizar índice actual después de cerrar el drawer
                             setState(() {
                               _currentIndex = 1;
                             });
-
-                            // Esperar a que se complete el build y luego actualizar la estadística
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              // Actualizar la estadística seleccionada
-                              if (_statisticsViewKey.currentState != null) {
-                                print(
-                                    'HomeView - Actualizando estadística a: $statValue');
-                                _statisticsViewKey.currentState!
-                                    .updateSelectedStat(statValue);
-
-                                // Navegar después de asegurar que la actualización se ha iniciado
-                                Future.delayed(Duration(milliseconds: 100), () {
-                                  print('HomeView - Navegando a /statistics');
-                                  GoRouter.of(context).go('/statistics');
-                                });
-                              } else {
-                                print(
-                                    'HomeView - Error: statisticsViewKey.currentState es null');
-                                // Navegar de todos modos
-                                GoRouter.of(context).go('/statistics');
-                              }
-                            });
+                            // Navegar a la ruta con el parámetro de estadística
+                            GoRouter.of(context)
+                                .go('/statistics?stat=$statValue');
                           },
                         ),
                       );

@@ -30,8 +30,9 @@ class EmotionPercentageData {
 
 class StatisticsView extends StatefulWidget {
   final Function? toggleTheme;
+  final String? initialStat;
 
-  const StatisticsView({super.key, this.toggleTheme});
+  const StatisticsView({super.key, this.toggleTheme, this.initialStat});
 
   @override
   StatisticsViewState createState() => StatisticsViewState();
@@ -43,7 +44,7 @@ class StatisticsViewState extends State<StatisticsView> {
   final CategoriesController _categoriesController =
       CategoriesController(); // Añadir controlador de categorías
   bool _isLoading = false;
-  String _selectedStat = 'peak-hours';
+  late String _selectedStat;
   String _selectedPeriod = 'week'; // Default for other stats
   DateTime _selectedDate = DateTime.now(); // Default for other stats
   DateTime? _selectedEndDate; // Default for other stats
@@ -154,9 +155,18 @@ class StatisticsViewState extends State<StatisticsView> {
     _selectedMonth = now.month;
     _selectedYear = now.year;
     _selectedCategoryPeriodType = 'historic'; // Inicia en histórico
+    _selectedStat = widget.initialStat ?? 'peak-hours';
     _initAvailablePeriods();
     _loadStatistics();
     _loadCategoryIcons(); // Cargar iconos de categorías
+  }
+
+  @override
+  void didUpdateWidget(covariant StatisticsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialStat != null && widget.initialStat != _selectedStat) {
+      updateSelectedStat(widget.initialStat!);
+    }
   }
 
   // NUEVO: Inicializar semanas y meses disponibles

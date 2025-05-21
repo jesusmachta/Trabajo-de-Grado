@@ -50,6 +50,7 @@ final GoRouter router = GoRouter(
           themeController.add(currentMode);
         },
         initialView: 'statistics',
+        initialStat: state.uri.queryParameters['stat'],
       ),
     ),
     GoRoute(
@@ -452,11 +453,13 @@ class _MyAppState extends State<MyApp> {
 class AuthWrapper extends StatelessWidget {
   final Function toggleTheme;
   final String? initialView;
+  final String? initialStat;
 
   const AuthWrapper({
     super.key,
     required this.toggleTheme,
     this.initialView,
+    this.initialStat,
   });
 
   @override
@@ -495,6 +498,7 @@ class AuthWrapper extends StatelessWidget {
           return HomeView(
             toggleTheme: toggleTheme,
             initialView: initialView,
+            initialStat: initialStat,
           );
         } else {
           // User is not authenticated -> Show LoginView
