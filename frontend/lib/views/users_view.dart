@@ -23,11 +23,14 @@ class UsersView extends StatefulWidget {
 
 enum UserStatusFilter { todos, activo, inactivo }
 
+enum UserRoleFilter { todos, admin, user }
+
 class _UsersViewState extends State<UsersView> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _searchController = TextEditingController();
   String _searchTerm = '';
   UserStatusFilter _selectedStatus = UserStatusFilter.todos;
+  UserRoleFilter _selectedRoleFilter = UserRoleFilter.todos;
 
   // Pagination variables
   int _currentPage = 1;
@@ -772,6 +775,13 @@ class _UsersViewState extends State<UsersView> {
           filtered.where((user) => user.isActive == isActiveFilter).toList();
     }
 
+    // Filter by role
+    if (_selectedRoleFilter != UserRoleFilter.todos) {
+      String roleFilter =
+          _selectedRoleFilter == UserRoleFilter.admin ? 'admin' : 'user';
+      filtered = filtered.where((user) => user.role == roleFilter).toList();
+    }
+
     // Filter by search term
     if (_searchTerm.isNotEmpty) {
       String lowerSearchTerm = _searchTerm.toLowerCase();
@@ -959,6 +969,46 @@ class _UsersViewState extends State<UsersView> {
                                 if (value != null) {
                                   setState(() {
                                     _selectedStatus = value;
+                                    _currentPage =
+                                        1; // Reset to first page on filter change
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceVariant
+                                .withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<UserRoleFilter>(
+                              focusColor: Colors.transparent,
+                              value: _selectedRoleFilter,
+                              icon: const Icon(Icons.person_outline),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: UserRoleFilter.todos,
+                                  child: Text('Rol: Todos'),
+                                ),
+                                DropdownMenuItem(
+                                  value: UserRoleFilter.admin,
+                                  child: Text('Rol: Admin'),
+                                ),
+                                DropdownMenuItem(
+                                  value: UserRoleFilter.user,
+                                  child: Text('Rol: Usuario'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedRoleFilter = value;
                                     _currentPage =
                                         1; // Reset to first page on filter change
                                   });
@@ -1343,6 +1393,13 @@ class _UsersViewState extends State<UsersView> {
       bool isActiveFilter = _selectedStatus == UserStatusFilter.activo;
       filtered =
           filtered.where((user) => user.isActive == isActiveFilter).toList();
+    }
+
+    // Filter by role
+    if (_selectedRoleFilter != UserRoleFilter.todos) {
+      String roleFilter =
+          _selectedRoleFilter == UserRoleFilter.admin ? 'admin' : 'user';
+      filtered = filtered.where((user) => user.role == roleFilter).toList();
     }
 
     // Filter by search term
