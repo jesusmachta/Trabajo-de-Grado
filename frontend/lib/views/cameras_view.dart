@@ -389,6 +389,10 @@ class _CamerasViewState extends State<CamerasView> {
                           labelText: 'ID Cámara (Número)',
                           hintText: 'Ingrese un número único',
                           errorMaxLines: 3,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -650,6 +654,10 @@ class _CamerasViewState extends State<CamerasView> {
                           labelText: 'ID Cámara (Número)',
                           hintText: 'Ingrese un número único',
                           errorMaxLines: 3,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -1222,15 +1230,18 @@ class _CamerasViewState extends State<CamerasView> {
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            hintText: 'Buscar por ID o Categoría',
+                            labelText: 'Búsqueda',
+                            hintText: 'Ingrese ID o Categoría para buscar',
                             prefixIcon: const Icon(Icons.search),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 0),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
                             suffixIcon: _searchTerm.isNotEmpty
                                 ? IconButton(
                                     icon: const Icon(Icons.clear),

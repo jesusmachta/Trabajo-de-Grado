@@ -271,6 +271,10 @@ class _UsersViewState extends State<UsersView> {
                       labelText: 'Email',
                       hintText: 'Ingresa el correo electrónico',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
@@ -294,6 +298,10 @@ class _UsersViewState extends State<UsersView> {
                           ? 'Dejar en blanco para no cambiar'
                           : 'Ingresa la contraseña',
                       border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
                             ? Icons.visibility_off
@@ -329,6 +337,10 @@ class _UsersViewState extends State<UsersView> {
                       labelText: 'Nombre Completo',
                       hintText: 'Ingresa el nombre completo',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -397,6 +409,10 @@ class _UsersViewState extends State<UsersView> {
                       hintText: 'Ingresa tu respuesta',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.question_answer),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                     ),
                     validator: (value) {
                       if (!_isEditMode && (value == null || value.isEmpty)) {
@@ -924,7 +940,8 @@ class _UsersViewState extends State<UsersView> {
                           child: TextField(
                             controller: _searchController,
                             decoration: InputDecoration(
-                                hintText: 'Buscar usuario por nombre o correo',
+                                labelText: 'Búsqueda de Usuarios',
+                                hintText: 'Ingrese nombre o correo para buscar',
                                 prefixIcon: const Icon(Icons.search),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -934,7 +951,7 @@ class _UsersViewState extends State<UsersView> {
                                 fillColor: theme.colorScheme.surfaceVariant
                                     .withOpacity(0.5),
                                 contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 0, horizontal: 16)),
+                                    vertical: 16, horizontal: 16)),
                           ),
                         ),
                         const SizedBox(width: 16),

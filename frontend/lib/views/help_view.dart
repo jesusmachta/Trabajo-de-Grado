@@ -142,7 +142,8 @@ class HelpView extends StatelessWidget {
                         // Implementar funcionalidad de contacto aquí
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Enviando solicitud de soporte...'),
+                            content: Text(
+                                'Correo de soporte: catalina.matheus@correo.unimet.edu.ve'),
                             duration: Duration(seconds: 2),
                           ),
                         );

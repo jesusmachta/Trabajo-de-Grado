@@ -198,23 +198,65 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       // Add a builder to allow overlays for toast notifications
       builder: (context, child) {
-        // Ensure we have an overlay for toast notifications
-        return Overlay(
-          initialEntries: [
-            OverlayEntry(
-              builder: (context) {
-                // Apply app icon to top level
-                if (child != null) {
-                  final mediaQueryData = MediaQuery.of(context);
-                  return MediaQuery(
-                    data: mediaQueryData,
-                    child: child,
-                  );
-                }
-                return Container();
-              },
-            ),
-          ],
+        // Apply global dialog theme override
+        return Builder(
+          builder: (context) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                // Ensure dialogs are always white regardless of theme
+                dialogBackgroundColor: Colors.white,
+                // Ensure input fields are always light blue
+                inputDecorationTheme: InputDecorationTheme(
+                  filled: true,
+                  fillColor: lightBlue,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary, width: 2),
+                  ),
+                  labelStyle: const TextStyle(
+                    color: Colors.black87,
+                    height: 0.8,
+                  ),
+                  floatingLabelBehavior: FloatingLabelBehavior.auto,
+                  hintStyle: const TextStyle(color: Colors.black54),
+                  // Add more space when label floats
+                  floatingLabelStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 16,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (context) {
+                      // Apply app icon to top level
+                      if (child != null) {
+                        final mediaQueryData = MediaQuery.of(context);
+                        return MediaQuery(
+                          data: mediaQueryData,
+                          child: child,
+                        );
+                      }
+                      return Container();
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
       // Tema claro con azul E1F5FF
@@ -283,28 +325,18 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         ),
-        // Configuración para los inputs
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: lightBlue.withOpacity(0.3),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Color(0xFF0277BD), width: 2),
-          ),
-        ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: lightBlue.withOpacity(0.5),
           indicatorColor: Color(0xFF0277BD).withOpacity(0.2),
+        ),
+        // Configuración para diálogos
+        dialogTheme: DialogTheme(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 4,
         ),
       ),
       // Tema oscuro con azul océano
@@ -394,27 +426,6 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
         ),
-        // Configuración para los inputs
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Color(0xFF2C3A47),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Color(0xFF64B5F6), width: 2),
-          ),
-          labelStyle: TextStyle(color: Colors.white70),
-          hintStyle: TextStyle(color: Colors.white54),
-        ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Color(0xFF0D2B4E),
           indicatorColor: Color(0xFF64B5F6).withOpacity(0.3),
@@ -441,6 +452,15 @@ class _MyAppState extends State<MyApp> {
         ),
         dividerTheme: DividerThemeData(
           color: Colors.white24,
+        ),
+        // Configuración para diálogos - mantenemos fondo blanco incluso en modo oscuro
+        dialogTheme: DialogTheme(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 4,
         ),
       ),
       themeMode: _themeMode,

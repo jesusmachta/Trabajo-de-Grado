@@ -197,10 +197,14 @@ class _ChatOverlayWidgetState extends State<ChatOverlayWidget> {
               controller: _textController,
               focusNode: _focusNode,
               decoration: InputDecoration(
-                hintText: 'Escribe un mensaje...',
+                labelText: 'Mensaje',
+                hintText: 'Ingrese su mensaje aquí...',
                 border: InputBorder.none,
                 filled: false, // Don't fill inside the input area container
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8.0),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
               ),
               onSubmitted: (_) => _sendMessage(),
               textInputAction: TextInputAction.send,

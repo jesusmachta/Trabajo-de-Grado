@@ -429,6 +429,10 @@ class _CategoriesViewState extends State<CategoriesView> {
                         border: const OutlineInputBorder(),
                         errorText:
                             errorText, // Mostrar mensaje de error si es necesario
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 18,
+                        ),
                       ),
                       onChanged: (value) {
                         setModalState(() {
@@ -437,7 +441,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
                     // Icon selector widget
                     IconSelector(
@@ -548,7 +552,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                             context, 'Categoría actualizada exitosamente');
                       }
                     } catch (e) {
-                      // If error occurs, reload to get correct state
+                      // If error occurs, reload to get the correct state
                       if (mounted) {
                         await _loadCategories();
                         ToastService.showError(
@@ -595,6 +599,10 @@ class _CategoriesViewState extends State<CategoriesView> {
                         labelText: 'Tipo de Producto (ID)',
                         border: const OutlineInputBorder(),
                         errorText: errorTextTipoProducto,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 18,
+                        ),
                       ),
                       onChanged: (value) {
                         setModalState(() {
@@ -613,7 +621,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     // Campo para Categoria_Producto
                     TextField(
                       controller: categoriaProductoController,
@@ -621,6 +629,10 @@ class _CategoriesViewState extends State<CategoriesView> {
                         labelText: 'Nombre de la Categoría',
                         border: const OutlineInputBorder(),
                         errorText: errorTextCategoriaProducto,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 18,
+                        ),
                       ),
                       onChanged: (value) {
                         setModalState(() {
@@ -628,7 +640,7 @@ class _CategoriesViewState extends State<CategoriesView> {
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     // Icon selector
                     IconSelector(
                       initialIcon: selectedIcon,
@@ -895,7 +907,8 @@ class _CategoriesViewState extends State<CategoriesView> {
                           child: TextField(
                             onChanged: _filterCategories,
                             decoration: InputDecoration(
-                              hintText: 'Buscar categorías...',
+                              labelText: 'Búsqueda de Categorías',
+                              hintText: 'Ingrese nombre para buscar',
                               prefixIcon: const Icon(Icons.search),
                               filled: true,
                               fillColor: theme.colorScheme.surfaceVariant

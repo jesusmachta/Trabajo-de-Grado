@@ -265,9 +265,15 @@ class _HeatmapViewState extends State<HeatmapView> {
                                   TextField(
                                     keyboardType: TextInputType.number,
                                     decoration: InputDecoration(
-                                      hintText: 'Personas',
-                                      isDense: true,
+                                      labelText: 'Umbral Bajo',
+                                      hintText: 'Ingrese cantidad de personas',
+                                      isDense: false,
                                       border: OutlineInputBorder(),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
+                                      ),
                                     ),
                                     controller: TextEditingController(
                                         text: tempLow.toString()),
@@ -275,7 +281,7 @@ class _HeatmapViewState extends State<HeatmapView> {
                                       tempLow = int.tryParse(value) ?? tempLow;
                                     },
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 24),
 
                                   // Medio Threshold
                                   const Text('Medio:',
@@ -285,9 +291,15 @@ class _HeatmapViewState extends State<HeatmapView> {
                                   TextField(
                                     keyboardType: TextInputType.number,
                                     decoration: InputDecoration(
-                                      hintText: 'Personas',
-                                      isDense: true,
+                                      labelText: 'Umbral Medio',
+                                      hintText: 'Ingrese cantidad de personas',
+                                      isDense: false,
                                       border: OutlineInputBorder(),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
+                                      ),
                                     ),
                                     controller: TextEditingController(
                                         text: tempMedium.toString()),
@@ -296,7 +308,7 @@ class _HeatmapViewState extends State<HeatmapView> {
                                           int.tryParse(value) ?? tempMedium;
                                     },
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 24),
 
                                   // Alto Threshold
                                   const Text('Alto:',
@@ -306,9 +318,15 @@ class _HeatmapViewState extends State<HeatmapView> {
                                   TextField(
                                     keyboardType: TextInputType.number,
                                     decoration: InputDecoration(
-                                      hintText: 'Personas',
-                                      isDense: true,
+                                      labelText: 'Umbral Alto',
+                                      hintText: 'Ingrese cantidad de personas',
+                                      isDense: false,
                                       border: OutlineInputBorder(),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
+                                      ),
                                     ),
                                     controller: TextEditingController(
                                         text: tempHigh.toString()),

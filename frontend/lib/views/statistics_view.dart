@@ -9,6 +9,7 @@ import 'widgets/statistic_card.dart';
 import 'widgets/statistics_selector.dart';
 import 'package:month_picker_dialog/month_picker_dialog.dart'; // Import month picker
 import '../controllers/categories_controller.dart'; // Importar el controlador de categorías
+import 'package:go_router/go_router.dart'; // Import GoRouter
 
 // String extension to add capitalize functionality
 extension StringExtension on String {
@@ -93,131 +94,27 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // Method to update the selected stat from outside
   void updateSelectedStat(String stat) {
-    print('StatisticsView - updateSelectedStat called with: $stat');
+    // Si ya estamos mostrando esta estadística, no hacer nada
+    if (_selectedStat == stat) return;
 
-    if (_selectedStat != stat) {
-      print(
-          'StatisticsView - Updating selected stat from $_selectedStat to $stat');
-
-      // Limpiar datos previos para forzar la recarga
-      setState(() {
-        _statisticsData = null;
-        _error = null;
-        _isLoading = false;
-        _selectedStat = stat;
-
-        // Reiniciar configuraciones específicas
-        if (stat == 'gender-age-combined') {
-          _selectedCategoryPeriodType = 'historic';
-        }
-      });
-
-      // Asegurar que la carga de datos ocurra después de actualizar el estado
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (stat == 'gender-age-combined') {
-          _initAvailablePeriods();
-        }
-        _loadStatistics();
-      });
-    } else {
-      // Incluso si es la misma estadística, forzar recarga
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadStatistics();
-      });
-    }
-  }
-
-  // Opciones para el período
-  final List<Map<String, String>> _periodOptions = [
-    {'value': 'week', 'label': 'Semana'},
-    {'value': 'month', 'label': 'Mes'},
-  ];
-
-  // Opciones de período para categorías visitadas
-  final List<Map<String, String>> _categoryPeriodOptions = [
-    {'value': 'week', 'label': 'Semana'},
-    {'value': 'month', 'label': 'Mes'},
-  ];
-
-  // NUEVO: Listas de semanas y meses disponibles para gender-age-combined
-  List<String> _availableWeeks = [];
-  List<String> _availableMonths = [];
-  String? _selectedWeekKey;
-  String? _selectedMonthKey;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _selectedCategoryWeek = now.subtract(Duration(days: now.weekday - 1));
-    _selectedCategoryMonth = DateTime(now.year, now.month, 1);
-    _selectedPeriod = 'month';
-    _selectedMonth = now.month;
-    _selectedYear = now.year;
-    _selectedCategoryPeriodType = 'historic'; // Inicia en histórico
-    _selectedStat = widget.initialStat ?? 'peak-hours';
-    _initAvailablePeriods();
-    _loadStatistics();
-    _loadCategoryIcons(); // Cargar iconos de categorías
-  }
-
-  @override
-  void didUpdateWidget(covariant StatisticsView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.initialStat != null && widget.initialStat != _selectedStat) {
-      updateSelectedStat(widget.initialStat!);
-    }
-  }
-
-  // NUEVO: Inicializar semanas y meses disponibles
-  Future<void> _initAvailablePeriods() async {
-    if (_selectedStat == 'gender-age-combined') {
-      final authController =
-          Provider.of<AuthController>(context, listen: false);
-      final token = authController.token;
-      if (token == null) return;
-      final weeks = await _controller.getAvailableWeeks(token: token);
-      final months = await _controller.getAvailableMonths(token: token);
-      setState(() {
-        _availableWeeks = weeks;
-        _availableMonths = months;
-        _selectedWeekKey = weeks.isNotEmpty ? weeks.first : null;
-        _selectedMonthKey = months.isNotEmpty ? months.first : null;
-      });
-    }
-  }
-
-  // NUEVO: Formatear semana para mostrar
-  String _formatWeekLabel(String weekKey) {
-    try {
-      final date = DateTime.parse(weekKey);
-      return 'Semana del ${DateFormat('dd/MM/yyyy').format(date)}';
-    } catch (_) {
-      return weekKey;
-    }
-  }
-
-  // NUEVO: Formatear mes para mostrar
-  String _formatMonthLabel(String monthKey) {
-    try {
-      final parts = monthKey.split('-');
-      final year = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      return '${_formatMonthName(month).capitalize()} $year';
-    } catch (_) {
-      return monthKey;
-    }
-  }
-
-  // Cargar estadísticas según la opción seleccionada
-  Future<void> _loadStatistics() async {
-    if (_isLoading) return;
-
+    // Actualizar inmediatamente la UI y mostrar un indicador de carga
     setState(() {
+      _selectedStat = stat;
       _isLoading = true;
-      _error = null;
     });
 
+    // Navegar a la estadística seleccionada sin esperar a que carguen los datos
+    GoRouter.of(context).go('/statistics?stat=$stat');
+  }
+
+  // Versión asíncrona para no bloquear la UI
+  Future<void> _loadStatisticsAsync() async {
+    // Establecer loading pero permitir que se muestre la interfaz actualizada
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Cargar los datos en segundo plano
     try {
       final authController =
           Provider.of<AuthController>(context, listen: false);
@@ -227,11 +124,13 @@ class StatisticsViewState extends State<StatisticsView> {
         throw Exception('No se encontró un token de autenticación.');
       }
 
-      print('--- Loading Statistics ---');
-      print('Selected Stat: $_selectedStat');
-
       Map<String, String>? params;
       dynamic data;
+
+      // Reiniciar configuraciones específicas si es necesario
+      if (_selectedStat == 'gender-age-combined') {
+        await _initAvailablePeriods();
+      }
 
       if (_selectedStat == 'visited-categories-combined') {
         data = await _controller.getHistoricalVisitedCategoriesStatistics(
@@ -286,16 +185,103 @@ class StatisticsViewState extends State<StatisticsView> {
             params: params, token: token);
       }
 
-      setState(() {
-        _statisticsData = data;
-        _isLoading = false;
-      });
+      // Actualizar la UI solo si el widget sigue montado
+      if (mounted) {
+        setState(() {
+          _statisticsData = data;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      print('Error in _loadStatistics: $e');
+      print('Error in _loadStatisticsAsync: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Opciones para el período
+  final List<Map<String, String>> _periodOptions = [
+    {'value': 'week', 'label': 'Semana'},
+    {'value': 'month', 'label': 'Mes'},
+  ];
+
+  // Opciones de período para categorías visitadas
+  final List<Map<String, String>> _categoryPeriodOptions = [
+    {'value': 'week', 'label': 'Semana'},
+    {'value': 'month', 'label': 'Mes'},
+  ];
+
+  // NUEVO: Listas de semanas y meses disponibles para gender-age-combined
+  List<String> _availableWeeks = [];
+  List<String> _availableMonths = [];
+  String? _selectedWeekKey;
+  String? _selectedMonthKey;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedCategoryWeek = now.subtract(Duration(days: now.weekday - 1));
+    _selectedCategoryMonth = DateTime(now.year, now.month, 1);
+    _selectedPeriod = 'month';
+    _selectedMonth = now.month;
+    _selectedYear = now.year;
+    _selectedCategoryPeriodType = 'historic'; // Inicia en histórico
+    _selectedStat = widget.initialStat ?? 'peak-hours';
+    _initAvailablePeriods();
+    _loadStatisticsAsync();
+    _loadCategoryIcons(); // Cargar iconos de categorías
+  }
+
+  @override
+  void didUpdateWidget(covariant StatisticsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialStat != null && widget.initialStat != _selectedStat) {
+      updateSelectedStat(widget.initialStat!);
+    }
+  }
+
+  // NUEVO: Inicializar semanas y meses disponibles
+  Future<void> _initAvailablePeriods() async {
+    if (_selectedStat == 'gender-age-combined') {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+      if (token == null) return;
+      final weeks = await _controller.getAvailableWeeks(token: token);
+      final months = await _controller.getAvailableMonths(token: token);
       setState(() {
-        _error = e.toString();
-        _isLoading = false;
+        _availableWeeks = weeks;
+        _availableMonths = months;
+        _selectedWeekKey = weeks.isNotEmpty ? weeks.first : null;
+        _selectedMonthKey = months.isNotEmpty ? months.first : null;
       });
+    }
+  }
+
+  // NUEVO: Formatear semana para mostrar
+  String _formatWeekLabel(String weekKey) {
+    try {
+      final date = DateTime.parse(weekKey);
+      return 'Semana del ${DateFormat('dd/MM/yyyy').format(date)}';
+    } catch (_) {
+      return weekKey;
+    }
+  }
+
+  // NUEVO: Formatear mes para mostrar
+  String _formatMonthLabel(String monthKey) {
+    try {
+      final parts = monthKey.split('-');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      return '${_formatMonthName(month).capitalize()} $year';
+    } catch (_) {
+      return monthKey;
     }
   }
 
@@ -6215,6 +6201,95 @@ class StatisticsViewState extends State<StatisticsView> {
     } catch (e) {
       print('Error cargando iconos de categorías: $e');
       // No mostramos error ya que esto es secundario a la funcionalidad principal
+    }
+  }
+
+  // Cargar estadísticas según la opción seleccionada
+  Future<void> _loadStatistics() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('No se encontró un token de autenticación.');
+      }
+
+      Map<String, String>? params;
+      dynamic data;
+
+      if (_selectedStat == 'visited-categories-combined') {
+        data = await _controller.getHistoricalVisitedCategoriesStatistics(
+            token: token);
+      } else if (_selectedStat == 'busy-days-combined') {
+        data = await _controller.getBusyDaysStatistics(token: token);
+      } else if (_selectedStat == 'gender-age-combined') {
+        if (_selectedCategoryPeriodType == 'month') {
+          if (_availableMonths.isNotEmpty) {
+            _selectedMonthKey = _availableMonths.first;
+          } else {
+            _selectedMonthKey = null;
+          }
+        } else if (_selectedCategoryPeriodType == 'week') {
+          if (_availableWeeks.isNotEmpty) {
+            _selectedWeekKey = _availableWeeks.first;
+          } else {
+            _selectedWeekKey = null;
+          }
+        }
+        params = {'period': _selectedCategoryPeriodType};
+        if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
+          params['date'] = _selectedWeekKey!;
+        } else if (_selectedCategoryPeriodType == 'month' &&
+            _selectedMonthKey != null) {
+          final parts = _selectedMonthKey!.split('-');
+          params['year'] = parts[0];
+          params['month'] = parts[1];
+        }
+        data = await _controller.getGenderAgeDistributionStatistics(
+            params: params, token: token);
+      } else if (_selectedStat == 'top-successful-categories') {
+        data = await _controller.getTopSuccessfulCategories(token: token);
+      } else {
+        if (_requiresParams(_selectedStat)) {
+          params = {'period': _selectedPeriod};
+          if (_selectedPeriod == 'week') {
+            params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
+            if (_selectedStat == 'emotion-comparison' &&
+                _selectedEndDate != null) {
+              params['end_date'] =
+                  DateFormat('yyyy-MM-dd').format(_selectedEndDate!);
+            }
+          } else if (_selectedPeriod == 'month') {
+            params['month'] = _selectedMonth.toString();
+            params['year'] = _selectedYear.toString();
+          }
+        }
+        data = await _controller.getStatistics(_selectedStat,
+            params: params, token: token);
+      }
+
+      if (mounted) {
+        setState(() {
+          _statisticsData = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error in _loadStatistics: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 }

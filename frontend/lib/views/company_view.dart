@@ -226,11 +226,17 @@ class _CompanyViewState extends State<CompanyView> {
                             TextField(
                               controller: _confirmController,
                               decoration: InputDecoration(
-                                hintText: currentUser.empresa,
+                                labelText: 'Nombre de la empresa',
+                                hintText:
+                                    'Ingrese el nombre exacto para confirmar',
                                 border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 18,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 24),
                             Row(
                               children: [
                                 ElevatedButton(
