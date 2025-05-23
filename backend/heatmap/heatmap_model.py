@@ -11,25 +11,25 @@ class HeatmapModel:
     def __init__(self):
         self.collection = collections['HeatMap']
     
-    def store_heatmap_data(self, location_id, count, empresa, medium=0, far=0):
+    def store_heatmap_data(self, sensor_id, empresa, tipo_producto_principal=0, tipo_producto_medium=0, tipo_producto_far=0):
         """
         Store heat map data from ESP32-CAM devices.
-        Checks if a document with the same Tipo_Producto (location_id) already exists.
-        If it exists, it will be replaced, otherwise a new one is inserted.
+        Checks if a document with the same sensor_id already exists.
+        If it exists, it will be updated, otherwise a new one is inserted.
         """
         try:
-            # Check if a document with the same Tipo_Producto already exists
+            # Check if a document with the same sensor_id already exists
             existing_doc = self.collection.find_one({
-                "location_id": location_id,
+                "sensor_id": sensor_id,
                 "empresa": empresa
             })
             
             # Create document with the new fields
             heatmap_document = {
-                "location_id": location_id,
-                "count": count,
-                "medium": medium,
-                "far": far,
+                "sensor_id": sensor_id,
+                "tipo_producto_principal": tipo_producto_principal,
+                "tipo_producto_medium": tipo_producto_medium,
+                "tipo_producto_far": tipo_producto_far,
                 "timestamp": datetime.now(),
                 "empresa": empresa
             }
@@ -40,12 +40,12 @@ class HeatmapModel:
                     {"_id": existing_doc["_id"]},
                     heatmap_document
                 )
-                logger.info(f"Replaced existing heatmap record for location {location_id} and empresa {empresa}")
+                logger.info(f"Replaced existing heatmap record for sensor {sensor_id} and empresa {empresa}")
                 return str(existing_doc["_id"])
             else:
                 # Insert new document
                 result = self.collection.insert_one(heatmap_document)
-                logger.info(f"Created new heatmap record for location {location_id} and empresa {empresa}")
+                logger.info(f"Created new heatmap record for sensor {sensor_id} and empresa {empresa}")
                 return str(result.inserted_id)
         except Exception as e:
             logger.error(f"Error storing heatmap data: {str(e)}")
@@ -78,25 +78,25 @@ class HeatmapModel:
     
     def get_aggregated_heatmap_data(self, empresa):
         """
-        Get aggregated heat map data by location for visualization
+        Get aggregated heat map data by sensor for visualization
         """
         try:
-            # Aggregate data by location_id
+            # Aggregate data by sensor_id
             pipeline = [
                 {"$match": {"empresa": empresa}},
                 {"$group": {
-                    "_id": "$location_id",
-                    "avgCount": {"$avg": "$count"},
-                    "maxCount": {"$max": "$count"},
-                    "avgMedium": {"$avg": "$medium"},
-                    "avgFar": {"$avg": "$far"},
+                    "_id": "$sensor_id",
+                    "avgPrincipal": {"$avg": "$tipo_producto_principal"},
+                    "avgMedium": {"$avg": "$tipo_producto_medium"},
+                    "avgFar": {"$avg": "$tipo_producto_far"},
+                    "maxPrincipal": {"$max": "$tipo_producto_principal"},
                     "totalReadings": {"$sum": 1},
                     "lastUpdate": {"$max": "$timestamp"}
                 }},
                 {"$project": {
-                    "location_id": "$_id",
-                    "avgCount": 1,
-                    "maxCount": 1,
+                    "sensor_id": "$_id",
+                    "avgPrincipal": 1,
+                    "maxPrincipal": 1,
                     "avgMedium": 1, 
                     "avgFar": 1,
                     "totalReadings": 1,

@@ -34,65 +34,13 @@ class _HeatmapViewState extends State<HeatmapView> {
   int _mediumThreshold = 10; // Default value
   int _highThreshold = 15; // Default value
 
-  // Distance category settings
-  String? _mainCategoryId;
-  String? _mediumCategoryId;
-  String? _farCategoryId;
+  // Loading state for sensor settings
+  bool _isLoadingSettings = false;
 
   @override
   void initState() {
     super.initState();
     // The controller will be initialized in didChangeDependencies
-    _loadThresholds();
-    _loadCategorySettings();
-  }
-
-  Future<void> _loadThresholds() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _lowThreshold = prefs.getInt('heatmap_low_threshold') ?? 5;
-      _mediumThreshold = prefs.getInt('heatmap_medium_threshold') ?? 10;
-      _highThreshold = prefs.getInt('heatmap_high_threshold') ?? 15;
-    });
-  }
-
-  Future<void> _loadCategorySettings() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _mainCategoryId = prefs.getString('heatmap_main_category');
-      _mediumCategoryId = prefs.getString('heatmap_medium_category');
-      _farCategoryId = prefs.getString('heatmap_far_category');
-    });
-  }
-
-  Future<void> _saveThresholds() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('heatmap_low_threshold', _lowThreshold);
-    await prefs.setInt('heatmap_medium_threshold', _mediumThreshold);
-    await prefs.setInt('heatmap_high_threshold', _highThreshold);
-  }
-
-  Future<void> _saveCategorySettings() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Limpiar configuraciones anteriores
-    await prefs.remove('heatmap_main_category');
-    await prefs.remove('heatmap_medium_category');
-    await prefs.remove('heatmap_far_category');
-
-    // Guardar nuevas configuraciones
-    if (_mainCategoryId != null) {
-      await prefs.setString('heatmap_main_category', _mainCategoryId!);
-      print('Guardado categoría principal: $_mainCategoryId');
-    }
-    if (_mediumCategoryId != null) {
-      await prefs.setString('heatmap_medium_category', _mediumCategoryId!);
-      print('Guardado categoría media: $_mediumCategoryId');
-    }
-    if (_farCategoryId != null) {
-      await prefs.setString('heatmap_far_category', _farCategoryId!);
-      print('Guardado categoría lejana: $_farCategoryId');
-    }
   }
 
   @override
@@ -101,6 +49,55 @@ class _HeatmapViewState extends State<HeatmapView> {
     // Initialize the controller once the context is available
     _controller = HeatmapController(context);
     _loadData();
+    _loadSensorSettings();
+  }
+
+  Future<void> _loadSensorSettings() async {
+    setState(() {
+      _isLoadingSettings = true;
+    });
+
+    try {
+      final settings = await _controller.getSensorSettings();
+
+      setState(() {
+        _lowThreshold = settings['tipo_producto_far'] ?? 5;
+        _mediumThreshold = settings['tipo_producto_medium'] ?? 10;
+        _highThreshold = settings['tipo_producto_principal'] ?? 15;
+        _isLoadingSettings = false;
+      });
+
+      print(
+          'Loaded sensor settings - Low: $_lowThreshold, Medium: $_mediumThreshold, High: $_highThreshold');
+    } catch (e) {
+      setState(() {
+        _isLoadingSettings = false;
+      });
+      print('Error loading sensor settings: $e');
+    }
+  }
+
+  Future<void> _updateSensorSettings(int low, int medium, int high) async {
+    try {
+      await _controller.updateSensorSettings(
+        tipoPrincipal: high,
+        tipoMedium: medium,
+        tipoFar: low,
+      );
+
+      // Update local state
+      setState(() {
+        _lowThreshold = low;
+        _mediumThreshold = medium;
+        _highThreshold = high;
+      });
+
+      print(
+          'Updated sensor settings - Low: $low, Medium: $medium, High: $high');
+    } catch (e) {
+      print('Error updating sensor settings: $e');
+      rethrow; // Re-throw to handle in the calling function
+    }
   }
 
   Future<void> _loadData() async {
@@ -119,8 +116,8 @@ class _HeatmapViewState extends State<HeatmapView> {
       // Find max activity for scaling
       double maxVal = 0;
       for (var location in heatmapData) {
-        if (location.avgCount > maxVal) {
-          maxVal = location.avgCount;
+        if (location.avgPrincipal > maxVal) {
+          maxVal = location.avgPrincipal;
         }
       }
 
@@ -139,20 +136,6 @@ class _HeatmapViewState extends State<HeatmapView> {
       print('Loaded ${_categories.length} categories');
       print('Loaded ${_heatmapData.length} heatmap data points');
       print('Max activity value: $_maxActivity');
-
-      // Debug log para encontrar el problema con medium y far
-      if (_mainCategoryId != null) {
-        for (var data in _heatmapData) {
-          if (data.locationId == _mainCategoryId) {
-            print('MAIN CATEGORY DATA:');
-            print('Location ID: ${data.locationId}');
-            print('Count: ${data.avgCount}');
-            print('Medium: ${data.avgMedium}');
-            print('Far: ${data.avgFar}');
-            break;
-          }
-        }
-      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -166,370 +149,210 @@ class _HeatmapViewState extends State<HeatmapView> {
     int tempLow = _lowThreshold;
     int tempMedium = _mediumThreshold;
     int tempHigh = _highThreshold;
-    String? tempMainCategory = _mainCategoryId;
-    String? tempMediumCategory = _mediumCategoryId;
-    String? tempFarCategory = _farCategoryId;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(builder: (context, setState) {
-          // Función local para manejar cambios en las categorías
-          void handleCategoryChange(String type, String? value) {
-            setState(() {
-              // Actualizar el valor seleccionado
-              if (type == 'Principal') {
-                // Si cambia la categoría principal
-                tempMainCategory = value;
-
-                // Si la nueva categoría principal era antes media o lejana, resetearlas
-                if (tempMediumCategory == value) {
-                  tempMediumCategory = null;
-                }
-                if (tempFarCategory == value) {
-                  tempFarCategory = null;
-                }
-              } else if (type == 'Distancia Media') {
-                // Si cambia la categoría media
-                tempMediumCategory = value;
-
-                // Si la nueva categoría media era antes lejana, resetearla
-                if (tempFarCategory == value) {
-                  tempFarCategory = null;
-                }
-              } else if (type == 'Distancia Lejana') {
-                // Si cambia la categoría lejana
-                tempFarCategory = value;
-              }
-            });
-          }
-
-          return DefaultTabController(
-            length: 2,
-            child: AlertDialog(
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return AlertDialog(
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Configuración del Mapa de Calor'),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                  splashRadius: 20,
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500, // Make the dialog wider
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Configuración del Mapa de Calor'),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                    splashRadius: 20,
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 500, // Make the dialog wider
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TabBar(
-                      indicatorColor: Theme.of(context)
-                          .colorScheme
-                          .primary, // Blue indicator
-                      labelColor: Theme.of(context)
-                          .colorScheme
-                          .primary, // Blue label for selected tab
-                      unselectedLabelColor: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.color, // Default text color for unselected
-                      tabs: const [
-                        Tab(text: 'Umbrales'),
-                        Tab(text: 'Categorías por Distancia'),
-                      ],
-                    ),
-                    SizedBox(
-                      height: 300, // Set a fixed height for content
-                      child: TabBarView(
+                  // Threshold settings content
+                  SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Tab 1: Threshold settings
-                          SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 16.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Configure los umbrales para cada nivel de actividad:',
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 24),
+                          const Text(
+                            'Configure los umbrales para cada nivel de actividad:',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 24),
 
-                                  // Bajo Threshold
-                                  const Text('Bajo:',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  TextField(
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: 'Umbral Bajo',
-                                      hintText: 'Ingrese cantidad de personas',
-                                      isDense: false,
-                                      border: OutlineInputBorder(),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 18,
-                                      ),
-                                    ),
-                                    controller: TextEditingController(
-                                        text: tempLow.toString()),
-                                    onChanged: (value) {
-                                      tempLow = int.tryParse(value) ?? tempLow;
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-
-                                  // Medio Threshold
-                                  const Text('Medio:',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  TextField(
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: 'Umbral Medio',
-                                      hintText: 'Ingrese cantidad de personas',
-                                      isDense: false,
-                                      border: OutlineInputBorder(),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 18,
-                                      ),
-                                    ),
-                                    controller: TextEditingController(
-                                        text: tempMedium.toString()),
-                                    onChanged: (value) {
-                                      tempMedium =
-                                          int.tryParse(value) ?? tempMedium;
-                                    },
-                                  ),
-                                  const SizedBox(height: 24),
-
-                                  // Alto Threshold
-                                  const Text('Alto:',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  TextField(
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: 'Umbral Alto',
-                                      hintText: 'Ingrese cantidad de personas',
-                                      isDense: false,
-                                      border: OutlineInputBorder(),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 18,
-                                      ),
-                                    ),
-                                    controller: TextEditingController(
-                                        text: tempHigh.toString()),
-                                    onChanged: (value) {
-                                      tempHigh =
-                                          int.tryParse(value) ?? tempHigh;
-                                    },
-                                  ),
-                                ],
+                          // Bajo Threshold
+                          const Text('Bajo:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Umbral Bajo',
+                              hintText: 'Ingrese cantidad de personas',
+                              isDense: false,
+                              border: OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
                               ),
                             ),
+                            controller:
+                                TextEditingController(text: tempLow.toString()),
+                            onChanged: (value) {
+                              tempLow = int.tryParse(value) ?? tempLow;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Medio Threshold
+                          const Text('Medio:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Umbral Medio',
+                              hintText: 'Ingrese cantidad de personas',
+                              isDense: false,
+                              border: OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                            ),
+                            controller: TextEditingController(
+                                text: tempMedium.toString()),
+                            onChanged: (value) {
+                              tempMedium = int.tryParse(value) ?? tempMedium;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Alto Threshold
+                          const Text('Alto:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Umbral Alto',
+                              hintText: 'Ingrese cantidad de personas',
+                              isDense: false,
+                              border: OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                            ),
+                            controller: TextEditingController(
+                                text: tempHigh.toString()),
+                            onChanged: (value) {
+                              tempHigh = int.tryParse(value) ?? tempHigh;
+                            },
                           ),
 
-                          // Tab 2: Category distance settings
-                          SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 16.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Configure las categorías para cada distancia:',
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // Main category dropdown
-                                  const Text(
-                                    'Categoría Principal:',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.grey.shade400),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 4),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value: tempMainCategory,
-                                        isExpanded: true,
-                                        isDense: true,
-                                        hint: const Text(
-                                            'Seleccionar Categoría Principal'),
-                                        items: _categories.map((category) {
-                                          return DropdownMenuItem<String>(
-                                            value: category.id,
-                                            child: Text(category.name),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) =>
-                                            handleCategoryChange(
-                                                'Principal', value),
+                          // Rules guidance
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.info_outline,
+                                        color: Colors.blue.shade700),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Reglas de configuración',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue.shade900,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // Medium distance category dropdown
-                                  const Text(
-                                    'Categoría a Distancia Media:',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.grey.shade400),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 4),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value: tempMediumCategory,
-                                        isExpanded: true,
-                                        isDense: true,
-                                        hint: const Text(
-                                            'Seleccionar Categoría Media'),
-                                        items: _categories
-                                            .where((category) =>
-                                                category.id != tempMainCategory)
-                                            .map((category) {
-                                          return DropdownMenuItem<String>(
-                                            value: category.id,
-                                            child: Text(category.name),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) =>
-                                            handleCategoryChange(
-                                                'Distancia Media', value),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // Far distance category dropdown
-                                  const Text(
-                                    'Categoría a Distancia Lejana:',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.grey.shade400),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 4),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value: tempFarCategory,
-                                        isExpanded: true,
-                                        isDense: true,
-                                        hint: const Text(
-                                            'Seleccionar Categoría Lejana'),
-                                        items: _categories
-                                            .where((category) =>
-                                                category.id !=
-                                                    tempMainCategory &&
-                                                category.id !=
-                                                    tempMediumCategory)
-                                            .map((category) {
-                                          return DropdownMenuItem<String>(
-                                            value: category.id,
-                                            child: Text(category.name),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) =>
-                                            handleCategoryChange(
-                                                'Distancia Lejana', value),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Los umbrales deben seguir la regla: Bajo ≤ Medio ≤ Alto',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    bool isValid = true;
-                    String errorMessage = '';
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  bool isValid = true;
+                  String errorMessage = '';
 
-                    // Validate threshold values
-                    if (!(tempLow < tempMedium && tempMedium < tempHigh)) {
-                      isValid = false;
-                      errorMessage =
-                          'Los valores deben ser ascendentes: Bajo < Medio < Alto';
-                    }
+                  // Validate threshold values
+                  if (!(tempLow <= tempMedium && tempMedium <= tempHigh)) {
+                    isValid = false;
+                    errorMessage =
+                        'Los umbrales deben seguir la regla: Bajo ≤ Medio ≤ Alto';
+                  }
 
-                    if (isValid) {
-                      // Update thresholds
-                      this.setState(() {
-                        _lowThreshold = tempLow;
-                        _mediumThreshold = tempMedium;
-                        _highThreshold = tempHigh;
-                        _mainCategoryId = tempMainCategory;
-                        _mediumCategoryId = tempMediumCategory;
-                        _farCategoryId = tempFarCategory;
-                      });
-
-                      // Save all settings
-                      _saveThresholds();
-                      _saveCategorySettings();
-
-                      // Cerrar el diálogo
+                  if (isValid) {
+                    // Update thresholds via API
+                    _updateSensorSettings(tempLow, tempMedium, tempHigh)
+                        .then((_) {
+                      // Close the dialog on success
                       Navigator.of(context).pop();
 
-                      // Recargar datos para aplicar los cambios inmediatamente
+                      // Show success message
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Configuración actualizada con éxito'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+
+                      // Reload data to apply changes
                       _loadData();
-                    } else {
-                      // Show error message
+                    }).catchError((error) {
+                      // Show error on failure but keep dialog open
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(errorMessage),
+                          content: Text('Error al actualizar: $error'),
                           backgroundColor: Colors.red,
                         ),
                       );
-                    }
-                  },
-                  child: const Text('Guardar'),
-                ),
-              ],
-            ),
+                    });
+                  } else {
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(errorMessage),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
           );
         });
       },
@@ -718,45 +541,6 @@ class _HeatmapViewState extends State<HeatmapView> {
       );
     }
 
-    // Find main category data
-    HeatmapLocation? mainCategoryData;
-    StoreCategory? mainCategoryDetails;
-    StoreCategory? mediumCategoryDetails;
-    StoreCategory? farCategoryDetails;
-
-    if (_mainCategoryId != null) {
-      try {
-        mainCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == _mainCategoryId);
-        mainCategoryData = _heatmapData.firstWhere(
-          (data) =>
-              data.locationId == mainCategoryDetails!.tipoProducto.toString(),
-        );
-        print('Datos de categoría principal encontrados: $mainCategoryData');
-        print(
-            'Medium value: ${mainCategoryData.avgMedium}, Far value: ${mainCategoryData.avgFar}');
-      } catch (e) {
-        print(
-            'No se encontraron datos para la categoría principal o la categoría en sí: $e');
-      }
-    }
-    if (_mediumCategoryId != null) {
-      try {
-        mediumCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == _mediumCategoryId);
-      } catch (e) {
-        print('No se encontró la categoría media seleccionada: $e');
-      }
-    }
-    if (_farCategoryId != null) {
-      try {
-        farCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == _farCategoryId);
-      } catch (e) {
-        print('No se encontró la categoría lejana seleccionada: $e');
-      }
-    }
-
     // Group zones by tier based on activity level
     final Map<String, List<ZoneDefinition>> tierGroups = {
       'S': [], // Super high activity
@@ -780,45 +564,46 @@ class _HeatmapViewState extends State<HeatmapView> {
 
       try {
         // Check if this zone is the main category
-        if (mainCategoryDetails != null &&
-            zone.id == mainCategoryDetails.tipoProducto.toString()) {
+        if (zone.id == 'principal') {
           HeatmapLocation zoneData = _heatmapData.firstWhere(
-            (data) => data.locationId == zone.id,
+            (data) => data.sensorId == zone.id,
           );
-          valueToUse = zoneData.avgCount.round();
+          valueToUse = zoneData.avgPrincipal.round();
           print(
               'Categoría Principal (${zone.name}) - Count Value: $valueToUse');
         }
         // Check if this zone is the medium distance category AND mainCategoryData is available
-        else if (mediumCategoryDetails != null &&
-            zone.id == mediumCategoryDetails.tipoProducto.toString() &&
-            mainCategoryData != null) {
-          valueToUse = mainCategoryData.avgMedium.round();
+        else if (zone.id == 'medium') {
+          valueToUse = _heatmapData
+              .firstWhere((data) => data.sensorId == 'principal')
+              .avgMedium
+              .round();
           print(
-              'Categoría Media (${zone.name}) - Medium Value (from ${mainCategoryDetails?.name}): $valueToUse');
+              'Categoría Media (${zone.name}) - Medium Value (from Principal): $valueToUse');
         }
         // Check if this zone is the far distance category AND mainCategoryData is available
-        else if (farCategoryDetails != null &&
-            zone.id == farCategoryDetails.tipoProducto.toString() &&
-            mainCategoryData != null) {
-          valueToUse = mainCategoryData.avgFar.round();
+        else if (zone.id == 'far') {
+          valueToUse = _heatmapData
+              .firstWhere((data) => data.sensorId == 'principal')
+              .avgFar
+              .round();
           print(
-              'Categoría Lejana (${zone.name}) - Far Value (from ${mainCategoryDetails?.name}): $valueToUse');
+              'Categoría Lejana (${zone.name}) - Far Value (from Principal): $valueToUse');
         } else {
           // Para otras categorías, usar su count normal si existe
           HeatmapLocation? zoneData = _heatmapData.firstWhere(
-            (data) => data.locationId == zone.id,
+            (data) => data.sensorId == zone.id,
             orElse: () => HeatmapLocation(
-              locationId: zone.id,
-              avgCount: 0,
+              sensorId: zone.id,
+              avgPrincipal: 0,
               avgMedium: 0,
               avgFar: 0,
-              maxCount: 0,
+              maxPrincipal: 0,
               totalReadings: 0,
               lastUpdate: DateTime.now(),
             ),
           );
-          valueToUse = zoneData.avgCount.round();
+          valueToUse = zoneData.avgPrincipal.round();
         }
       } catch (e) {
         print('Error al obtener valor para zona ${zone.id}: $e');
@@ -938,8 +723,6 @@ class _HeatmapViewState extends State<HeatmapView> {
     // Print para debug
     print(
         'Zona actual: ID=${zone.id}, nombre=${zone.name}, tipoProducto=${zone.tipoProducto}');
-    print(
-        'ID Categoría Principal: $_mainCategoryId, Media: $_mediumCategoryId, Lejana: $_farCategoryId');
 
     // Find main category data and details first
     HeatmapLocation? mainHeatmapDataForDistances;
@@ -947,39 +730,38 @@ class _HeatmapViewState extends State<HeatmapView> {
     StoreCategory? mediumCategoryDetails;
     StoreCategory? farCategoryDetails;
 
-    if (_mainCategoryId != null) {
+    if (zone.id == 'principal') {
       try {
         mainCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == _mainCategoryId);
+            _categories.firstWhere((cat) => cat.id == 'principal');
         mainHeatmapDataForDistances = _heatmapData.firstWhere(
             (data) =>
-                data.locationId == mainCategoryDetails!.tipoProducto.toString(),
+                data.sensorId == mainCategoryDetails!.tipoProducto.toString(),
             orElse: () => HeatmapLocation(
-                locationId: mainCategoryDetails!.tipoProducto.toString(),
-                avgCount: 0,
+                sensorId: mainCategoryDetails!.tipoProducto.toString(),
+                avgPrincipal: 0,
                 avgMedium: 0,
                 avgFar: 0,
-                maxCount: 0,
+                maxPrincipal: 0,
                 totalReadings: 0,
                 lastUpdate: DateTime.now()));
         print(
-            'Datos de heatmap de categoría principal para distancias: count=${mainHeatmapDataForDistances.avgCount}, medium=${mainHeatmapDataForDistances.avgMedium}, far=${mainHeatmapDataForDistances.avgFar}');
+            'Datos de heatmap de categoría principal para distancias: count=${mainHeatmapDataForDistances.avgPrincipal}, medium=${mainHeatmapDataForDistances.avgMedium}, far=${mainHeatmapDataForDistances.avgFar}');
       } catch (e) {
         print('Error buscando categoría principal o sus datos de heatmap: $e');
       }
     }
-    if (_mediumCategoryId != null) {
+    if (zone.id == 'medium') {
       try {
         mediumCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == _mediumCategoryId);
+            _categories.firstWhere((cat) => cat.id == 'medium');
       } catch (e) {
         print('Error buscando detalles de categoría media: $e');
       }
     }
-    if (_farCategoryId != null) {
+    if (zone.id == 'far') {
       try {
-        farCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == _farCategoryId);
+        farCategoryDetails = _categories.firstWhere((cat) => cat.id == 'far');
       } catch (e) {
         print('Error buscando detalles de categoría lejana: $e');
       }
@@ -990,17 +772,17 @@ class _HeatmapViewState extends State<HeatmapView> {
     if (mainCategoryDetails != null &&
         zone.id == mainCategoryDetails.tipoProducto.toString()) {
       final zoneData = _heatmapData.firstWhere(
-        (element) => element.locationId == zone.id,
+        (element) => element.sensorId == zone.id,
         orElse: () => HeatmapLocation(
-            locationId: zone.id,
-            avgCount: 0,
+            sensorId: zone.id,
+            avgPrincipal: 0,
             avgMedium: 0,
             avgFar: 0,
-            maxCount: 0,
+            maxPrincipal: 0,
             totalReadings: 0,
             lastUpdate: DateTime.now()),
       );
-      valueToShow = zoneData.avgCount.round();
+      valueToShow = zoneData.avgPrincipal.round();
       labelText = 'Principal';
       print('Categoría Principal (${zone.name}) - Valor: $valueToShow');
     }
@@ -1024,18 +806,18 @@ class _HeatmapViewState extends State<HeatmapView> {
     } else {
       // Otra categoría no asignada
       final zoneData = _heatmapData.firstWhere(
-        (element) => element.locationId == zone.id,
+        (element) => element.sensorId == zone.id,
         orElse: () => HeatmapLocation(
-          locationId: zone.id,
-          avgCount: 0,
+          sensorId: zone.id,
+          avgPrincipal: 0,
           avgMedium: 0,
           avgFar: 0,
-          maxCount: 0,
+          maxPrincipal: 0,
           totalReadings: 0,
           lastUpdate: DateTime.now(),
         ),
       );
-      valueToShow = zoneData.avgCount.round();
+      valueToShow = zoneData.avgPrincipal.round();
     }
 
     final isHovered = _hoveredZoneId == zone.id;

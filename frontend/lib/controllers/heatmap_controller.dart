@@ -56,7 +56,7 @@ class HeatmapController {
     }
   }
 
-  // Get aggregated heatmap data
+  // Get aggregated heatmap data by sensors
   Future<List<HeatmapLocation>> getAggregatedHeatmapData() async {
     try {
       final authController =
@@ -130,6 +130,95 @@ class HeatmapController {
     } catch (e) {
       print('Error in getHeatmapData: $e');
       throw Exception('Failed to load heatmap data: $e');
+    }
+  }
+
+  // Get sensor settings for the current company
+  Future<Map<String, dynamic>> getSensorSettings() async {
+    try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/sensor-settings'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['message'] == 'Success' &&
+            responseData['data'] != null) {
+          return responseData['data'];
+        } else {
+          throw Exception(
+              'Failed to load sensor settings: ${responseData['message']}');
+        }
+      } else {
+        throw Exception(
+            'Failed to load sensor settings: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getSensorSettings: $e');
+      throw Exception('Failed to load sensor settings: $e');
+    }
+  }
+
+  // Update sensor settings for the current company
+  Future<Map<String, dynamic>> updateSensorSettings({
+    required int tipoPrincipal,
+    required int tipoMedium,
+    required int tipoFar,
+  }) async {
+    try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final Map<String, dynamic> requestData = {
+        'tipo_producto_principal': tipoPrincipal,
+        'tipo_producto_medium': tipoMedium,
+        'tipo_producto_far': tipoFar,
+      };
+
+      final response = await http.put(
+        Uri.parse('${ApiConstants.baseUrl}/api/sensor-settings'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestData),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['message'] == 'Sensor settings updated successfully' &&
+            responseData['data'] != null) {
+          return responseData['data'];
+        } else {
+          throw Exception(
+              'Failed to update sensor settings: ${responseData['message']}');
+        }
+      } else {
+        throw Exception(
+            'Failed to update sensor settings: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in updateSensorSettings: $e');
+      throw Exception('Failed to update sensor settings: $e');
     }
   }
 }

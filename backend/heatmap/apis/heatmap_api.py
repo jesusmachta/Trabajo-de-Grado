@@ -18,7 +18,7 @@ async def upload_heatmap_data(data: Dict[str, Any] = Body(...)):
     """
     try:
         # Validate required fields
-        required_fields = ["location_id", "count", "empresa"]
+        required_fields = ["sensor_id", "empresa"]
         for field in required_fields:
             if field not in data:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
@@ -26,17 +26,18 @@ async def upload_heatmap_data(data: Dict[str, Any] = Body(...)):
         # Create model instance
         heatmap_model = HeatmapModel()
         
-        # Get optional fields with defaults
-        medium = data.get("medium", 0)
-        far = data.get("far", 0)
+        # Get fields with defaults
+        tipo_producto_principal = data.get("tipo_producto_principal", 0)
+        tipo_producto_medium = data.get("tipo_producto_medium", 0)
+        tipo_producto_far = data.get("tipo_producto_far", 0)
         
         # Store data
         result_id = heatmap_model.store_heatmap_data(
-            location_id=data["location_id"],
-            count=data["count"],
+            sensor_id=data["sensor_id"],
             empresa=data["empresa"],
-            medium=medium,
-            far=far
+            tipo_producto_principal=tipo_producto_principal,
+            tipo_producto_medium=tipo_producto_medium,
+            tipo_producto_far=tipo_producto_far
         )
         
         return {"message": "Heat map data received successfully", "id": result_id}
@@ -76,7 +77,7 @@ async def get_aggregated_heatmap_data(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Endpoint to get aggregated heat map data by location for visualization.
+    Endpoint to get aggregated heat map data by sensor for visualization.
     Protected by authentication.
     """
     try:

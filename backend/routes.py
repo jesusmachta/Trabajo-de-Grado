@@ -19,6 +19,10 @@ from backend.auth.delete_company import delete_company
 from backend.auth.password_recovery import router as password_recovery_router
 from backend.auth.company_migration import router as company_migration_router
 from backend.chat.chat_service import chat_router  # Import chat_router from new module
+# Import sensor settings CRUD modules
+from backend.sensorSettings.create_sensorsetting import create_sensor_setting
+from backend.sensorSettings.read_sensorsetting import get_sensor_setting_by_empresa
+from backend.sensorSettings.update_sensorsetting import update_sensor_setting
 import re
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, Field # Added Field
@@ -888,6 +892,20 @@ async def register_company_endpoint(
             security_answer=company_data["security_answer"]
         )
         
+        # Create default sensor settings for the new company
+        try:
+            # Initialize with default values
+            create_sensor_setting(
+                empresa=company_result["empresa"],
+                tipo_producto_principal=15,  # Default high threshold
+                tipo_producto_medium=10,     # Default medium threshold
+                tipo_producto_far=5          # Default low threshold
+            )
+            logger.info(f"Created default sensor settings for company {company_result['empresa']}")
+        except Exception as e:
+            logger.error(f"Error creating default sensor settings: {str(e)}")
+            # Do not stop the registration process if this fails
+        
         # Create access token for the new admin user
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
@@ -1078,3 +1096,77 @@ async def delete_sensor_endpoint(
         raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting sensor: {str(e)}")
+
+# Add sensor settings endpoints
+@router.get("/sensor-settings", tags=["SensorSettings"], response_model=dict)
+async def get_sensor_settings_endpoint(empresa: str = Depends(get_empresa)):
+    """
+    Get sensor settings for the current company.
+    """
+    try:
+        sensor_settings = get_sensor_setting_by_empresa(empresa)
+        return {"message": "Success", "data": sensor_settings}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sensor-settings", tags=["SensorSettings"], response_model=dict, status_code=201)
+async def create_sensor_settings_endpoint(
+    sensor_data: dict = Body(...),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Create sensor settings for the current company.
+    """
+    try:
+        # Extract threshold values from request body
+        tipo_producto_principal = sensor_data.get("tipo_producto_principal", 15)
+        tipo_producto_medium = sensor_data.get("tipo_producto_medium", 10)
+        tipo_producto_far = sensor_data.get("tipo_producto_far", 5)
+        
+        # Create sensor settings
+        doc_id = create_sensor_setting(
+            empresa=empresa,
+            tipo_producto_principal=tipo_producto_principal,
+            tipo_producto_medium=tipo_producto_medium,
+            tipo_producto_far=tipo_producto_far
+        )
+        
+        return {
+            "message": "Sensor settings created successfully",
+            "id": doc_id
+        }
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/sensor-settings", tags=["SensorSettings"], response_model=dict)
+async def update_sensor_settings_endpoint(
+    sensor_data: dict = Body(...),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Update sensor settings for the current company.
+    """
+    try:
+        # Extract threshold values from request body
+        tipo_producto_principal = sensor_data.get("tipo_producto_principal", 15)
+        tipo_producto_medium = sensor_data.get("tipo_producto_medium", 10)
+        tipo_producto_far = sensor_data.get("tipo_producto_far", 5)
+        
+        # Update sensor settings
+        updated_doc = update_sensor_setting(
+            empresa=empresa,
+            tipo_producto_principal=tipo_producto_principal,
+            tipo_producto_medium=tipo_producto_medium,
+            tipo_producto_far=tipo_producto_far
+        )
+        
+        return {
+            "message": "Sensor settings updated successfully",
+            "data": updated_doc
+        }
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))

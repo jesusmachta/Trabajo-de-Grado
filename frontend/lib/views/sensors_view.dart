@@ -357,45 +357,23 @@ class _SensorsViewState extends State<SensorsView> {
 
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false, // Prevent dismissing when clicking outside
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             // Build the dropdown items for principal category
             List<DropdownMenuItem<int>> buildPrincipalItems() {
-              return _availableCategories.map((category) {
-                final id = category['Id_Tipo_Producto'] as int? ??
-                    int.tryParse(category['Id_Tipo_Producto'].toString()) ??
+              final items = <DropdownMenuItem<int>>[];
+
+              // Only show active categories
+              final activeCategories = _availableCategories
+                  .where((category) => category['isActive'] == true)
+                  .toList();
+
+              for (var category in activeCategories) {
+                final id = category['Tipo_Producto'] as int? ??
+                    int.tryParse(category['Tipo_Producto'].toString()) ??
                     0;
-                final name = category['Categoria_Producto'] as String? ??
-                    category['Nombre'] as String? ??
-                    'Sin nombre';
-                return DropdownMenuItem<int>(
-                  value: id,
-                  child: Text(name),
-                );
-              }).toList();
-            }
-
-            // Build the dropdown items for medium category
-            List<DropdownMenuItem<int>> buildMediumItems() {
-              final List<DropdownMenuItem<int>> items = [];
-
-              // Add a null item for optional selection
-              items.add(const DropdownMenuItem<int>(
-                value: null,
-                child: Text('No asignar categoría media'),
-              ));
-
-              // Add all available categories except the selected principal
-              for (var category in _availableCategories) {
-                final id = category['Id_Tipo_Producto'] as int? ??
-                    int.tryParse(category['Id_Tipo_Producto'].toString()) ??
-                    0;
-
-                // Skip if this category is already selected for principal
-                if (id == selectedPrincipalType) continue;
-
                 final name = category['Categoria_Producto'] as String? ??
                     category['Nombre'] as String? ??
                     'Sin nombre';
@@ -404,6 +382,46 @@ class _SensorsViewState extends State<SensorsView> {
                   value: id,
                   child: Text(name),
                 ));
+              }
+
+              return items;
+            }
+
+            // Build the dropdown items for medium category
+            List<DropdownMenuItem<int>> buildMediumItems() {
+              final items = <DropdownMenuItem<int>>[];
+
+              // Add a null item for optional selection
+              items.add(const DropdownMenuItem<int>(
+                value: null,
+                child: Text('No seleccionar'),
+              ));
+
+              // Only show other categories if principal is selected
+              if (selectedPrincipalType != null) {
+                // Only show active categories
+                final activeCategories = _availableCategories
+                    .where((category) => category['isActive'] == true)
+                    .toList();
+
+                // Add categories that are not the principal
+                for (var category in activeCategories) {
+                  final id = category['Tipo_Producto'] as int? ??
+                      int.tryParse(category['Tipo_Producto'].toString()) ??
+                      0;
+
+                  // Skip if this is the principal category
+                  if (id == selectedPrincipalType) continue;
+
+                  final name = category['Categoria_Producto'] as String? ??
+                      category['Nombre'] as String? ??
+                      'Sin nombre';
+
+                  items.add(DropdownMenuItem<int>(
+                    value: id,
+                    child: Text(name),
+                  ));
+                }
               }
 
               return items;
@@ -411,32 +429,40 @@ class _SensorsViewState extends State<SensorsView> {
 
             // Build the dropdown items for far category
             List<DropdownMenuItem<int>> buildFarItems() {
-              final List<DropdownMenuItem<int>> items = [];
+              final items = <DropdownMenuItem<int>>[];
 
               // Add a null item for optional selection
               items.add(const DropdownMenuItem<int>(
                 value: null,
-                child: Text('No asignar categoría lejana'),
+                child: Text('No seleccionar'),
               ));
 
-              // Add all available categories except those already selected
-              for (var category in _availableCategories) {
-                final id = category['Id_Tipo_Producto'] as int? ??
-                    int.tryParse(category['Id_Tipo_Producto'].toString()) ??
-                    0;
+              // Only show other categories if principal is selected
+              if (selectedPrincipalType != null) {
+                // Only show active categories
+                final activeCategories = _availableCategories
+                    .where((category) => category['isActive'] == true)
+                    .toList();
 
-                // Skip if this category is already selected for principal or medium
-                if (id == selectedPrincipalType || id == selectedMediumType)
-                  continue;
+                // Add categories that are not selected for principal or medium
+                for (var category in activeCategories) {
+                  final id = category['Tipo_Producto'] as int? ??
+                      int.tryParse(category['Tipo_Producto'].toString()) ??
+                      0;
 
-                final name = category['Categoria_Producto'] as String? ??
-                    category['Nombre'] as String? ??
-                    'Sin nombre';
+                  // Skip if this is the principal or medium category
+                  if (id == selectedPrincipalType || id == selectedMediumType)
+                    continue;
 
-                items.add(DropdownMenuItem<int>(
-                  value: id,
-                  child: Text(name),
-                ));
+                  final name = category['Categoria_Producto'] as String? ??
+                      category['Nombre'] as String? ??
+                      'Sin nombre';
+
+                  items.add(DropdownMenuItem<int>(
+                    value: id,
+                    child: Text(name),
+                  ));
+                }
               }
 
               return items;
@@ -444,179 +470,226 @@ class _SensorsViewState extends State<SensorsView> {
 
             return AlertDialog(
               title: const Text('Añadir Nuevo Sensor'),
-              content: SizedBox(
+              content: Container(
                 width: 400,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      // ID Field
-                      TextFormField(
-                        controller: idSensorController,
-                        decoration: const InputDecoration(
-                          labelText: 'ID Sensor (Número)',
-                          hintText: 'Ingrese un número único',
-                          errorMaxLines: 3,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 18,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        // ID Field
+                        TextFormField(
+                          controller: idSensorController,
+                          decoration: const InputDecoration(
+                            labelText: 'ID Sensor',
+                            hintText: 'Ingrese un número único',
+                            errorMaxLines: 3,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 18,
+                            ),
                           ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor ingrese el ID del sensor';
+                            }
+
+                            final id = int.tryParse(value);
+                            if (id == null) {
+                              return 'Por favor ingrese un número válido';
+                            }
+
+                            if (existingSensorIds.contains(id)) {
+                              return 'Este ID de sensor ya existe. Por favor ingrese un ID diferente.';
+                            }
+
+                            return null;
+                          },
                         ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Por favor ingrese el ID del sensor';
-                          }
 
-                          final id = int.tryParse(value);
-                          if (id == null) {
-                            return 'Por favor ingrese un número válido';
-                          }
+                        const SizedBox(height: 24),
 
-                          if (existingSensorIds.contains(id)) {
-                            return 'Este ID de sensor ya existe. Por favor ingrese un ID diferente.';
-                          }
-
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Categories
-                      if (_isLoadingCategories)
-                        const Center(
-                          child: CircularProgressIndicator(),
-                        )
-                      else if (_availableCategories.isEmpty)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Warning message when no categories are available
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                                border:
-                                    Border.all(color: Colors.amber.shade300),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded,
-                                          color: Colors.amber.shade800),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'No existen categorías disponibles',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.amber.shade900,
+                        // Categories
+                        if (_isLoadingCategories)
+                          const Center(
+                            child: CircularProgressIndicator(),
+                          )
+                        else if (_availableCategories.isEmpty)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Warning message when no categories are available
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.amber.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.warning_amber_rounded,
+                                            color: Colors.amber.shade800),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'No existen categorías disponibles',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.amber.shade900,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    'Necesitas crear al menos una categoría para poder asociarla al sensor.',
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // Button to go to the categories view
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.category),
-                                    label: const Text('Ir a Categorías'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.amber.shade700,
-                                      foregroundColor: Colors.white,
+                                      ],
                                     ),
-                                    onPressed: () {
-                                      // Close current dialog
-                                      Navigator.of(context).pop();
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Necesitas crear al menos una categoría para poder asociarla al sensor.',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    // Button to go to the categories view
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.category),
+                                      label: const Text('Ir a Categorías'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.amber.shade700,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        // Close current dialog
+                                        Navigator.of(context).pop();
 
-                                      // Navigate to the categories view
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => CategoriesView(
-                                              toggleTheme: widget.toggleTheme),
-                                        ),
-                                      );
-                                    },
+                                        // Navigate to the categories view
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                CategoriesView(
+                                                    toggleTheme:
+                                                        widget.toggleTheme),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Categoría Principal',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<int>(
+                                value: selectedPrincipalType,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Seleccionar Categoría Principal',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 18,
                                   ),
-                                ],
+                                ),
+                                items: buildPrincipalItems(),
+                                onChanged: (int? newValue) {
+                                  setDialogState(() {
+                                    selectedPrincipalType = newValue;
+                                    // Reset medium and far if they match the new principal
+                                    if (selectedMediumType == newValue) {
+                                      selectedMediumType = null;
+                                    }
+                                    if (selectedFarType == newValue) {
+                                      selectedFarType = null;
+                                    }
+                                  });
+                                },
+                                validator: (value) {
+                                  if (value == null) {
+                                    return 'Por favor seleccione una categoría principal';
+                                  }
+                                  return null;
+                                },
                               ),
-                            ),
-                          ],
-                        )
-                      else
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Categoría Principal (Obligatoria)'),
-                            DropdownButtonFormField<int>(
-                              value: selectedPrincipalType,
-                              decoration: const InputDecoration(
-                                labelText: 'Seleccionar Categoría Principal',
+                              const SizedBox(height: 24),
+                              const Text(
+                                'Categoría Media (Opcional)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                              items: buildPrincipalItems(),
-                              onChanged: (int? newValue) {
-                                setDialogState(() {
-                                  selectedPrincipalType = newValue;
-                                  // Reset medium and far if they match the new principal
-                                  if (selectedMediumType == newValue)
-                                    selectedMediumType = null;
-                                  if (selectedFarType == newValue)
-                                    selectedFarType = null;
-                                });
-                              },
-                              validator: (value) {
-                                if (value == null) {
-                                  return 'Por favor seleccione una categoría principal';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            const Text('Categoría Media (Opcional)'),
-                            DropdownButtonFormField<int>(
-                              value: selectedMediumType,
-                              decoration: const InputDecoration(
-                                labelText: 'Seleccionar Categoría Media',
-                                hintText: 'Opcional',
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<int>(
+                                value: selectedMediumType,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Seleccionar Categoría Media',
+                                  hintText: 'Opcional',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 18,
+                                  ),
+                                ),
+                                items: buildMediumItems(),
+                                onChanged: (int? newValue) {
+                                  setDialogState(() {
+                                    selectedMediumType = newValue;
+                                    // Reset far if it matches the new medium
+                                    if (selectedFarType == newValue) {
+                                      selectedFarType = null;
+                                    }
+                                  });
+                                },
                               ),
-                              items: buildMediumItems(),
-                              onChanged: (int? newValue) {
-                                setDialogState(() {
-                                  selectedMediumType = newValue;
-                                  // Reset far if it matches the new medium
-                                  if (selectedFarType == newValue)
-                                    selectedFarType = null;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            const Text('Categoría Lejana (Opcional)'),
-                            DropdownButtonFormField<int>(
-                              value: selectedFarType,
-                              decoration: const InputDecoration(
-                                labelText: 'Seleccionar Categoría Lejana',
-                                hintText: 'Opcional',
+                              const SizedBox(height: 24),
+                              const Text(
+                                'Categoría Lejana (Opcional)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                              items: buildFarItems(),
-                              onChanged: (int? newValue) {
-                                setDialogState(() {
-                                  selectedFarType = newValue;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                    ],
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<int>(
+                                value: selectedFarType,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Seleccionar Categoría Lejana',
+                                  hintText: 'Opcional',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 18,
+                                  ),
+                                ),
+                                items: buildFarItems(),
+                                onChanged: (int? newValue) {
+                                  setDialogState(() {
+                                    selectedFarType = newValue;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -668,33 +741,40 @@ class _SensorsViewState extends State<SensorsView> {
     setState(() => _isLoadingCategories = true);
     _fetchAvailableCategories(sensorId: mongoId).then((_) {
       if (mounted) {
+        setState(() => _isLoadingCategories = false);
+
         showDialog(
           context: context,
-          barrierDismissible: true,
+          barrierDismissible: false, // Prevent dismissing when clicking outside
           builder: (BuildContext context) {
             return StatefulBuilder(
               builder: (context, setDialogState) {
                 // Build the dropdown items for principal category
                 List<DropdownMenuItem<int>> buildPrincipalItems() {
-                  List<DropdownMenuItem<int>> items = [];
+                  final items = <DropdownMenuItem<int>>[];
 
-                  // Include current principal category
+                  // Always include current principal type if it exists
                   if (selectedPrincipalType != null) {
-                    String currentName =
-                        sensor['principal_category_name'] ?? 'Categoría Actual';
+                    String currentName = sensor['principal_category_name'] ??
+                        'Categoría Principal Actual';
                     items.add(DropdownMenuItem<int>(
                       value: selectedPrincipalType,
                       child: Text(currentName),
                     ));
                   }
 
-                  // Add available categories
-                  for (var category in _availableCategories) {
-                    final id = category['Id_Tipo_Producto'] as int? ??
-                        int.tryParse(category['Id_Tipo_Producto'].toString()) ??
+                  // Only show active categories
+                  final activeCategories = _availableCategories
+                      .where((category) => category['isActive'] == true)
+                      .toList();
+
+                  // Add all other available categories
+                  for (var category in activeCategories) {
+                    final id = category['Tipo_Producto'] as int? ??
+                        int.tryParse(category['Tipo_Producto'].toString()) ??
                         0;
 
-                    // Skip if this category is already the selected principal
+                    // Skip if this is already the selected principal
                     if (id == selectedPrincipalType) continue;
 
                     final name = category['Categoria_Producto'] as String? ??
@@ -712,15 +792,15 @@ class _SensorsViewState extends State<SensorsView> {
 
                 // Build the dropdown items for medium category
                 List<DropdownMenuItem<int>> buildMediumItems() {
-                  List<DropdownMenuItem<int>> items = [];
+                  final items = <DropdownMenuItem<int>>[];
 
                   // Add a null item for optional selection
                   items.add(const DropdownMenuItem<int>(
                     value: null,
-                    child: Text('No asignar categoría media'),
+                    child: Text('No seleccionar'),
                   ));
 
-                  // Include current medium category if it exists
+                  // Include current medium category if it exists and is different from principal
                   if (selectedMediumType != null &&
                       selectedMediumType != selectedPrincipalType) {
                     String currentName = sensor['medium_category_name'] ??
@@ -731,24 +811,31 @@ class _SensorsViewState extends State<SensorsView> {
                     ));
                   }
 
-                  // Add available categories
-                  for (var category in _availableCategories) {
-                    final id = category['Id_Tipo_Producto'] as int? ??
-                        int.tryParse(category['Id_Tipo_Producto'].toString()) ??
-                        0;
+                  // Only show active categories
+                  final activeCategories = _availableCategories
+                      .where((category) => category['isActive'] == true)
+                      .toList();
 
-                    // Skip if this category is already selected or is the principal
-                    if (id == selectedPrincipalType || id == selectedMediumType)
-                      continue;
+                  // Add available categories that are not principal or already medium
+                  if (selectedPrincipalType != null) {
+                    for (var category in activeCategories) {
+                      final id = category['Tipo_Producto'] as int? ??
+                          int.tryParse(category['Tipo_Producto'].toString()) ??
+                          0;
 
-                    final name = category['Categoria_Producto'] as String? ??
-                        category['Nombre'] as String? ??
-                        'Sin nombre';
+                      // Skip if this is already a selected category
+                      if (id == selectedPrincipalType ||
+                          id == selectedMediumType) continue;
 
-                    items.add(DropdownMenuItem<int>(
-                      value: id,
-                      child: Text(name),
-                    ));
+                      final name = category['Categoria_Producto'] as String? ??
+                          category['Nombre'] as String? ??
+                          'Sin nombre';
+
+                      items.add(DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(name),
+                      ));
+                    }
                   }
 
                   return items;
@@ -756,15 +843,15 @@ class _SensorsViewState extends State<SensorsView> {
 
                 // Build the dropdown items for far category
                 List<DropdownMenuItem<int>> buildFarItems() {
-                  List<DropdownMenuItem<int>> items = [];
+                  final items = <DropdownMenuItem<int>>[];
 
                   // Add a null item for optional selection
                   items.add(const DropdownMenuItem<int>(
                     value: null,
-                    child: Text('No asignar categoría lejana'),
+                    child: Text('No seleccionar'),
                   ));
 
-                  // Include current far category if it exists
+                  // Include current far category if it exists and is different from principal and medium
                   if (selectedFarType != null &&
                       selectedFarType != selectedPrincipalType &&
                       selectedFarType != selectedMediumType) {
@@ -776,242 +863,262 @@ class _SensorsViewState extends State<SensorsView> {
                     ));
                   }
 
-                  // Add available categories
-                  for (var category in _availableCategories) {
-                    final id = category['Id_Tipo_Producto'] as int? ??
-                        int.tryParse(category['Id_Tipo_Producto'].toString()) ??
-                        0;
+                  // Only show active categories
+                  final activeCategories = _availableCategories
+                      .where((category) => category['isActive'] == true)
+                      .toList();
 
-                    // Skip if this category is already selected
-                    if (id == selectedPrincipalType ||
-                        id == selectedMediumType ||
-                        id == selectedFarType) continue;
+                  // Add available categories that are not selected for principal or medium
+                  if (selectedPrincipalType != null) {
+                    for (var category in activeCategories) {
+                      final id = category['Tipo_Producto'] as int? ??
+                          int.tryParse(category['Tipo_Producto'].toString()) ??
+                          0;
 
-                    final name = category['Categoria_Producto'] as String? ??
-                        category['Nombre'] as String? ??
-                        'Sin nombre';
+                      // Skip if already selected for another category
+                      if (id == selectedPrincipalType ||
+                          id == selectedMediumType ||
+                          id == selectedFarType) continue;
 
-                    items.add(DropdownMenuItem<int>(
-                      value: id,
-                      child: Text(name),
-                    ));
+                      final name = category['Categoria_Producto'] as String? ??
+                          category['Nombre'] as String? ??
+                          'Sin nombre';
+
+                      items.add(DropdownMenuItem<int>(
+                        value: id,
+                        child: Text(name),
+                      ));
+                    }
                   }
 
                   return items;
                 }
 
                 return AlertDialog(
-                  title: Row(
-                    children: [
-                      const Text('Editar Sensor'),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        tooltip: 'Actualizar categorías',
-                        onPressed: () async {
-                          setDialogState(() {
-                            _isLoadingCategories = true;
-                          });
-
-                          try {
-                            await _fetchAvailableCategories(sensorId: mongoId);
-                          } catch (e) {
-                            print('Error refreshing categories: $e');
-                          }
-
-                          setDialogState(() {});
-
-                          ToastService.showInfo(
-                            context,
-                            'Categorías cargadas: ${_availableCategories.length}',
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  content: SizedBox(
+                  title: Text('Editar Sensor ${sensor['id_sensor']}'),
+                  content: Container(
                     width: 400,
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          // ID Field
-                          TextFormField(
-                            controller: idSensorController,
-                            decoration: const InputDecoration(
-                              labelText: 'ID Sensor (Número)',
-                              hintText: 'Ingrese un número único',
-                              errorMaxLines: 3,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 18,
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            // ID Field
+                            TextFormField(
+                              controller: idSensorController,
+                              decoration: const InputDecoration(
+                                labelText: 'ID Sensor',
+                                hintText: 'Ingrese un número único',
+                                errorMaxLines: 3,
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 18,
+                                ),
                               ),
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Por favor ingrese el ID del sensor';
+                                }
+
+                                final id = int.tryParse(value);
+                                if (id == null) {
+                                  return 'Por favor ingrese un número válido';
+                                }
+
+                                if (existingSensorIds.contains(id)) {
+                                  return 'Este ID de sensor ya existe. Por favor ingrese un ID diferente.';
+                                }
+
+                                return null;
+                              },
                             ),
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Por favor ingrese el ID del sensor';
-                              }
 
-                              final id = int.tryParse(value);
-                              if (id == null) {
-                                return 'Por favor ingrese un número válido';
-                              }
+                            const SizedBox(height: 24),
 
-                              if (existingSensorIds.contains(id)) {
-                                return 'Este ID de sensor ya existe. Por favor ingrese un ID diferente.';
-                              }
-
-                              return null;
-                            },
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Categories
-                          if (_isLoadingCategories)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16.0),
+                            // Categories
+                            if (_isLoadingCategories)
+                              const Center(
                                 child: CircularProgressIndicator(),
-                              ),
-                            )
-                          else if (_availableCategories.isEmpty)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Warning message when no categories are available
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade100,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: Colors.amber.shade300),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(Icons.warning_amber_rounded,
-                                              color: Colors.amber.shade800),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'No existen categorías disponibles',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.amber.shade900,
+                              )
+                            else if (_availableCategories.isEmpty)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Warning message when no categories are available
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.amber.shade300),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(Icons.warning_amber_rounded,
+                                                color: Colors.amber.shade800),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'No existen categorías disponibles',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.amber.shade900,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      const Text(
-                                        'Necesitas crear al menos una categoría para poder asociarla al sensor.',
-                                        style: TextStyle(fontSize: 14),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Button to go to the categories view
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.category),
-                                        label: const Text('Ir a Categorías'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.amber.shade700,
-                                          foregroundColor: Colors.white,
+                                          ],
                                         ),
-                                        onPressed: () {
-                                          // Close current dialog
-                                          Navigator.of(context).pop();
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'Necesitas crear al menos una categoría para poder asociarla al sensor.',
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        // Button to go to the categories view
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.category),
+                                          label: const Text('Ir a Categorías'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                Colors.amber.shade700,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          onPressed: () {
+                                            // Close current dialog
+                                            Navigator.of(context).pop();
 
-                                          // Navigate to the categories view
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  CategoriesView(
-                                                      toggleTheme:
-                                                          widget.toggleTheme),
-                                            ),
-                                          );
-                                        },
+                                            // Navigate to the categories view
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    CategoriesView(
+                                                        toggleTheme:
+                                                            widget.toggleTheme),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Categoría Principal',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  DropdownButtonFormField<int>(
+                                    value: selectedPrincipalType,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText:
+                                          'Seleccionar Categoría Principal',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
                                       ),
-                                    ],
+                                    ),
+                                    items: buildPrincipalItems(),
+                                    onChanged: (int? newValue) {
+                                      setDialogState(() {
+                                        selectedPrincipalType = newValue;
+                                        // Reset medium and far if they match the new principal
+                                        if (selectedMediumType == newValue) {
+                                          selectedMediumType = null;
+                                        }
+                                        if (selectedFarType == newValue) {
+                                          selectedFarType = null;
+                                        }
+                                      });
+                                    },
+                                    validator: (value) {
+                                      if (value == null) {
+                                        return 'Por favor seleccione una categoría principal';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                ),
-                              ],
-                            )
-                          else
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Categoría Principal (Obligatoria)'),
-                                DropdownButtonFormField<int>(
-                                  value: selectedPrincipalType,
-                                  decoration: const InputDecoration(
-                                    labelText:
-                                        'Seleccionar Categoría Principal',
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'Categoría Media (Opcional)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                   ),
-                                  items: buildPrincipalItems(),
-                                  onChanged: (int? newValue) {
-                                    setDialogState(() {
-                                      selectedPrincipalType = newValue;
-                                      // Reset medium and far if they match the new principal
-                                      if (selectedMediumType == newValue)
-                                        selectedMediumType = null;
-                                      if (selectedFarType == newValue)
-                                        selectedFarType = null;
-                                    });
-                                  },
-                                  validator: (value) {
-                                    if (value == null) {
-                                      return 'Por favor seleccione una categoría principal';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                const Text('Categoría Media (Opcional)'),
-                                DropdownButtonFormField<int>(
-                                  value: selectedMediumType,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Seleccionar Categoría Media',
-                                    hintText: 'Opcional',
+                                  const SizedBox(height: 8),
+                                  DropdownButtonFormField<int>(
+                                    value: selectedMediumType,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Seleccionar Categoría Media',
+                                      hintText: 'Opcional',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
+                                      ),
+                                    ),
+                                    items: buildMediumItems(),
+                                    onChanged: (int? newValue) {
+                                      setDialogState(() {
+                                        selectedMediumType = newValue;
+                                        // Reset far if it matches the new medium
+                                        if (selectedFarType == newValue) {
+                                          selectedFarType = null;
+                                        }
+                                      });
+                                    },
                                   ),
-                                  items: buildMediumItems(),
-                                  onChanged: (int? newValue) {
-                                    setDialogState(() {
-                                      selectedMediumType = newValue;
-                                      // Reset far if it matches the new medium
-                                      if (selectedFarType == newValue)
-                                        selectedFarType = null;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                const Text('Categoría Lejana (Opcional)'),
-                                DropdownButtonFormField<int>(
-                                  value: selectedFarType,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Seleccionar Categoría Lejana',
-                                    hintText: 'Opcional',
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'Categoría Lejana (Opcional)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                   ),
-                                  items: buildFarItems(),
-                                  onChanged: (int? newValue) {
-                                    setDialogState(() {
-                                      selectedFarType = newValue;
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                        ],
+                                  const SizedBox(height: 8),
+                                  DropdownButtonFormField<int>(
+                                    value: selectedFarType,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Seleccionar Categoría Lejana',
+                                      hintText: 'Opcional',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 18,
+                                      ),
+                                    ),
+                                    items: buildFarItems(),
+                                    onChanged: (int? newValue) {
+                                      setDialogState(() {
+                                        selectedFarType = newValue;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

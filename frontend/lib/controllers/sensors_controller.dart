@@ -75,13 +75,23 @@ class SensorsController {
       print('Available categories response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final Map<String, dynamic> jsonResponse =
+            json.decode(utf8.decode(response.bodyBytes));
         if (jsonResponse.containsKey('available_categories')) {
           final List<dynamic> availableCategories =
               jsonResponse['available_categories'];
           final result = List<Map<String, dynamic>>.from(availableCategories);
           print('Loaded ${result.length} available categories');
-          return result;
+
+          // Filter to ensure we only return categories that are active
+          final activeCategories = result
+              .where((category) =>
+                  category['isActive'] == true ||
+                  category['isActive'] == 'true')
+              .toList();
+
+          print('Of which ${activeCategories.length} are active');
+          return activeCategories;
         } else {
           print(
               'Response does not contain available_categories: ${response.body}');
@@ -113,10 +123,16 @@ class SensorsController {
 
       if (tipoMedium != null) {
         sensorData['tipo_producto_medium'] = tipoMedium;
+      } else {
+        // Explicitly set to null to clear any existing value
+        sensorData['tipo_producto_medium'] = null;
       }
 
       if (tipoFar != null) {
         sensorData['tipo_producto_far'] = tipoFar;
+      } else {
+        // Explicitly set to null to clear any existing value
+        sensorData['tipo_producto_far'] = null;
       }
 
       final response = await _client.post(
@@ -131,7 +147,7 @@ class SensorsController {
       if (response.statusCode != 201) {
         String errorMessage = 'Error al añadir sensor';
         try {
-          final errorBody = json.decode(response.body);
+          final errorBody = json.decode(utf8.decode(response.bodyBytes));
           if (errorBody is Map && errorBody.containsKey('detail')) {
             errorMessage = errorBody['detail'];
           }
@@ -204,7 +220,7 @@ class SensorsController {
       if (response.statusCode != 200) {
         String errorMessage = 'Error al actualizar sensor';
         try {
-          final errorBody = json.decode(response.body);
+          final errorBody = json.decode(utf8.decode(response.bodyBytes));
           if (errorBody is Map && errorBody.containsKey('detail')) {
             errorMessage = errorBody['detail'];
           }
