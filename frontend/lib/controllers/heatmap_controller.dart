@@ -56,6 +56,73 @@ class HeatmapController {
     }
   }
 
+  // Get sensor configuration to know which categories are assigned as medium and far
+  Future<Map<String, List<int>>> getSensorsConfiguration() async {
+    try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final token = authController.token;
+
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/sensors'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> sensors = json.decode(response.body);
+
+        Map<String, List<int>> categoryRoles = {
+          'principal': [],
+          'medium': [],
+          'far': [],
+          'all_sensors': [],
+        };
+
+        // Extract category IDs from all sensors
+        for (var sensor in sensors) {
+          // Track all sensor IDs
+          if (sensor['id_sensor'] != null) {
+            categoryRoles['all_sensors']!.add(sensor['id_sensor']);
+          }
+
+          // Track principal categories
+          if (sensor['tipo_producto_principal'] != null) {
+            categoryRoles['principal']!.add(sensor['tipo_producto_principal']);
+          }
+
+          // Track medium categories
+          if (sensor['tipo_producto_medium'] != null) {
+            categoryRoles['medium']!.add(sensor['tipo_producto_medium']);
+          }
+
+          // Track far categories
+          if (sensor['tipo_producto_far'] != null) {
+            categoryRoles['far']!.add(sensor['tipo_producto_far']);
+          }
+        }
+
+        print('Principal categories: ${categoryRoles['principal']}');
+        print('Medium categories: ${categoryRoles['medium']}');
+        print('Far categories: ${categoryRoles['far']}');
+        print('All sensor IDs: ${categoryRoles['all_sensors']}');
+
+        return categoryRoles;
+      } else {
+        throw Exception('Failed to load sensors: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getSensorsConfiguration: $e');
+      return {'principal': [], 'medium': [], 'far': [], 'all_sensors': []};
+    }
+  }
+
   // Get aggregated heatmap data by sensors
   Future<List<HeatmapLocation>> getAggregatedHeatmapData() async {
     try {

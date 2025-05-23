@@ -37,6 +37,12 @@ class _HeatmapViewState extends State<HeatmapView> {
   // Loading state for sensor settings
   bool _isLoadingSettings = false;
 
+  // Current sensor configuration
+  Map<String, List<int>> _sensorConfig = {
+    'medium': [],
+    'far': [],
+  };
+
   @override
   void initState() {
     super.initState();
@@ -110,7 +116,10 @@ class _HeatmapViewState extends State<HeatmapView> {
       // 1. Load categories first
       final categories = await _controller.getStoreCategories();
 
-      // 2. Then load heatmap data
+      // 2. Get sensor configuration
+      final sensorConfig = await _controller.getSensorsConfiguration();
+
+      // 3. Then load heatmap data
       final heatmapData = await _controller.getAggregatedHeatmapData();
 
       // Find max activity for scaling
@@ -121,7 +130,7 @@ class _HeatmapViewState extends State<HeatmapView> {
         }
       }
 
-      // 3. Generate store layout from categories
+      // 4. Generate store layout from categories
       final storeLayout = StoreLayout.fromCategories(categories);
 
       setState(() {
@@ -130,12 +139,15 @@ class _HeatmapViewState extends State<HeatmapView> {
         _storeLayout = storeLayout;
         _maxActivity = maxVal > 0 ? maxVal : 1; // Avoid division by zero
         _isLoading = false;
+        _sensorConfig = sensorConfig;
       });
 
       // Debug logs
       print('Loaded ${_categories.length} categories');
       print('Loaded ${_heatmapData.length} heatmap data points');
       print('Max activity value: $_maxActivity');
+      print('Medium categories: ${_sensorConfig["medium"]}');
+      print('Far categories: ${_sensorConfig["far"]}');
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -554,47 +566,59 @@ class _HeatmapViewState extends State<HeatmapView> {
     final filteredZones =
         _storeLayout!.zones.where((zone) => zone.id != 'entrance').toList();
 
+    // Debug: Log all available heatmap data to check sensor IDs and categories
+    print('Available heatmap data:');
+    for (var data in _heatmapData) {
+      print(
+          'SensorID: ${data.sensorId}, Principal: ${data.avgPrincipal}, Medium: ${data.avgMedium}, Far: ${data.avgFar}');
+    }
+
+    // Debug: Log all categories in the storeLayout
+    print('Available zones in store layout:');
+    for (var zone in filteredZones) {
+      print(
+          'Zone ID: ${zone.id}, Name: ${zone.name}, tipoProducto: ${zone.tipoProducto}');
+    }
+
     // Categorize zones into tiers based on count
     for (var zone in filteredZones) {
       // Find corresponding heatmap data and value to use for tierization
       int valueToUse = 0;
 
       // Debug para cada zona
-      print('Evaluando zona: ID=${zone.id}, nombre=${zone.name}');
+      print(
+          'Evaluando zona: ID=${zone.id}, nombre=${zone.name}, tipoProducto=${zone.tipoProducto}');
 
       try {
-        // Check if this zone is the main category
-        if (zone.id == 'principal') {
-          HeatmapLocation zoneData = _heatmapData.firstWhere(
-            (data) => data.sensorId == zone.id,
-          );
-          valueToUse = zoneData.avgPrincipal.round();
-          print(
-              'Categoría Principal (${zone.name}) - Count Value: $valueToUse');
-        }
-        // Check if this zone is the medium distance category AND mainCategoryData is available
-        else if (zone.id == 'medium') {
-          valueToUse = _heatmapData
-              .firstWhere((data) => data.sensorId == 'principal')
-              .avgMedium
-              .round();
-          print(
-              'Categoría Media (${zone.name}) - Medium Value (from Principal): $valueToUse');
-        }
-        // Check if this zone is the far distance category AND mainCategoryData is available
-        else if (zone.id == 'far') {
-          valueToUse = _heatmapData
-              .firstWhere((data) => data.sensorId == 'principal')
-              .avgFar
-              .round();
-          print(
-              'Categoría Lejana (${zone.name}) - Far Value (from Principal): $valueToUse');
-        } else {
-          // Para otras categorías, usar su count normal si existe
-          HeatmapLocation? zoneData = _heatmapData.firstWhere(
-            (data) => data.sensorId == zone.id,
+        // Check if this zone should be displayed
+        bool isPrincipalCategory =
+            _sensorConfig['principal']!.contains(zone.tipoProducto);
+        bool isMediumCategory =
+            _sensorConfig['medium']!.contains(zone.tipoProducto);
+        bool isFarCategory = _sensorConfig['far']!.contains(zone.tipoProducto);
+        bool shouldDisplayZone =
+            isPrincipalCategory || isMediumCategory || isFarCategory;
+
+        print(
+            'Zone ${zone.name} is principal: $isPrincipalCategory, medium: $isMediumCategory, far: $isFarCategory, should display: $shouldDisplayZone');
+
+        // Find sensor data for this zone's category
+        final sensorDataList = _heatmapData
+            .where((data) =>
+                data.sensorId == zone.tipoProducto.toString() ||
+                // If the category is not found directly as a sensor ID, it might be a principal, medium, or far category
+                (isPrincipalCategory || isMediumCategory || isFarCategory))
+            .toList();
+
+        if (sensorDataList.isNotEmpty) {
+          // This zone has direct sensor data or is configured in a sensor
+          HeatmapLocation? zoneData;
+
+          // Try to find direct data by tipoProducto
+          zoneData = sensorDataList.firstWhere(
+            (data) => data.sensorId == zone.tipoProducto.toString(),
             orElse: () => HeatmapLocation(
-              sensorId: zone.id,
+              sensorId: zone.tipoProducto.toString(),
               avgPrincipal: 0,
               avgMedium: 0,
               avgFar: 0,
@@ -603,7 +627,37 @@ class _HeatmapViewState extends State<HeatmapView> {
               lastUpdate: DateTime.now(),
             ),
           );
-          valueToUse = zoneData.avgPrincipal.round();
+
+          // If no direct data, use the first available data
+          if (zoneData.totalReadings == 0 && sensorDataList.isNotEmpty) {
+            zoneData = sensorDataList.first;
+          }
+
+          if (isMediumCategory) {
+            // This zone is configured as a medium-distance category in some sensor
+            valueToUse = zoneData.avgMedium.round();
+            print('Tier Categoría Media (${zone.name}) - Valor: $valueToUse');
+          } else if (isFarCategory) {
+            // This zone is configured as a far-distance category in some sensor
+            valueToUse = zoneData.avgFar.round();
+            print('Tier Categoría Lejana (${zone.name}) - Valor: $valueToUse');
+          } else if (isPrincipalCategory) {
+            // This zone is a principal category
+            valueToUse = zoneData.avgPrincipal.round();
+            print(
+                'Tier Categoría Principal (${zone.name}) - Valor: $valueToUse');
+          } else {
+            // Fallback for any other case
+            valueToUse = zoneData.avgPrincipal.round();
+            print(
+                'Tier Categoría Fallback (${zone.name}) - Valor: $valueToUse');
+          }
+        } else {
+          print('No sensor data found for zone ${zone.name}');
+          // Skip zones without data if not assigned to any sensor
+          if (!shouldDisplayZone) {
+            continue;
+          }
         }
       } catch (e) {
         print('Error al obtener valor para zona ${zone.id}: $e');
@@ -724,100 +778,76 @@ class _HeatmapViewState extends State<HeatmapView> {
     print(
         'Zona actual: ID=${zone.id}, nombre=${zone.name}, tipoProducto=${zone.tipoProducto}');
 
-    // Find main category data and details first
-    HeatmapLocation? mainHeatmapDataForDistances;
-    StoreCategory? mainCategoryDetails;
-    StoreCategory? mediumCategoryDetails;
-    StoreCategory? farCategoryDetails;
+    try {
+      // Check if this zone should be displayed
+      bool isPrincipalCategory =
+          _sensorConfig['principal']!.contains(zone.tipoProducto);
+      bool isMediumCategory =
+          _sensorConfig['medium']!.contains(zone.tipoProducto);
+      bool isFarCategory = _sensorConfig['far']!.contains(zone.tipoProducto);
+      print(
+          'Zone ${zone.name} is principal: $isPrincipalCategory, medium: $isMediumCategory, far: $isFarCategory');
 
-    if (zone.id == 'principal') {
-      try {
-        mainCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == 'principal');
-        mainHeatmapDataForDistances = _heatmapData.firstWhere(
-            (data) =>
-                data.sensorId == mainCategoryDetails!.tipoProducto.toString(),
-            orElse: () => HeatmapLocation(
-                sensorId: mainCategoryDetails!.tipoProducto.toString(),
-                avgPrincipal: 0,
-                avgMedium: 0,
-                avgFar: 0,
-                maxPrincipal: 0,
-                totalReadings: 0,
-                lastUpdate: DateTime.now()));
-        print(
-            'Datos de heatmap de categoría principal para distancias: count=${mainHeatmapDataForDistances.avgPrincipal}, medium=${mainHeatmapDataForDistances.avgMedium}, far=${mainHeatmapDataForDistances.avgFar}');
-      } catch (e) {
-        print('Error buscando categoría principal o sus datos de heatmap: $e');
-      }
-    }
-    if (zone.id == 'medium') {
-      try {
-        mediumCategoryDetails =
-            _categories.firstWhere((cat) => cat.id == 'medium');
-      } catch (e) {
-        print('Error buscando detalles de categoría media: $e');
-      }
-    }
-    if (zone.id == 'far') {
-      try {
-        farCategoryDetails = _categories.firstWhere((cat) => cat.id == 'far');
-      } catch (e) {
-        print('Error buscando detalles de categoría lejana: $e');
-      }
-    }
+      // Find sensor data for this zone's category
+      final sensorDataList = _heatmapData
+          .where((data) =>
+              data.sensorId == zone.tipoProducto.toString() ||
+              // If the category is not found directly as a sensor ID, it might be a principal, medium, or far category
+              (isPrincipalCategory || isMediumCategory || isFarCategory))
+          .toList();
 
-    // Comparamos usando zona.id que es el tipoProducto como string
-    // Check if current zone is the main category
-    if (mainCategoryDetails != null &&
-        zone.id == mainCategoryDetails.tipoProducto.toString()) {
-      final zoneData = _heatmapData.firstWhere(
-        (element) => element.sensorId == zone.id,
-        orElse: () => HeatmapLocation(
-            sensorId: zone.id,
+      if (sensorDataList.isNotEmpty) {
+        // This zone has direct sensor data or is configured in a sensor
+        HeatmapLocation? zoneData;
+
+        // Try to find direct data by tipoProducto
+        zoneData = sensorDataList.firstWhere(
+          (data) => data.sensorId == zone.tipoProducto.toString(),
+          orElse: () => HeatmapLocation(
+            sensorId: zone.tipoProducto.toString(),
             avgPrincipal: 0,
             avgMedium: 0,
             avgFar: 0,
             maxPrincipal: 0,
             totalReadings: 0,
-            lastUpdate: DateTime.now()),
-      );
-      valueToShow = zoneData.avgPrincipal.round();
-      labelText = 'Principal';
-      print('Categoría Principal (${zone.name}) - Valor: $valueToShow');
-    }
-    // Check if current zone is the medium distance category and main heatmap data is available
-    else if (mediumCategoryDetails != null &&
-        zone.id == mediumCategoryDetails.tipoProducto.toString() &&
-        mainHeatmapDataForDistances != null) {
-      valueToShow = mainHeatmapDataForDistances.avgMedium.round();
-      labelText = 'Distancia Media';
-      print(
-          'Categoría Media (${zone.name}) - Valor (de ${mainCategoryDetails?.name}): $valueToShow');
-    }
-    // Check if current zone is the far distance category and main heatmap data is available
-    else if (farCategoryDetails != null &&
-        zone.id == farCategoryDetails.tipoProducto.toString() &&
-        mainHeatmapDataForDistances != null) {
-      valueToShow = mainHeatmapDataForDistances.avgFar.round();
-      labelText = 'Distancia Lejana';
-      print(
-          'Categoría Lejana (${zone.name}) - Valor (de ${mainCategoryDetails?.name}): $valueToShow');
-    } else {
-      // Otra categoría no asignada
-      final zoneData = _heatmapData.firstWhere(
-        (element) => element.sensorId == zone.id,
-        orElse: () => HeatmapLocation(
-          sensorId: zone.id,
-          avgPrincipal: 0,
-          avgMedium: 0,
-          avgFar: 0,
-          maxPrincipal: 0,
-          totalReadings: 0,
-          lastUpdate: DateTime.now(),
-        ),
-      );
-      valueToShow = zoneData.avgPrincipal.round();
+            lastUpdate: DateTime.now(),
+          ),
+        );
+
+        // If no direct data but it's a category in use, use the first available data
+        if (zoneData.totalReadings == 0 && sensorDataList.isNotEmpty) {
+          zoneData = sensorDataList.first;
+        }
+
+        if (isMediumCategory) {
+          // This zone is configured as a medium-distance category in some sensor
+          valueToShow = zoneData.avgMedium.round();
+          labelText = 'Distancia Media';
+          print(
+              'Categoría configurada como Media (${zone.name}) - Valor: $valueToShow');
+        } else if (isFarCategory) {
+          // This zone is configured as a far-distance category in some sensor
+          valueToShow = zoneData.avgFar.round();
+          labelText = 'Distancia Lejana';
+          print(
+              'Categoría configurada como Lejana (${zone.name}) - Valor: $valueToShow');
+        } else if (isPrincipalCategory) {
+          // This zone is a principal category
+          valueToShow = zoneData.avgPrincipal.round();
+          labelText = 'Principal';
+          print(
+              'Categoría Principal (${zone.name}) - Valor Principal: $valueToShow');
+        } else {
+          // Fallback for other cases
+          valueToShow = zoneData.avgPrincipal.round();
+          print('Categoría (${zone.name}) - Fallback valor: $valueToShow');
+        }
+      } else {
+        print('No sensor data found for zone ${zone.name}');
+      }
+    } catch (e) {
+      print('Error procesando zona ${zone.name}: $e');
+      valueToShow = 0;
     }
 
     final isHovered = _hoveredZoneId == zone.id;
