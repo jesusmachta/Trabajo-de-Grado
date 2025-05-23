@@ -10,6 +10,7 @@ import '../controllers/auth_controller.dart';
 import '../controllers/route_guard.dart';
 import '../main.dart'; // Importar para acceder al themeController
 import 'cameras_view.dart';
+import 'sensors_view.dart';
 import 'profile_view.dart';
 import '../controllers/chat_controller.dart'; // Import ChatController
 import 'heatmap_view.dart'; // Import HeatmapView
@@ -82,9 +83,15 @@ class _HomeViewState extends State<HomeView> {
               _showStatisticsSubmenu = false; // Hide statistics submenu
             });
             break;
-          case 'heatmap':
+          case 'sensors':
             setState(() {
               _currentIndex = 5;
+              _showStatisticsSubmenu = false; // Hide statistics submenu
+            });
+            break;
+          case 'heatmap':
+            setState(() {
+              _currentIndex = 6;
               _showStatisticsSubmenu = false; // Hide statistics submenu
             });
             break;
@@ -115,6 +122,7 @@ class _HomeViewState extends State<HomeView> {
       if (isAdmin) UsersView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CategoriesView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CamerasView(toggleTheme: widget.toggleTheme),
+      if (isAdmin) SensorsView(toggleTheme: widget.toggleTheme),
       const HeatmapView(), // Mapa de Calor view
     ];
     _titles = [
@@ -123,6 +131,7 @@ class _HomeViewState extends State<HomeView> {
       if (isAdmin) 'Gestión de Usuarios',
       if (isAdmin) 'Categorías',
       if (isAdmin) 'Gestión de Cámaras',
+      if (isAdmin) 'Gestión de Sensores',
       'Mapa de Calor',
     ];
     // Si el usuario no es admin y el índice actual es > 1, volver al dashboard
@@ -211,11 +220,14 @@ class _HomeViewState extends State<HomeView> {
         path = '/cameras';
         break;
       case 5:
+        path = '/sensors';
+        break;
+      case 6:
         path = '/heatmap';
         break;
     }
 
-    // Update URL without triggering a full page reload
+    // Update the URL without navigating
     GoRouter.of(context).go(path);
   }
 
@@ -673,6 +685,50 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
               ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: InkWell(
+                  onTap: () {
+                    _navigateToView(5);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _currentIndex == 5
+                          ? const Color(
+                              0xFFE1F5FF) // Light blue background for selected item
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.sensors,
+                          size: 28,
+                          color: _currentIndex == 5
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Sensores',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: _currentIndex == 5
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
 
             // Heat Map button (available for all users)
@@ -681,7 +737,7 @@ class _HomeViewState extends State<HomeView> {
               child: InkWell(
                 onTap: () {
                   // Direct navigation to heatmap similar to other menu items
-                  _navigateToView(5);
+                  _navigateToView(6);
                   Navigator.pop(context);
                 },
                 borderRadius: BorderRadius.circular(16),
@@ -689,7 +745,7 @@ class _HomeViewState extends State<HomeView> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: _currentIndex == 5
+                    color: _currentIndex == 6
                         ? const Color(
                             0xFFE1F5FF) // Light blue background for selected item
                         : Colors.transparent,
@@ -700,7 +756,7 @@ class _HomeViewState extends State<HomeView> {
                       Icon(
                         Icons.heat_pump_outlined,
                         size: 28,
-                        color: _currentIndex == 5
+                        color: _currentIndex == 6
                             ? const Color(0xFF223A5E)
                             : Colors.grey[600],
                       ),
@@ -710,7 +766,7 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: _currentIndex == 5
+                          color: _currentIndex == 6
                               ? const Color(0xFF223A5E)
                               : Colors.grey[800],
                         ),

@@ -68,6 +68,11 @@ from backend.cameras.delete_camera import delete_camera
 from backend.analysis import handle_image_upload
 from backend.categories.category_model import CategoryModel
 from backend.categories.schemas import CategoryCreate, CategoryUpdate, CategoryResponse
+# Import sensor CRUD modules
+from backend.sensor.create_sensor import create_sensor
+from backend.sensor.read_sensor import get_sensors_with_details, get_sensor_by_id, get_available_categories
+from backend.sensor.update_sensor import update_sensor
+from backend.sensor.delete_sensor import delete_sensor
 
 
 
@@ -982,3 +987,94 @@ async def delete_category_endpoint(category_id: str, empresa: str = Depends(get_
     category_model = CategoryModel()
     category_model.delete_category(category_id=category_id, empresa=empresa)
     return {"message": "Categoría eliminada exitosamente"}
+
+@router.get("/sensors", tags=["Sensors"], response_model=List[Dict[str, Any]])
+async def get_sensors_endpoint(empresa: str = Depends(get_empresa)):
+    """
+    Retrieve all sensors for the authenticated company.
+    """
+    try:
+        sensors = get_sensors_with_details(empresa)
+        return sensors
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching sensors: {str(e)}")
+
+@router.get("/sensors/available-categories", tags=["Sensors"], response_model=Dict[str, List[Dict[str, Any]]])
+async def get_available_categories_endpoint(
+    sensor_id: Optional[str] = None,
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Get all categories available for assignment to sensors
+    (categories not already assigned to other sensors).
+    """
+    try:
+        available_categories = get_available_categories(empresa, sensor_id)
+        return available_categories
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching available categories: {str(e)}")
+
+@router.get("/sensors/{sensor_id}", tags=["Sensors"], response_model=Dict[str, Any])
+async def get_sensor_by_id_endpoint(
+    sensor_id: str = Path(..., title="The MongoDB ObjectId of the sensor to retrieve"),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Retrieve a specific sensor by its ID.
+    """
+    try:
+        sensor = get_sensor_by_id(sensor_id, empresa)
+        return sensor
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching sensor: {str(e)}")
+
+@router.post("/sensors", tags=["Sensors"], response_model=Dict[str, Any], status_code=201)
+async def create_sensor_endpoint(
+    sensor_data: Dict[str, Any] = Body(...),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Create a new sensor.
+    """
+    try:
+        created_sensor = create_sensor(sensor_data, empresa)
+        return created_sensor
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating sensor: {str(e)}")
+
+@router.put("/sensors/{sensor_id}", tags=["Sensors"], response_model=Dict[str, Any])
+async def update_sensor_endpoint(
+    sensor_id: str = Path(..., title="The MongoDB ObjectId of the sensor to update"),
+    update_data: Dict[str, Any] = Body(...),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Update an existing sensor.
+    """
+    try:
+        updated_sensor = update_sensor(sensor_id, update_data, empresa)
+        return updated_sensor
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating sensor: {str(e)}")
+
+@router.delete("/sensors/{sensor_id}", tags=["Sensors"], status_code=204)
+async def delete_sensor_endpoint(
+    sensor_id: str = Path(..., title="The MongoDB ObjectId of the sensor to delete"),
+    empresa: str = Depends(get_empresa)
+):
+    """
+    Delete a sensor.
+    """
+    try:
+        delete_sensor(sensor_id, empresa)
+        return None
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting sensor: {str(e)}")

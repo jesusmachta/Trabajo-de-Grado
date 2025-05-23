@@ -90,6 +90,18 @@ final GoRouter router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/sensors',
+      builder: (context, state) => AuthWrapper(
+        toggleTheme: () {
+          final currentMode = Theme.of(context).brightness == Brightness.light
+              ? ThemeMode.dark
+              : ThemeMode.light;
+          themeController.add(currentMode);
+        },
+        initialView: 'sensors',
+      ),
+    ),
+    GoRoute(
       path: '/chat',
       builder: (context, state) => AuthWrapper(
         toggleTheme: () {

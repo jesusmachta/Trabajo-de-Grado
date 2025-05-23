@@ -10,7 +10,9 @@ collections = {
     "HeatMap": db['HeatMap'],
     "Users": db['Users'],
     "Estadisticas": db['Estadisticas'],
-    "Empresas": db['Empresas']
+    "Empresas": db['Empresas'],
+    "Sensors": db['Sensors'],
+    "SensorsSettings": db['SensorsSettings']
 }
 
 # Inicializar el contador si no existe
