@@ -128,6 +128,29 @@ def initialize_routes(app):
     # Iniciar el programador de actualizaciones
     start_scheduler()
     
+    # Add direct endpoint without /api/ prefix
+    @app.post("/upload-image/")
+    async def upload_image_root_endpoint(background_tasks: BackgroundTasks, payload: ImagePayload):
+        """
+        Duplicate of the upload-image endpoint accessible at the root path.
+        Endpoint to receive camera images, process them, and analyze them.
+        """
+        try:
+            # Call the controller function that orchestrates the entire process
+            return await handle_image_upload(
+                background_tasks=background_tasks,
+                image_base64=payload.image_base64,
+                id_camara=payload.id_camara,
+                empresa=payload.empresa
+            )
+        except Exception as e:
+            logger.error(f"Error in upload_image_root_endpoint: {e}")
+            # If an HTTPException was raised by the controller, it will propagate up
+            # For other exceptions, wrap them in a 500 error
+            if not isinstance(e, HTTPException):
+                raise HTTPException(status_code=500, detail=str(e))
+            raise
+    
     # Incluir rutas API
     app.include_router(router, prefix="/api")
     app.include_router(regenerate_stats_router, prefix="/api", tags=["Statistics"])
