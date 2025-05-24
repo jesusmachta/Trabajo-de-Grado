@@ -1034,6 +1034,16 @@ async def delete_category_endpoint(category_id: str, empresa: str = Depends(get_
     category_model.delete_category(category_id=category_id, empresa=empresa)
     return {"message": "Categoría eliminada exitosamente"}
 
+@router.get("/categories/{category_id}/cameras", tags=["Categories"], response_model=dict)
+async def get_cameras_by_category_endpoint(category_id: str, empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para obtener todas las cámaras asociadas a una categoría específica.
+    Se utiliza para validar si una categoría puede ser eliminada.
+    """
+    category_model = CategoryModel()
+    cameras = category_model.get_cameras_by_category(category_id=category_id, empresa=empresa)
+    return {"message": "Success", "cameras": cameras}
+
 @router.get("/sensors", tags=["Sensors"], response_model=List[Dict[str, Any]])
 async def get_sensors_endpoint(empresa: str = Depends(get_empresa)):
     """

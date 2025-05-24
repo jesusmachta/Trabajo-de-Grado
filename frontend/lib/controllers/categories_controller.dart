@@ -163,6 +163,35 @@ class CategoriesController {
     }
   }
 
+  // Get cameras associated with a category
+  Future<List<Map<String, dynamic>>> getCamerasByCategory(
+      String categoryId, String token) async {
+    final url = Uri.parse('$baseUrl/api/categories/$categoryId/cameras');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception(
+            'La solicitud tomó demasiado tiempo. Verifica tu conexión.');
+      });
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<dynamic> camerasData = jsonResponse['cameras'];
+        return List<Map<String, dynamic>>.from(camerasData);
+      } else {
+        throw Exception(
+            'Error al obtener cámaras asociadas. Código: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error en getCamerasByCategory: $e');
+      rethrow; // Re-throw to handle in the UI
+    }
+  }
+
   // Obtener cámaras asociadas a un Tipo_Producto (categoría)
   Future<List<Map<String, dynamic>>> getCamerasByTipoProducto(
       int tipoProducto) async {

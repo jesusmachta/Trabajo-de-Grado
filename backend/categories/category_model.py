@@ -139,4 +139,60 @@ class CategoryModel:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error al eliminar categoría: {str(e)}") 
+            raise HTTPException(status_code=500, detail=f"Error al eliminar categoría: {str(e)}")
+            
+    def get_cameras_by_category(self, category_id: str, empresa: str) -> List[Dict[str, Any]]:
+        """
+        Get all cameras associated with a specific category.
+        
+        Args:
+            category_id (str): The MongoDB ObjectId of the category
+            empresa (str): The company identifier
+            
+        Returns:
+            List[Dict[str, Any]]: List of cameras associated with the category
+            
+        Raises:
+            HTTPException: If category not found or there's an error fetching the cameras
+        """
+        try:
+            # Verify if ID is valid
+            if not ObjectId.is_valid(category_id):
+                raise HTTPException(status_code=400, detail="ID de categoría inválido")
+                
+            # Get the category to find its Tipo_Producto
+            category = self.collection.find_one({
+                "_id": ObjectId(category_id),
+                "empresa": empresa
+            })
+            
+            if not category:
+                raise HTTPException(
+                    status_code=404, 
+                    detail="Categoría no encontrada o no pertenece a su empresa"
+                )
+                
+            tipo_producto = category.get("Tipo_Producto")
+            
+            # Find all cameras with this Tipo_Producto
+            cameras_cursor = collections["Tipo_Producto_Zona_Camara"].find({
+                "Tipo_Producto": tipo_producto,
+                "empresa": empresa
+            })
+            
+            cameras_list = []
+            for camera in cameras_cursor:
+                # Convert ObjectId to string for JSON serialization
+                if '_id' in camera:
+                    camera['_id'] = str(camera['_id'])
+                cameras_list.append(camera)
+                
+            return cameras_list
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error al obtener cámaras asociadas a la categoría: {str(e)}"
+            ) 
