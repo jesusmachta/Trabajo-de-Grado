@@ -202,7 +202,7 @@ class AboutView extends StatelessWidget {
                   onPressed: () {
                     ToastService.showInfo(
                       context,
-                      'Contacto: info@storesense.com',
+                      'Contacto: jesus.machta@correo.unimet.edu.ve',
                     );
                   },
                 ),

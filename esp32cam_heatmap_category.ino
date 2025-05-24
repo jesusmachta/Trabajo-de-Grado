@@ -20,10 +20,9 @@ const char *password = "mirefugio2203#";
 // Your backend API endpoint
 const char *serverName = "https://trabajo-de-grado.onrender.com/api/heatmap/data";
 
-// Category configuration - CHANGE THESE VALUES FOR EACH ESP32-CAM DEVICE!
-// Use the Tipo_Producto ID from your database
-const int TIPO_PRODUCTO = 1; // Set this to match your category ID
-String empresa = "CataSus";  // Company identifier
+// Sensor configuration - CHANGE THESE VALUES FOR EACH ESP32-CAM DEVICE!
+const String SENSOR_ID = "1"; // Unique identifier for this sensor
+String empresa = "CataSus";   // Company identifier
 
 // RSSI threshold values for proximity determination
 const int RSSI_CLOSE = -60;  // Strong signal (very close) - Main category
@@ -95,8 +94,8 @@ void setup()
     pBLEScan->setInterval(100);
     pBLEScan->setWindow(99); // Less than interval value
 
-    Serial.print("ESP32-CAM configured for Category ID: ");
-    Serial.println(TIPO_PRODUCTO);
+    Serial.print("ESP32-CAM configured with Sensor ID: ");
+    Serial.println(SENSOR_ID);
     Serial.println("Setup completed");
 }
 
@@ -144,7 +143,7 @@ void loop()
     delay(1000); // Small delay in the main loop
 }
 
-void sendHeatMapData(int count, int medium, int far)
+void sendHeatMapData(int principal, int medium, int far)
 {
     HTTPClient http;
 
@@ -154,14 +153,11 @@ void sendHeatMapData(int count, int medium, int far)
     // Specify content-type header
     http.addHeader("Content-Type", "application/json");
 
-    // Format locationId as a string matching the category ID
-    String locationId = String(TIPO_PRODUCTO);
-
     // Prepare JSON data
-    String httpRequestData = "{\"location_id\":\"" + locationId +
-                             "\",\"count\":" + String(count) +
-                             ",\"medium\":" + String(medium) +
-                             ",\"far\":" + String(far) +
+    String httpRequestData = "{\"sensor_id\":\"" + SENSOR_ID +
+                             "\",\"tipo_producto_principal\":" + String(principal) +
+                             ",\"tipo_producto_medium\":" + String(medium) +
+                             ",\"tipo_producto_far\":" + String(far) +
                              ",\"empresa\":\"" + empresa + "\"}";
 
     Serial.print("Sending data: ");
