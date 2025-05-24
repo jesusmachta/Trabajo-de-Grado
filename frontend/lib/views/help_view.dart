@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/toast_notification.dart';
 
 class HelpView extends StatelessWidget {
   const HelpView({Key? key}) : super(key: key);
@@ -140,12 +141,9 @@ class HelpView extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: () {
                         // Implementar funcionalidad de contacto aquí
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Correo de soporte: catalina.matheus@correo.unimet.edu.ve'),
-                            duration: Duration(seconds: 2),
-                          ),
+                        ToastService.showInfo(
+                          context,
+                          'Correo de soporte: catalina.matheus@correo.unimet.edu.ve',
                         );
                       },
                       icon: const Icon(Icons.email),

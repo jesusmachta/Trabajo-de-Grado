@@ -1300,7 +1300,7 @@ class _SensorsViewState extends State<SensorsView> {
                                 message: 'Editar Sensor',
                                 child: IconButton(
                                   icon: Icon(Icons.edit,
-                                      color: Colors.blue.shade600),
+                                      color: const Color(0xFF223A5E)),
                                   iconSize: 22,
                                   padding: const EdgeInsets.all(8),
                                   tooltip: 'Editar',

@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../controllers/auth_controller.dart';
 import 'home_view.dart';
 import 'package:intl/intl.dart'; // For date formatting
+import 'package:frontend/widgets/toast_notification.dart';
 
 class RegisterCompanyView extends StatefulWidget {
   final Function toggleTheme;
@@ -307,19 +308,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
         // Show a snackbar with the error
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_errorMessage ?? 'Error al registrar la empresa'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-              action: SnackBarAction(
-                label: 'OK',
-                textColor: Colors.white,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                },
-              ),
-            ),
+          ToastService.showError(
+            context,
+            _errorMessage ?? 'Error al registrar la empresa',
           );
         }
       }
@@ -330,12 +321,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
       // Show a snackbar with the connection error
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión al servidor'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
+        ToastService.showError(
+          context,
+          'Error de conexión al servidor',
         );
       }
     } finally {

@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'dart:math';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../controllers/categories_controller.dart';
+import 'package:frontend/widgets/toast_notification.dart';
 
 // Clase para datos de porcentaje de emociones (igual que en statistics_view)
 class EmotionPercentageData {
@@ -177,20 +178,16 @@ class _DashboardViewState extends State<DashboardView> {
     try {
       final message = await _controller.testApiConnection();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
+        ToastService.showSuccess(
+          context,
+          message,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        ToastService.showError(
+          context,
+          'Error: $e',
         );
       }
     }

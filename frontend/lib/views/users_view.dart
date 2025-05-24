@@ -650,6 +650,9 @@ class _UsersViewState extends State<UsersView> {
                     // Mostrar indicador de carga
                     ToastService.showInfo(context, 'Subiendo imagen...');
 
+                    // Get the user ID being edited (or a new user will be created)
+                    final String userId = _isEditMode ? _editingUserId! : '';
+
                     // Subir la imagen al servidor
                     final response = await http.post(
                       Uri.parse(
@@ -660,6 +663,7 @@ class _UsersViewState extends State<UsersView> {
                       },
                       body: jsonEncode({
                         'image_base64': _profileImageBase64,
+                        'user_id': userId, // Add the user ID being edited
                       }),
                     );
 
@@ -1243,7 +1247,7 @@ class _UsersViewState extends State<UsersView> {
                               message: 'Editar Usuario',
                               child: IconButton(
                                 icon: Icon(Icons.edit,
-                                    color: Colors.blue.shade600),
+                                    color: const Color(0xFF223A5E)),
                                 iconSize: 22,
                                 padding: const EdgeInsets.all(8),
                                 tooltip: 'Editar',

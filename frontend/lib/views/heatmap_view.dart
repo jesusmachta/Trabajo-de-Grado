@@ -5,6 +5,7 @@ import '../models/heatmap_data.dart';
 import '../widgets/heatmap_legend.dart';
 import '../controllers/categories_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/widgets/toast_notification.dart';
 
 class HeatmapView extends StatefulWidget {
   const HeatmapView({Key? key}) : super(key: key);
@@ -334,31 +335,25 @@ class _HeatmapViewState extends State<HeatmapView> {
                       Navigator.of(context).pop();
 
                       // Show success message
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Configuración actualizada con éxito'),
-                          backgroundColor: Colors.green,
-                        ),
+                      ToastService.showSuccess(
+                        context,
+                        'Configuración actualizada con éxito',
                       );
 
                       // Reload data to apply changes
                       _loadData();
                     }).catchError((error) {
                       // Show error on failure but keep dialog open
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error al actualizar: $error'),
-                          backgroundColor: Colors.red,
-                        ),
+                      ToastService.showError(
+                        context,
+                        'Error al actualizar: $error',
                       );
                     });
                   } else {
                     // Show error message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(errorMessage),
-                        backgroundColor: Colors.red,
-                      ),
+                    ToastService.showError(
+                      context,
+                      errorMessage,
                     );
                   }
                 },

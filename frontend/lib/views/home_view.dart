@@ -335,7 +335,7 @@ class _HomeViewState extends State<HomeView> {
               IconButton(
                 icon: Icon(
                   Icons.auto_awesome, // Sparkle icon for AI
-                  color: Theme.of(context).colorScheme.primary,
+                  color: const Color(0xFF223A5E),
                 ),
                 tooltip: 'Abrir Chat AI',
                 onPressed: () {
@@ -351,7 +351,7 @@ class _HomeViewState extends State<HomeView> {
                 IconButton(
                   icon: Icon(
                     Icons.business, // Building icon for company
-                    color: Theme.of(context).colorScheme.primary,
+                    color: const Color(0xFF223A5E),
                   ),
                   tooltip: 'Información de la Empresa',
                   onPressed: () {

@@ -64,13 +64,33 @@ class _ProfileViewState extends State<ProfileView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authController =
           Provider.of<AuthController>(context, listen: false);
+
+      // Show loading indicator
+      setState(() {
+        _isUploading = true;
+      });
+
       authController.refreshUserData().then((success) {
         if (success) {
+          print('ProfileView - Successfully refreshed user data');
           setState(() {
             // Reinicializar campos con los datos actualizados
             _initializeFormFields();
+            _isUploading = false;
+          });
+        } else {
+          print('ProfileView - Failed to refresh user data');
+          setState(() {
+            _errorMessage = 'No se pudieron cargar los datos del usuario';
+            _isUploading = false;
           });
         }
+      }).catchError((error) {
+        print('ProfileView - Error refreshing user data: $error');
+        setState(() {
+          _errorMessage = 'Error al cargar los datos: $error';
+          _isUploading = false;
+        });
       });
     });
   }
@@ -464,9 +484,22 @@ class _ProfileViewState extends State<ProfileView>
   String _encodeProfilePictureUrl(String? url) {
     if (url == null || url.isEmpty) return '';
 
+    print('ProfileView - Original profile URL: $url');
+
     try {
+      // Handle specific case for tesislospomelos bucket
+      if (url.contains('tesislospomelos.s3.amazonaws.com')) {
+        print('ProfileView - Detected tesislospomelos S3 URL');
+
+        // Direct access format for S3 - no transformation needed for this bucket
+        // Just ensure proper encoding
+        final encodedUrl = url.replaceAll(' ', '%20');
+        print('ProfileView - Encoded tesislospomelos URL: $encodedUrl');
+        return encodedUrl;
+      }
       // Check if it's an S3 URL
-      if (url.contains('s3.amazonaws.com')) {
+      else if (url.contains('s3.amazonaws.com')) {
+        print('ProfileView - Detected other S3 URL');
         // Convert https://bucketname.s3.amazonaws.com/key to https://s3.amazonaws.com/bucketname/key format
         // This alternate format often works better with public access settings
         final uri = Uri.parse(url);
@@ -481,17 +514,23 @@ class _ProfileViewState extends State<ProfileView>
               uri.path.startsWith('/') ? uri.path.substring(1) : uri.path;
 
           // Build URL in the alternative format
-          return 'https://s3.amazonaws.com/$bucketName/$objectKey';
+          final formattedUrl =
+              'https://s3.amazonaws.com/$bucketName/$objectKey';
+          print('ProfileView - Reformatted S3 URL: $formattedUrl');
+          return formattedUrl;
         }
       }
 
       // If not an S3 URL or already in the right format, just encode it properly
       final uri = Uri.parse(url);
       final pathSegments = uri.pathSegments.map(Uri.encodeComponent).join('/');
-      return '${uri.scheme}://${uri.host}${uri.port != 80 && uri.port != 443 ? ':${uri.port}' : ''}/$pathSegments';
+      final encodedUrl =
+          '${uri.scheme}://${uri.host}${uri.port != 80 && uri.port != 443 ? ':${uri.port}' : ''}/$pathSegments';
+      print('ProfileView - Generally encoded URL: $encodedUrl');
+      return encodedUrl;
     } catch (e) {
       // If URL parsing fails, fall back to basic space encoding
-      print('Error encoding URL: $e');
+      print('ProfileView - Error encoding URL: $e');
       return url.replaceAll(' ', '%20');
     }
   }
@@ -529,10 +568,80 @@ class _ProfileViewState extends State<ProfileView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // Error display
+                if (_errorMessage != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red.shade700),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(color: Colors.red.shade700),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setState(() => _errorMessage = null),
+                          color: Colors.red.shade700,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Success message
+                if (_successMessage != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle_outline,
+                            color: Colors.green.shade700),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _successMessage!,
+                            style: TextStyle(color: Colors.green.shade700),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () =>
+                              setState(() => _successMessage = null),
+                          color: Colors.green.shade700,
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Profile image section
                 Stack(
                   alignment: Alignment.bottomRight,
                   children: [
+                    // Debug logs for profile picture URL
+                    Builder(builder: (context) {
+                      // Print profile picture URL info for debugging
+                      print(
+                          'ProfileView - Current user profile picture: ${currentUser.profilePicture}');
+                      print(
+                          'ProfileView - Encoded profile picture URL: $encodedProfilePictureUrl');
+                      return const SizedBox.shrink();
+                    }),
+
                     // Profile picture
                     CircleAvatar(
                       radius: 60,

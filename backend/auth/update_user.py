@@ -37,6 +37,7 @@ class WebProfilePicturePayload(BaseModel):
     """Model for profile picture upload from web"""
     image_base64: str
     file_name: Optional[str] = None
+    user_id: Optional[str] = None
 
 class PasswordResetRequest(BaseModel):
     """Model for password reset verification"""

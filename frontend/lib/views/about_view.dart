@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/widgets/toast_notification.dart';
 
 class AboutView extends StatelessWidget {
   const AboutView({Key? key}) : super(key: key);
@@ -199,10 +200,9 @@ class AboutView extends StatelessWidget {
                   icon: Icons.email,
                   label: 'Email',
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Contacto: info@storesense.com'),
-                      ),
+                    ToastService.showInfo(
+                      context,
+                      'Contacto: info@storesense.com',
                     );
                   },
                 ),
@@ -212,10 +212,9 @@ class AboutView extends StatelessWidget {
                   icon: Icons.web,
                   label: 'Web',
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sitio web: www.storesense.com'),
-                      ),
+                    ToastService.showInfo(
+                      context,
+                      'Sitio web: www.storesense.com',
                     );
                   },
                 ),

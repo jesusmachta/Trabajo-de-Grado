@@ -6,6 +6,7 @@ import 'register_company_view.dart';
 import '../controllers/auth_controller.dart';
 import 'forgot_password_view.dart';
 import 'onboarding_view.dart';
+import 'package:frontend/widgets/toast_notification.dart';
 
 class LoginView extends StatefulWidget {
   final Function toggleTheme;
@@ -67,11 +68,9 @@ class _LoginViewState extends State<LoginView> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authController.error ?? 'Error al iniciar sesión'),
-            backgroundColor: Colors.red,
-          ),
+        ToastService.showError(
+          context,
+          authController.error ?? 'Error al iniciar sesión',
         );
       }
     }

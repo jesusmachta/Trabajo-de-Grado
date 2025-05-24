@@ -122,51 +122,58 @@ class _ToastNotificationState extends State<ToastNotification>
             ],
           ),
           constraints: const BoxConstraints(
-            maxWidth: 400,
+            maxWidth: 500,
+            maxHeight: 300,
           ),
           clipBehavior: Clip.antiAlias,
           child: Material(
             color: Colors.transparent,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 56,
-                  color: _getColorForType(),
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getIconForType(),
-                        color: _getColorForType(),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          widget.message,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        color: isDark ? Colors.white70 : Colors.black54,
-                        padding: const EdgeInsets.all(4),
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: _dismissNotification,
-                      ),
-                    ],
+            child: IntrinsicHeight(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 8,
+                    color: _getColorForType(),
                   ),
-                ),
-              ],
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            _getIconForType(),
+                            color: _getColorForType(),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.message,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              overflow: TextOverflow.visible,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _dismissNotification,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -182,7 +189,7 @@ class ToastService {
     required BuildContext context,
     required String message,
     NotificationType type = NotificationType.info,
-    Duration duration = const Duration(seconds: 2),
+    Duration duration = const Duration(seconds: 4),
   }) {
     // Dismiss any existing notification first
     dismiss();
@@ -190,8 +197,8 @@ class ToastService {
     // Create the new overlay entry
     _currentNotification = OverlayEntry(
       builder: (context) => Positioned(
-        bottom: 16,
-        right: 16,
+        bottom: 20,
+        right: 20,
         child: ToastNotification(
           message: message,
           type: type,
@@ -223,6 +230,7 @@ class ToastService {
       context: context,
       message: message,
       type: NotificationType.error,
+      duration: const Duration(seconds: 5),
     );
   }
 
@@ -239,39 +247,7 @@ class ToastService {
       context: context,
       message: message,
       type: NotificationType.warning,
-    );
-  }
-
-  static void showToast(
-    BuildContext context,
-    String message, {
-    bool isError = false,
-    Duration duration = const Duration(seconds: 3),
-  }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        duration: duration,
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(8.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: Colors.white,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
-        ),
-      ),
+      duration: const Duration(seconds: 5),
     );
   }
 }

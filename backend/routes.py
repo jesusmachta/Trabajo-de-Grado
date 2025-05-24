@@ -771,6 +771,11 @@ async def upload_profile_picture_web_endpoint(
     """Upload a profile picture from web using base64."""
     user_id = str(current_user.get("_id"))
     
+    # Check if a specific user_id was provided and if current user is admin
+    if hasattr(payload, 'user_id') and payload.user_id and current_user.get("role") == "admin":
+        # Admin is updating someone else's profile picture
+        user_id = payload.user_id
+    
     # Use the upload_profile_picture_web function from the model
     result = upload_profile_picture_web(user_id, payload.image_base64, payload.file_name)
     
