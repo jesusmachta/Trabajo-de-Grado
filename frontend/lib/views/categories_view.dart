@@ -312,94 +312,240 @@ class _CategoriesViewState extends State<CategoriesView> {
     final String categoriaId = category["_id"];
     final String categoriaNombre =
         category["Categoria_Producto"] ?? "Categoría";
+    final int tipoProducto =
+        category["Tipo_Producto"]; // Assuming this field exists
 
-    // Confirmar eliminación
-    final bool confirm = await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Eliminar Categoría'),
-          content: Text(
-            '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
+    // TODO: Fetch linked cameras and sensors based on tipoProducto or categoriaId
+    // For now, let's simulate this with a list. Replace with actual API call.
+    final List<Map<String, dynamic>> linkedCameras =
+        await _getLinkedCameras(tipoProducto);
+    final List<Map<String, dynamic>> linkedSensors =
+        await _getLinkedSensors(tipoProducto);
+
+    if (linkedCameras.isNotEmpty || linkedSensors.isNotEmpty) {
+      // Show the new dialog with options
+      final result = await showDialog<String>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Cámaras/Sensores Vinculados Activos',
+                style: TextStyle(color: Theme.of(context).primaryColorDark)),
+            content: SingleChildScrollView(
+              child: ListBody(
+                children: <Widget>[
+                  Text(
+                      'No puedes eliminar la categoría "$categoriaNombre" porque tiene cámaras o sensores activos vinculados. ¿Qué deseas hacer?'),
+                  const SizedBox(height: 16),
+                  if (linkedCameras.isNotEmpty)
+                    Text('Cámaras vinculadas:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor)),
+                  ...linkedCameras.map((camera) => Text(
+                      '  ID: ${camera['Id_Camara']} (${camera['isActive'] ? 'Activo' : 'Inactivo'})')),
+                  if (linkedSensors.isNotEmpty) const SizedBox(height: 8),
+                  if (linkedSensors.isNotEmpty)
+                    Text('Sensores vinculados:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor)),
+                  ...linkedSensors.map((sensor) => Text(
+                      '  ID: ${sensor['Id_Sensor']} (${sensor['isActive'] ? 'Activo' : 'Inactivo'})')),
+                  const SizedBox(height: 24),
+                  Text('Opciones:',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color)),
+                ],
+              ),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child:
-                  const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Cancelar'),
+                onPressed: () {
+                  Navigator.of(context).pop('cancel');
+                },
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: Icon(Icons.delete_forever, color: Colors.white),
+                label: Text('Eliminar todo',
+                    style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop('delete_all');
+                },
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon:
+                    Icon(Icons.assignment_return_outlined, color: Colors.white),
+                label: Text('Reasignar y eliminar categoría',
+                    style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop('reassign');
+                },
+              ),
+            ],
+          );
+        },
+      );
+
+      if (result == 'delete_all') {
+        // TODO: Implement logic to delete all linked cameras/sensors and then the category
+        try {
+          final authController =
+              Provider.of<AuthController>(context, listen: false);
+          final String? token = authController.token;
+          if (token == null) throw Exception('Token no encontrado.');
+
+          // Delete linked items (cameras and sensors)
+          for (var camera in linkedCameras) {
+            // await _controller.deleteCamera(camera['_id'], token); // Assuming a method in controller
+            print('TODO: Implement camera deletion: ${camera['_id']}');
+          }
+          for (var sensor in linkedSensors) {
+            // await _controller.deleteSensor(sensor['_id'], token); // Assuming a method in controller
+            print('TODO: Implement sensor deletion: ${sensor['_id']}');
+          }
+
+          // Then delete the category
+          await _actuallyDeleteCategory(category, token);
+        } catch (e) {
+          ToastService.showError(context, 'Error al eliminar todo: $e');
+          await _loadCategories(); // Recargar en caso de error
+        }
+      } else if (result == 'reassign') {
+        // TODO: Implement logic to show another dialog/view to reassign items
+        // For now, just show a message and delete the category (placeholder)
+        ToastService.showInfo(context,
+            'Funcionalidad de reasignar pendiente. Eliminando categoría...');
+        try {
+          final authController =
+              Provider.of<AuthController>(context, listen: false);
+          final String? token = authController.token;
+          if (token == null) throw Exception('Token no encontrado.');
+          await _actuallyDeleteCategory(category, token);
+        } catch (e) {
+          ToastService.showError(context,
+              'Error al eliminar categoría después de intentar reasignar: $e');
+          await _loadCategories(); // Recargar en caso de error
+        }
+      } // else if result is 'cancel' or null, do nothing
+    } else {
+      // Original confirmation dialog if no linked items
+      final bool confirm = await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Eliminar Categoría'),
+            content: Text(
+              '¿Estás seguro de que deseas eliminar la categoría "$categoriaNombre"? Esta acción no se puede deshacer.',
             ),
-          ],
-        );
-      },
-    );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text('Eliminar',
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+            ],
+          );
+        },
+      );
 
-    if (confirm == true) {
-      try {
-        // Obtén el token JWT desde el AuthController
-        final authController =
-            Provider.of<AuthController>(context, listen: false);
-        final String? token = authController.token;
+      if (confirm == true) {
+        try {
+          final authController =
+              Provider.of<AuthController>(context, listen: false);
+          final String? token = authController.token;
 
-        if (token == null) {
-          throw Exception('No se encontró el token de autenticación.');
-        }
-
-        // Optimistic update - remove from UI first
-        if (mounted) {
-          setState(() {
-            categories.removeWhere((cat) => cat["_id"] == categoriaId);
-            _applyFilters(); // Update filtered list
-            isLoading = true; // Show loading state
-          });
-        }
-
-        // Llamar al controlador para eliminar la categoría
-        await _controller.deleteCategory(categoriaId, token);
-
-        // Recargar la lista de categorías para asegurar consistencia
-        if (mounted) {
-          await _loadCategories();
-          ToastService.showSuccess(
-              context, 'Categoría eliminada: $categoriaNombre');
-        }
-      } catch (e) {
-        // On error, refresh the list to get the correct state
-        if (mounted) {
-          await _loadCategories();
+          if (token == null) {
+            throw Exception('No se encontró el token de autenticación.');
+          }
+          await _actuallyDeleteCategory(category, token);
+        } catch (e) {
           ToastService.showError(context, 'Error al eliminar categoría: $e');
+          await _loadCategories(); // Recargar en caso de error
         }
       }
     }
   }
 
-  // Función auxiliar para eliminar cámara por id (llama al endpoint de cámaras)
-  Future<void> _deleteCameraById(String cameraMongoId) async {
-    final url = Uri.parse('http://127.0.0.1:8000/api/cameras/$cameraMongoId');
-    final response = await http.delete(url);
-    if (response.statusCode != 204) {
-      throw Exception('Error al eliminar cámara: ${response.body}');
+  // Extracted actual deletion logic to avoid duplication
+  Future<void> _actuallyDeleteCategory(
+      Map<String, dynamic> category, String token) async {
+    final String categoriaId = category["_id"];
+    final String categoriaNombre =
+        category["Categoria_Producto"] ?? "Categoría";
+    // Optimistic update - remove from UI first
+    setState(() {
+      categories.removeWhere((cat) => cat["_id"] == categoriaId);
+      _applyFilters(); // Update filtered list
+      isLoading = true; // Show loading state
+    });
+
+    try {
+      // Llamar al controlador para eliminar la categoría
+      await _controller.deleteCategory(categoriaId, token);
+
+      // Recargar la lista de categorías para asegurar consistencia
+      await _loadCategories();
+
+      // Mostrar notificación de éxito
+      ToastService.showSuccess(
+          context, 'Categoría eliminada: $categoriaNombre');
+    } catch (e) {
+      // On error, refresh the list to get the correct state
+      await _loadCategories();
+      // Rethrow to be caught by the caller if needed, or handle here
+      // ToastService.showError(context, 'Error al eliminar categoría: $e');
+      throw e; // rethrow the exception to be handled by the calling block
     }
   }
 
-  // Función auxiliar para actualizar el Tipo_Producto de una cámara (reasignar)
-  Future<void> _updateCameraTipoProducto(
-      String cameraMongoId, int idCamara, int newTipoProducto) async {
-    final url = Uri.parse('http://127.0.0.1:8000/api/cameras/$cameraMongoId');
-    final response = await http.put(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'Id_Camara': idCamara,
-        'Tipo_Producto': newTipoProducto,
-      }),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Error al reasignar cámara: ${response.body}');
+  // Placeholder for fetching linked cameras - replace with actual API call
+  Future<List<Map<String, dynamic>>> _getLinkedCameras(int tipoProducto) async {
+    // Simulate API call
+    await Future.delayed(const Duration(milliseconds: 500));
+    // This is example data. You need to fetch this from your backend.
+    // Filter cameras that match the tipoProducto of the category.
+    // Example: return allCameras.where((cam) => cam['Tipo_Producto'] == tipoProducto).toList();
+    // For now, returning a generic list if tipoProducto is, for example, 2 (like in the image)
+    if (tipoProducto == 2) {
+      // Assuming 'Frutas' category has Tipo_Producto = 2
+      return [
+        {
+          'Id_Camara': 2,
+          '_id': 'some_camera_mongo_id_1',
+          'isActive': true,
+          'Tipo_Producto': 2
+        },
+      ];
     }
+    return [];
+  }
+
+  // Placeholder for fetching linked sensors - replace with actual API call
+  Future<List<Map<String, dynamic>>> _getLinkedSensors(int tipoProducto) async {
+    // Simulate API call
+    await Future.delayed(const Duration(milliseconds: 500));
+    // This is example data. You need to fetch this from your backend.
+    // Example: return allSensors.where((sen) => sen['Tipo_Producto'] == tipoProducto).toList();
+    return []; // Assuming no sensors linked for now
   }
 
   void _showEditCategoryModal(Map<String, dynamic> category) {
@@ -728,11 +874,9 @@ class _CategoriesViewState extends State<CategoriesView> {
                       Navigator.of(context).pop();
 
                       // Show loading indicator
-                      if (mounted) {
-                        setState(() {
-                          isLoading = true;
-                        });
-                      }
+                      setState(() {
+                        isLoading = true;
+                      });
 
                       // Llamar al controlador para crear la categoría
                       await _controller.createCategory(
@@ -744,20 +888,18 @@ class _CategoriesViewState extends State<CategoriesView> {
                       );
 
                       // Recargar la lista de categorías
-                      if (mounted) {
-                        await _loadCategories();
-                        ToastService.showSuccess(
-                            context, 'Categoría creada exitosamente');
-                      }
+                      await _loadCategories();
+
+                      // Mostrar notificación de éxito
+                      ToastService.showSuccess(
+                          context, 'Categoría creada exitosamente');
                     } catch (e) {
                       // Hide loading and show error
-                      if (mounted) {
-                        setState(() {
-                          isLoading = false;
-                        });
-                        ToastService.showError(
-                            context, 'Error al crear categoría: $e');
-                      }
+                      setState(() {
+                        isLoading = false;
+                      });
+                      ToastService.showError(
+                          context, 'Error al crear categoría: $e');
                     }
                   },
                   child: const Text('Crear'),

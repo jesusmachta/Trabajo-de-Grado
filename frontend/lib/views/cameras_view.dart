@@ -6,6 +6,7 @@ import '../controllers/auth_controller.dart';
 import '../widgets/toast_notification.dart';
 import '../controllers/cameras_controller.dart'; // Importar el nuevo controller
 import 'categories_view.dart'; // Importar directamente la vista de categorías
+import 'package:go_router/go_router.dart';
 
 // Define the base URL for the API
 const String _apiBaseUrl =
@@ -180,9 +181,6 @@ class _CamerasViewState extends State<CamerasView> {
   // --- CRUD Operations ---
 
   Future<void> _addCamera(int idCamara, int categoryId) async {
-    if (!mounted) return;
-    final currentContext = context;
-
     try {
       // Obtén el token JWT desde el AuthController
       final authController =
@@ -196,16 +194,21 @@ class _CamerasViewState extends State<CamerasView> {
       // Usar el controller para añadir la cámara
       await _controller.addCamera(idCamara, categoryId, token);
 
-      await _fetchCameras(); // Recargar la lista de cámaras
-      Navigator.of(currentContext).pop();
-      ToastService.showSuccess(currentContext, 'Cámara añadida con éxito.');
+      // Recargar la lista de cámaras
+      await _fetchCameras();
+
+      // Cerrar el diálogo
+      Navigator.of(context).pop();
+
+      // Mostrar notificación de éxito
+      ToastService.showSuccess(context, 'Cámara añadida con éxito.');
     } catch (e) {
-      if (mounted) {
-        if (Navigator.of(currentContext).canPop()) {
-          Navigator.of(currentContext).pop();
-        }
-        ToastService.showError(currentContext, 'Error al añadir cámara: $e');
+      // Si hay un diálogo abierto, cerrarlo
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
       }
+
+      ToastService.showError(context, 'Error al añadir cámara: $e');
     }
   }
 
@@ -260,9 +263,6 @@ class _CamerasViewState extends State<CamerasView> {
   }
 
   Future<void> _deleteCamera(String mongoId) async {
-    if (!mounted) return;
-    final currentContext = context;
-
     try {
       // Obtén el token JWT desde el AuthController
       final authController =
@@ -276,22 +276,18 @@ class _CamerasViewState extends State<CamerasView> {
       // Usar el controller para eliminar la cámara
       await _controller.deleteCamera(mongoId, token);
 
-      if (!mounted) return;
+      // Recargar la lista de cámaras
+      await _fetchCameras();
 
-      await _fetchCameras(); // Recargar la lista de cámaras
-      ToastService.showSuccess(currentContext, 'Cámara eliminada con éxito.');
+      // Mostrar notificación de éxito
+      ToastService.showSuccess(context, 'Cámara eliminada con éxito.');
     } catch (e) {
-      if (mounted) {
-        ToastService.showError(currentContext, 'Error al eliminar cámara: $e');
-      }
+      ToastService.showError(context, 'Error al eliminar cámara: $e');
     }
   }
 
   // Método para editar una cámara existente
   Future<void> _editCamera(String mongoId, int idCamara, int categoryId) async {
-    if (!mounted) return;
-    final currentContext = context;
-
     try {
       // Obtén el token JWT desde el AuthController
       final authController =
@@ -305,19 +301,21 @@ class _CamerasViewState extends State<CamerasView> {
       // Usar el controller para editar la cámara
       await _controller.editCamera(mongoId, idCamara, categoryId, token);
 
-      if (!mounted) return;
+      // Recargar la lista de cámaras
+      await _fetchCameras();
 
-      await _fetchCameras(); // Recargar la lista de cámaras
-      Navigator.of(currentContext).pop();
-      ToastService.showSuccess(currentContext, 'Cámara actualizada con éxito.');
+      // Cerrar el diálogo
+      Navigator.of(context).pop();
+
+      // Mostrar notificación de éxito
+      ToastService.showSuccess(context, 'Cámara actualizada con éxito.');
     } catch (e) {
-      if (mounted) {
-        if (Navigator.of(currentContext).canPop()) {
-          Navigator.of(currentContext).pop();
-        }
-        ToastService.showError(
-            currentContext, 'Error al actualizar cámara: $e');
+      // Si hay un diálogo abierto, cerrarlo
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
       }
+
+      ToastService.showError(context, 'Error al actualizar cámara: $e');
     }
   }
 
@@ -468,14 +466,8 @@ class _CamerasViewState extends State<CamerasView> {
                                       // Cerrar diálogo actual
                                       Navigator.of(context).pop();
 
-                                      // Navegar a la vista de categorías usando la clase importada
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => CategoriesView(
-                                              toggleTheme: widget.toggleTheme),
-                                        ),
-                                      );
+                                      // Navegar a la vista principal de categorías
+                                      context.go('/categories');
                                     },
                                   ),
                                 ],
@@ -736,14 +728,8 @@ class _CamerasViewState extends State<CamerasView> {
                                       // Cerrar diálogo actual
                                       Navigator.of(context).pop();
 
-                                      // Navegar a la vista de categorías usando la clase importada
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => CategoriesView(
-                                              toggleTheme: widget.toggleTheme),
-                                        ),
-                                      );
+                                      // Navegar a la vista principal de categorías
+                                      context.go('/categories');
                                     },
                                   ),
                                 ],

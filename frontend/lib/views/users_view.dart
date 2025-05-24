@@ -758,6 +758,9 @@ class _UsersViewState extends State<UsersView> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
+              Navigator.of(context)
+                  .pop(); // Cerrar el diálogo de confirmación primero
+
               final authController =
                   Provider.of<AuthController>(context, listen: false);
               final userController =
@@ -767,8 +770,6 @@ class _UsersViewState extends State<UsersView> {
                 authController.token!,
                 userId,
               );
-
-              Navigator.of(context).pop(); // Cerrar el diálogo de confirmación
 
               if (success) {
                 ToastService.showSuccess(
