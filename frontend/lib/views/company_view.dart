@@ -174,7 +174,9 @@ class _CompanyViewState extends State<CompanyView> {
 
                   // Eliminar empresa (más elegante)
                   Card(
-                    color: Colors.red[50],
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.red.shade900.withOpacity(0.3)
+                        : Colors.red[50],
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
@@ -186,22 +188,34 @@ class _CompanyViewState extends State<CompanyView> {
                           Row(
                             children: [
                               Icon(Icons.delete_forever,
-                                  color: Colors.red[400]),
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.red[300]
+                                      : Colors.red[400]),
                               const SizedBox(width: 8),
-                              const Text(
+                              Text(
                                 'Eliminar empresa',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.red,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.red[300]
+                                      : Colors.red,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          const Text(
+                          Text(
                             'Esta acción eliminará permanentemente todos los datos asociados a la empresa. Por favor, confirma para continuar.',
-                            style: TextStyle(fontSize: 15),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black87,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           if (!_showDeleteConfirmation) ...[
@@ -218,9 +232,15 @@ class _CompanyViewState extends State<CompanyView> {
                             ),
                           ] else ...[
                             // Delete confirmation
-                            const Text(
+                            Text(
                               'Para confirmar, escriba el nombre de la empresa:',
-                              style: TextStyle(fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             TextField(
@@ -281,7 +301,12 @@ class _CompanyViewState extends State<CompanyView> {
                             const SizedBox(height: 16),
                             Text(
                               _errorMessage!,
-                              style: TextStyle(color: Colors.red[700]),
+                              style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.red[300]
+                                    : Colors.red[700],
+                              ),
                             ),
                           ],
                         ],

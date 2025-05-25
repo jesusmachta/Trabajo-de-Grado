@@ -1147,11 +1147,15 @@ class _DashboardViewState extends State<DashboardView> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Theme.of(context).cardColor
+                  : Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.05),
                   spreadRadius: 1,
                   blurRadius: 5,
                 ),
@@ -1175,9 +1179,15 @@ class _DashboardViewState extends State<DashboardView> {
                       final bool isLeastBusy = dayInfo['isLeastBusy'];
                       Color? bgColor;
                       if (isMostBusy) {
-                        bgColor = const Color(0xFFE8F5E9);
+                        bgColor =
+                            Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF1B5E20).withOpacity(0.4)
+                                : const Color(0xFFE8F5E9);
                       } else if (isLeastBusy) {
-                        bgColor = const Color(0xFFFFF3E0);
+                        bgColor =
+                            Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF993300).withOpacity(0.4)
+                                : const Color(0xFFFFF3E0);
                       }
                       return Column(
                         children: [
@@ -1187,10 +1197,19 @@ class _DashboardViewState extends State<DashboardView> {
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                               color: isMostBusy
-                                  ? Colors.green[700]
+                                  ? Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.green[300]
+                                      : Colors.green[700]
                                   : isLeastBusy
-                                      ? Colors.orange[700]
-                                      : Colors.black87,
+                                      ? Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.orange[300]
+                                          : Colors.orange[700]
+                                      : Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1198,7 +1217,10 @@ class _DashboardViewState extends State<DashboardView> {
                             dayInfo['full'],
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white70
+                                  : Colors.black87,
                               fontWeight: isMostBusy || isLeastBusy
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -1209,7 +1231,14 @@ class _DashboardViewState extends State<DashboardView> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: bgColor,
+                              color: bgColor ??
+                                  (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .surface
+                                          .withOpacity(0.3)
+                                      : null),
                               borderRadius: BorderRadius.circular(18),
                             ),
                             alignment: Alignment.center,
@@ -1217,6 +1246,10 @@ class _DashboardViewState extends State<DashboardView> {
                               dayInfo['date'].toString(),
                               style: TextStyle(
                                 fontSize: 16,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black87,
                                 fontWeight: isMostBusy || isLeastBusy
                                     ? FontWeight.bold
                                     : FontWeight.normal,
@@ -1238,7 +1271,9 @@ class _DashboardViewState extends State<DashboardView> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF1B5E20).withOpacity(0.3)
+                        : const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -1248,14 +1283,20 @@ class _DashboardViewState extends State<DashboardView> {
                         children: [
                           Icon(
                             Icons.people,
-                            color: Colors.green[700],
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.green[300]
+                                    : Colors.green[700],
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Día Más Concurrido',
                             style: TextStyle(
-                              color: Colors.green[700],
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.green[300]
+                                  : Colors.green[700],
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -1270,7 +1311,10 @@ class _DashboardViewState extends State<DashboardView> {
                               .textTheme
                               .headlineMedium
                               ?.copyWith(
-                                color: Colors.green[700],
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.green[300]
+                                    : Colors.green[700],
                                 fontWeight: FontWeight.bold,
                               ),
                           textAlign: TextAlign.center,
@@ -1285,7 +1329,9 @@ class _DashboardViewState extends State<DashboardView> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF993300).withOpacity(0.3)
+                        : const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -1295,14 +1341,20 @@ class _DashboardViewState extends State<DashboardView> {
                         children: [
                           Icon(
                             Icons.person_outline,
-                            color: Colors.orange[700],
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.orange[300]
+                                    : Colors.orange[700],
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Día Menos Concurrido',
                             style: TextStyle(
-                              color: Colors.orange[700],
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.orange[300]
+                                  : Colors.orange[700],
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -1317,7 +1369,10 @@ class _DashboardViewState extends State<DashboardView> {
                               .textTheme
                               .headlineMedium
                               ?.copyWith(
-                                color: Colors.orange[700],
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.orange[300]
+                                    : Colors.orange[700],
                                 fontWeight: FontWeight.bold,
                               ),
                           textAlign: TextAlign.center,
@@ -1372,6 +1427,11 @@ class _DashboardViewState extends State<DashboardView> {
         categoriesData['least_visited_category'] ?? 'No disponible';
     final int leastVisitedCount = categoriesData['least_visited_count'] ?? 0;
 
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final primaryLightColor = isDarkMode ? Colors.blue[300] : primaryColor;
+    final amberColor = isDarkMode ? Colors.amber[300] : Colors.amber.shade800;
+
     return StatisticCard(
       title: 'Categorías visitadas',
       icon: Icons.category,
@@ -1383,7 +1443,9 @@ class _DashboardViewState extends State<DashboardView> {
             child: Container(
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: isDarkMode
+                    ? primaryColor.withOpacity(0.2)
+                    : primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -1392,7 +1454,7 @@ class _DashboardViewState extends State<DashboardView> {
                   Text(
                     'Más Visitada',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: primaryLightColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -1401,15 +1463,14 @@ class _DashboardViewState extends State<DashboardView> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.2),
+                      color: isDarkMode
+                          ? primaryColor.withOpacity(0.3)
+                          : primaryColor.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       getCategoryIcon(mostVisitedCategory),
-                      color: Theme.of(context).colorScheme.primary,
+                      color: primaryLightColor,
                       size: 48,
                     ),
                   ),
@@ -1419,6 +1480,7 @@ class _DashboardViewState extends State<DashboardView> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1427,17 +1489,16 @@ class _DashboardViewState extends State<DashboardView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.2),
+                      color: isDarkMode
+                          ? primaryColor.withOpacity(0.3)
+                          : primaryColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '$mostVisitedCount visitas',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: primaryLightColor,
                       ),
                     ),
                   ),
@@ -1451,7 +1512,9 @@ class _DashboardViewState extends State<DashboardView> {
             child: Container(
               margin: const EdgeInsets.only(left: 8),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.1),
+                color: isDarkMode
+                    ? Colors.amber.withOpacity(0.2)
+                    : Colors.amber.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -1460,7 +1523,7 @@ class _DashboardViewState extends State<DashboardView> {
                   Text(
                     'Menos Visitada',
                     style: TextStyle(
-                      color: Colors.amber.shade800,
+                      color: amberColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -1469,12 +1532,14 @@ class _DashboardViewState extends State<DashboardView> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
+                      color: isDarkMode
+                          ? Colors.amber.withOpacity(0.3)
+                          : Colors.amber.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       getCategoryIcon(leastVisitedCategory),
-                      color: Colors.amber.shade800,
+                      color: amberColor,
                       size: 48,
                     ),
                   ),
@@ -1484,6 +1549,7 @@ class _DashboardViewState extends State<DashboardView> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1492,14 +1558,16 @@ class _DashboardViewState extends State<DashboardView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
+                      color: isDarkMode
+                          ? Colors.amber.withOpacity(0.3)
+                          : Colors.amber.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '$leastVisitedCount visitas',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.amber.shade800,
+                        color: amberColor,
                       ),
                     ),
                   ),

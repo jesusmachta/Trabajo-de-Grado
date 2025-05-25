@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/controllers/auth_controller.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:intl/intl.dart';
+import 'dart:math';
+import '../controllers/auth_controller.dart';
 import '../controllers/statistics_controller.dart';
-import '../models/chart_data.dart';
-import 'widgets/statistic_card.dart';
-import 'widgets/statistics_selector.dart';
-import 'package:month_picker_dialog/month_picker_dialog.dart'; // Import month picker
 import '../controllers/categories_controller.dart'; // Importar el controlador de categorías
 import 'package:go_router/go_router.dart'; // Import GoRouter
+import 'package:month_picker_dialog/month_picker_dialog.dart'; // Import month picker
+import 'widgets/statistic_card.dart';
+import 'widgets/statistics_selector.dart';
+import '../models/chart_data.dart'; // Import chart data models
 
 // String extension to add capitalize functionality
 extension StringExtension on String {
@@ -1404,7 +1405,7 @@ class StatisticsViewState extends State<StatisticsView> {
         return _buildHoursChart(data);
       case 'busy-days':
       case 'least-days':
-        return _buildDaysHighlight(data);
+        return _buildBusyDaysChart(data);
       case 'busy-days-combined':
         return _buildCombinedDaysView(data);
       case 'gender-distribution':
@@ -2364,11 +2365,82 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Visualizador para días más y menos concurridos
+  // Helper method to build a calendar day representation
+  Widget _buildCalendarDay({
+    required String letter,
+    required String fullName,
+    required String date,
+    required bool isHighlighted,
+    Color? bgColor,
+  }) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // Set text color based on theme and highlight status
+    Color letterColor = isHighlighted
+        ? (fullName == 'Miércoles'
+            ? (isDarkMode ? Colors.green[300]! : Colors.green[700]!)
+            : (isDarkMode ? Colors.orange[300]! : Colors.orange[700]!))
+        : (isDarkMode ? Colors.white : Colors.black87);
+
+    // Adjust background color for dark mode
+    if (isDarkMode && bgColor != null) {
+      if (fullName == 'Miércoles') {
+        bgColor = const Color(0xFF1B5E20).withOpacity(0.4); // Dark green
+      } else {
+        bgColor = const Color(0xFF993300).withOpacity(0.4); // Dark orange
+      }
+    }
+
+    return Column(
+      children: [
+        Text(
+          letter,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: letterColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          fullName,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDarkMode ? Colors.white70 : Colors.black87,
+            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: bgColor ??
+                (isDarkMode
+                    ? Theme.of(context).colorScheme.surface.withOpacity(0.3)
+                    : null),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            date,
+            style: TextStyle(
+              fontSize: 16,
+              color: isDarkMode ? Colors.white : Colors.black87,
+              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCombinedDaysView(dynamic data) {
     if (data is! Map || data.isEmpty) {
       return const Center(child: Text('No hay datos disponibles'));
     }
+
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Obtener directamente los nombres de los días
     String mostBusyDayEn = data['data']?['most_busy_day'] as String? ??
@@ -2480,11 +2552,13 @@ class StatisticsViewState extends State<StatisticsView> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDarkMode ? Theme.of(context).cardColor : Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.05),
                   spreadRadius: 1,
                   blurRadius: 5,
                 ),
@@ -2513,9 +2587,13 @@ class StatisticsViewState extends State<StatisticsView> {
                       // Color del día basado en los criterios
                       Color? bgColor;
                       if (isMostBusy) {
-                        bgColor = const Color(0xFFE8F5E9); // Verde claro
+                        bgColor = isDarkMode
+                            ? const Color(0xFF1B5E20).withOpacity(0.4)
+                            : const Color(0xFFE8F5E9); // Verde
                       } else if (isLeastBusy) {
-                        bgColor = const Color(0xFFFFF3E0); // Naranja claro
+                        bgColor = isDarkMode
+                            ? const Color(0xFF993300).withOpacity(0.4)
+                            : const Color(0xFFFFF3E0); // Naranja
                       }
 
                       return _buildCalendarDay(
@@ -2540,15 +2618,18 @@ class StatisticsViewState extends State<StatisticsView> {
               // Tarjeta día más concurrido (verde claro)
               Expanded(
                 child: Container(
-                  height:
-                      300, // Establecer altura fija para igualar las tarjetas de categorías
+                  height: 300,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9), // Verde claro
+                    color: isDarkMode
+                        ? const Color(0xFF1B5E20).withOpacity(0.3)
+                        : const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: isDarkMode
+                            ? Colors.black.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.1),
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
@@ -2562,14 +2643,18 @@ class StatisticsViewState extends State<StatisticsView> {
                         children: [
                           Icon(
                             Icons.people,
-                            color: Colors.green[700],
+                            color: isDarkMode
+                                ? Colors.green[300]
+                                : Colors.green[700],
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Día Más Concurrido',
                             style: TextStyle(
-                              color: Colors.green[700],
+                              color: isDarkMode
+                                  ? Colors.green[300]
+                                  : Colors.green[700],
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -2585,14 +2670,18 @@ class StatisticsViewState extends State<StatisticsView> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
+                            color: isDarkMode
+                                ? Colors.grey[800]!.withOpacity(0.7)
+                                : Colors.white.withOpacity(0.7),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Icon(
                               Icons.calendar_today,
                               size: 40,
-                              color: Colors.green[700],
+                              color: isDarkMode
+                                  ? Colors.green[300]
+                                  : Colors.green[700],
                             ),
                           ),
                         ),
@@ -2607,7 +2696,9 @@ class StatisticsViewState extends State<StatisticsView> {
                               .textTheme
                               .headlineMedium
                               ?.copyWith(
-                                color: Colors.green[700],
+                                color: isDarkMode
+                                    ? Colors.green[300]
+                                    : Colors.green[700],
                                 fontWeight: FontWeight.bold,
                               ),
                           textAlign: TextAlign.center,
@@ -2622,7 +2713,9 @@ class StatisticsViewState extends State<StatisticsView> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.5),
+                            color: isDarkMode
+                                ? Colors.green[900]!.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -2631,14 +2724,18 @@ class StatisticsViewState extends State<StatisticsView> {
                               Icon(
                                 Icons.trending_up,
                                 size: 20,
-                                color: Colors.green[700],
+                                color: isDarkMode
+                                    ? Colors.green[300]
+                                    : Colors.green[700],
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 'Mayor afluencia',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green[700],
+                                  color: isDarkMode
+                                      ? Colors.green[300]
+                                      : Colors.green[700],
                                 ),
                               ),
                             ],
@@ -2655,15 +2752,18 @@ class StatisticsViewState extends State<StatisticsView> {
               // Tarjeta día menos concurrido (naranja claro)
               Expanded(
                 child: Container(
-                  height:
-                      300, // Establecer altura fija para igualar las tarjetas de categorías
+                  height: 300,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0), // Naranja claro
+                    color: isDarkMode
+                        ? const Color(0xFF993300).withOpacity(0.3)
+                        : const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: isDarkMode
+                            ? Colors.black.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.1),
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
@@ -2677,14 +2777,18 @@ class StatisticsViewState extends State<StatisticsView> {
                         children: [
                           Icon(
                             Icons.person_outline,
-                            color: Colors.orange[700],
+                            color: isDarkMode
+                                ? Colors.orange[300]
+                                : Colors.orange[700],
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Día Menos Concurrido',
                             style: TextStyle(
-                              color: Colors.orange[700],
+                              color: isDarkMode
+                                  ? Colors.orange[300]
+                                  : Colors.orange[700],
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -2700,14 +2804,18 @@ class StatisticsViewState extends State<StatisticsView> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
+                            color: isDarkMode
+                                ? Colors.grey[800]!.withOpacity(0.7)
+                                : Colors.white.withOpacity(0.7),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Icon(
                               Icons.calendar_today,
                               size: 40,
-                              color: Colors.orange[700],
+                              color: isDarkMode
+                                  ? Colors.orange[300]
+                                  : Colors.orange[700],
                             ),
                           ),
                         ),
@@ -2722,7 +2830,9 @@ class StatisticsViewState extends State<StatisticsView> {
                               .textTheme
                               .headlineMedium
                               ?.copyWith(
-                                color: Colors.orange[700],
+                                color: isDarkMode
+                                    ? Colors.orange[300]
+                                    : Colors.orange[700],
                                 fontWeight: FontWeight.bold,
                               ),
                           textAlign: TextAlign.center,
@@ -2737,7 +2847,9 @@ class StatisticsViewState extends State<StatisticsView> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.5),
+                            color: isDarkMode
+                                ? Colors.orange[900]!.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -2746,14 +2858,18 @@ class StatisticsViewState extends State<StatisticsView> {
                               Icon(
                                 Icons.trending_down,
                                 size: 20,
-                                color: Colors.orange[700],
+                                color: isDarkMode
+                                    ? Colors.orange[300]
+                                    : Colors.orange[700],
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 'Menor afluencia',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.orange[700],
+                                  color: isDarkMode
+                                      ? Colors.orange[300]
+                                      : Colors.orange[700],
                                 ),
                               ),
                             ],
@@ -2771,64 +2887,14 @@ class StatisticsViewState extends State<StatisticsView> {
     );
   }
 
-  // Widget para mostrar un día en el calendario semanal
-  Widget _buildCalendarDay({
-    required String letter,
-    required String fullName,
-    required String date,
-    bool isHighlighted = false,
-    Color? bgColor,
-  }) {
-    return Column(
-      children: [
-        // Letra del día (M, J, V, etc.)
-        Text(
-          letter,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: isHighlighted
-                ? Theme.of(context).colorScheme.primary
-                : Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Nombre completo del día
-        Text(
-          fullName,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.black87,
-            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Número del día con círculo/fondo si está resaltado
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            date,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // Visualizador para días más y menos concurridos
-  Widget _buildDaysHighlight(dynamic data) {
+  Widget _buildBusyDaysChart(dynamic data) {
     if (data is! Map || data.isEmpty) {
       return const Center(child: Text('No hay datos disponibles'));
     }
+
+    // Check if we're in dark mode
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Convertir datos para el gráfico
     final List<DayData> chartData = [];
@@ -2863,35 +2929,72 @@ class StatisticsViewState extends State<StatisticsView> {
         ? 'Días con mayor afluencia de clientes'
         : 'Días con menor afluencia de clientes';
 
+    // Choose color based on chart type and theme
+    final Color chartColor = _selectedStat == 'busy-days'
+        ? (isDarkMode ? Colors.blue[400]! : Colors.blue[700]!)
+        : (isDarkMode ? Colors.orange[400]! : Colors.orange[700]!);
+
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            chartTitle,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-            textAlign: TextAlign.center,
+          // Chart title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              chartTitle,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Cantidad de visitantes por día de la semana',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Se muestra el conteo de visitantes para cada día de la semana.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: 24),
+          // Bar chart
           SizedBox(
             height: 300,
             child: SfCartesianChart(
               primaryXAxis: CategoryAxis(
                 title: AxisTitle(text: 'Día'),
+                labelStyle: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+                axisLine: AxisLine(
+                  color: isDarkMode ? Colors.white30 : Colors.grey[400],
+                ),
+                majorGridLines: MajorGridLines(
+                  color: isDarkMode ? Colors.white10 : Colors.grey[200],
+                ),
               ),
               primaryYAxis: NumericAxis(
-                title: AxisTitle(text: 'Visitantes'),
+                title: AxisTitle(
+                  text: 'Visitantes',
+                  textStyle: TextStyle(
+                    color: isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                labelStyle: TextStyle(
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+                axisLine: AxisLine(
+                  color: isDarkMode ? Colors.white30 : Colors.grey[400],
+                ),
+                majorGridLines: MajorGridLines(
+                  color: isDarkMode ? Colors.white10 : Colors.grey[200],
+                ),
               ),
+              plotAreaBorderColor:
+                  isDarkMode ? Colors.white24 : Colors.grey[300]!,
               legend: Legend(isVisible: false),
               tooltipBehavior: TooltipBehavior(enable: true),
               series: <CartesianSeries>[
@@ -2900,7 +3003,7 @@ class StatisticsViewState extends State<StatisticsView> {
                   xValueMapper: (DayData data, _) => data.day,
                   yValueMapper: (DayData data, _) => data.count,
                   name: 'Visitantes',
-                  color: Theme.of(context).colorScheme.primary,
+                  color: chartColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ],
@@ -2932,18 +3035,15 @@ class StatisticsViewState extends State<StatisticsView> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: chartColor,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           '${data.count} visitantes',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -4913,14 +5013,27 @@ class StatisticsViewState extends State<StatisticsView> {
     required int count,
     required bool isPopular,
   }) {
-    // Define visual properties based on popularity
+    // Check if we're in dark mode
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // Define visual properties based on popularity and theme
     final String title =
         isPopular ? 'Categoría Más Visitada' : 'Categoría Menos Visitada';
-    final Color textColor =
-        isPopular ? Colors.green.shade800 : Colors.brown.shade800;
+
+    // Different colors for light/dark modes
+    final Color textColor = isPopular
+        ? (isDarkMode ? Colors.green[300]! : Colors.green.shade800)
+        : (isDarkMode ? Colors.orange[300]! : Colors.brown.shade800);
+
     final Color bgColor = isPopular
-        ? const Color(0xFFE8F5E9) // Light green
-        : const Color(0xFFFFF3E0); // Light orange/peach
+        ? (isDarkMode
+            ? const Color(0xFF1B5E20)
+                .withOpacity(0.3) // Dark green for dark mode
+            : const Color(0xFFE8F5E9)) // Light green for light mode
+        : (isDarkMode
+            ? const Color(0xFF993300)
+                .withOpacity(0.3) // Dark orange for dark mode
+            : const Color(0xFFFFF3E0)); // Light orange for light mode
 
     return Container(
       decoration: BoxDecoration(
@@ -4952,7 +5065,9 @@ class StatisticsViewState extends State<StatisticsView> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.7),
+                      color: isDarkMode
+                          ? Colors.grey[800]!.withOpacity(0.7)
+                          : Colors.white.withOpacity(0.7),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -4968,9 +5083,10 @@ class StatisticsViewState extends State<StatisticsView> {
                   // Category name
                   Text(
                     category,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -4984,14 +5100,15 @@ class StatisticsViewState extends State<StatisticsView> {
                       Icon(
                         Icons.person,
                         size: 20,
-                        color: Colors.black54,
+                        color: isDarkMode ? Colors.white70 : Colors.black54,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '$count visitas',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: isDarkMode ? Colors.white : Colors.black87,
                         ),
                       ),
                     ],
