@@ -258,9 +258,10 @@ class _HomeViewState extends State<HomeView> {
               'StoreSense',
               style: TextStyle(
                 color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : const Color(0xFF223A5E),
+                    ? Color(0xFF64B5F6) // Light blue for dark mode
+                    : Color(0xFF223A5E), // Original dark blue for light mode
                 fontWeight: FontWeight.bold,
+                fontSize: 24,
               ),
             ),
           ],
@@ -335,7 +336,9 @@ class _HomeViewState extends State<HomeView> {
               IconButton(
                 icon: Icon(
                   Icons.auto_awesome, // Sparkle icon for AI
-                  color: const Color(0xFF223A5E),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Color(0xFFB3E5FC) // Very light blue for dark mode
+                      : const Color(0xFF223A5E),
                 ),
                 tooltip: 'Abrir Chat AI',
                 onPressed: () {
@@ -351,7 +354,9 @@ class _HomeViewState extends State<HomeView> {
                 IconButton(
                   icon: Icon(
                     Icons.business, // Building icon for company
-                    color: const Color(0xFF223A5E),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Color(0xFFB3E5FC) // Very light blue for dark mode
+                        : const Color(0xFF223A5E),
                   ),
                   tooltip: 'Información de la Empresa',
                   onPressed: () {
@@ -381,10 +386,13 @@ class _HomeViewState extends State<HomeView> {
                     width: 50,
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'StoreSense',
                     style: TextStyle(
-                      color: Color(0xFF223A5E),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Color(0xFF64B5F6) // Light blue for dark mode
+                          : Color(
+                              0xFF223A5E), // Original dark blue for light mode
                       fontWeight: FontWeight.bold,
                       fontSize: 24,
                     ),
@@ -408,8 +416,10 @@ class _HomeViewState extends State<HomeView> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: _currentIndex == 0
-                        ? const Color(
-                            0xFFE1F5FF) // Light blue background for selected item
+                        ? Theme.of(context).brightness == Brightness.dark
+                            ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                            : const Color(
+                                0xFFE1F5FF) // Light blue for light mode
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -418,9 +428,11 @@ class _HomeViewState extends State<HomeView> {
                       Icon(
                         Icons.dashboard,
                         size: 28,
-                        color: _currentIndex == 0
-                            ? const Color(0xFF223A5E)
-                            : Colors.grey[600],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : _currentIndex == 0
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[600],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -428,9 +440,11 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: _currentIndex == 0
-                              ? const Color(0xFF223A5E)
-                              : Colors.grey[800],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : _currentIndex == 0
+                                  ? const Color(0xFF223A5E)
+                                  : Colors.grey[800],
                         ),
                       ),
                     ],
@@ -445,8 +459,9 @@ class _HomeViewState extends State<HomeView> {
               child: Container(
                 decoration: BoxDecoration(
                   color: _currentIndex == 1
-                      ? const Color(
-                          0xFFE1F5FF) // Light blue background for selected item
+                      ? Theme.of(context).brightness == Brightness.dark
+                          ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                          : const Color(0xFFE1F5FF) // Light blue for light mode
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -461,18 +476,22 @@ class _HomeViewState extends State<HomeView> {
                     leading: Icon(
                       Icons.bar_chart,
                       size: 28,
-                      color: _currentIndex == 1
-                          ? const Color(0xFF223A5E)
-                          : Colors.grey[600],
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : _currentIndex == 1
+                              ? const Color(0xFF223A5E)
+                              : Colors.grey[600],
                     ),
                     title: Text(
                       'Estadísticas',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: _currentIndex == 1
-                            ? const Color(0xFF223A5E)
-                            : Colors.grey[800],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : _currentIndex == 1
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[800],
                       ),
                     ),
                     initiallyExpanded: _showStatisticsSubmenu,
@@ -527,20 +546,37 @@ class _HomeViewState extends State<HomeView> {
                           dense: true,
                           leading: Icon(
                             getStatIcon(option['value']!),
-                            color: Colors.grey,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.grey,
                             size: 20,
                           ),
-                          title: Text(option['label']!,
-                              style: const TextStyle(fontSize: 14)),
+                          title: Text(
+                            option['label']!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black87,
+                            ),
+                          ),
                           onTap: () {
                             final String statValue = option['value']!;
                             Navigator.pop(context);
                             setState(() {
                               _currentIndex = 1;
+                              // Reset the UI state after navigating to statistics
+                              _showStatisticsSubmenu = false;
                             });
-                            // Navegar a la ruta con el parámetro de estadística
-                            GoRouter.of(context)
-                                .go('/statistics?stat=$statValue');
+
+                            // Using microtask to ensure navigation happens after state update
+                            Future.microtask(() {
+                              // Navegar a la ruta con el parámetro de estadística
+                              GoRouter.of(context)
+                                  .go('/statistics?stat=$statValue');
+                            });
                           },
                         ),
                       );
@@ -567,8 +603,10 @@ class _HomeViewState extends State<HomeView> {
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: _currentIndex == 2
-                          ? const Color(
-                              0xFFE1F5FF) // Light blue background for selected item
+                          ? Theme.of(context).brightness == Brightness.dark
+                              ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                              : const Color(
+                                  0xFFE1F5FF) // Light blue for light mode
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -577,9 +615,11 @@ class _HomeViewState extends State<HomeView> {
                         Icon(
                           Icons.admin_panel_settings,
                           size: 28,
-                          color: _currentIndex == 2
-                              ? const Color(0xFF223A5E)
-                              : Colors.grey[600],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : _currentIndex == 2
+                                  ? const Color(0xFF223A5E)
+                                  : Colors.grey[600],
                         ),
                         const SizedBox(width: 16),
                         Text(
@@ -587,9 +627,12 @@ class _HomeViewState extends State<HomeView> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: _currentIndex == 2
-                                ? const Color(0xFF223A5E)
-                                : Colors.grey[800],
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : _currentIndex == 2
+                                        ? const Color(0xFF223A5E)
+                                        : Colors.grey[800],
                           ),
                         ),
                       ],
@@ -611,8 +654,10 @@ class _HomeViewState extends State<HomeView> {
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: _currentIndex == 3
-                          ? const Color(
-                              0xFFE1F5FF) // Light blue background for selected item
+                          ? Theme.of(context).brightness == Brightness.dark
+                              ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                              : const Color(
+                                  0xFFE1F5FF) // Light blue for light mode
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -621,9 +666,11 @@ class _HomeViewState extends State<HomeView> {
                         Icon(
                           Icons.category,
                           size: 28,
-                          color: _currentIndex == 3
-                              ? const Color(0xFF223A5E)
-                              : Colors.grey[600],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : _currentIndex == 3
+                                  ? const Color(0xFF223A5E)
+                                  : Colors.grey[600],
                         ),
                         const SizedBox(width: 16),
                         Text(
@@ -631,9 +678,12 @@ class _HomeViewState extends State<HomeView> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: _currentIndex == 3
-                                ? const Color(0xFF223A5E)
-                                : Colors.grey[800],
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : _currentIndex == 3
+                                        ? const Color(0xFF223A5E)
+                                        : Colors.grey[800],
                           ),
                         ),
                       ],
@@ -655,8 +705,10 @@ class _HomeViewState extends State<HomeView> {
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: _currentIndex == 4
-                          ? const Color(
-                              0xFFE1F5FF) // Light blue background for selected item
+                          ? Theme.of(context).brightness == Brightness.dark
+                              ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                              : const Color(
+                                  0xFFE1F5FF) // Light blue for light mode
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -665,9 +717,11 @@ class _HomeViewState extends State<HomeView> {
                         Icon(
                           Icons.camera_alt,
                           size: 28,
-                          color: _currentIndex == 4
-                              ? const Color(0xFF223A5E)
-                              : Colors.grey[600],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : _currentIndex == 4
+                                  ? const Color(0xFF223A5E)
+                                  : Colors.grey[600],
                         ),
                         const SizedBox(width: 16),
                         Text(
@@ -675,9 +729,12 @@ class _HomeViewState extends State<HomeView> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: _currentIndex == 4
-                                ? const Color(0xFF223A5E)
-                                : Colors.grey[800],
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : _currentIndex == 4
+                                        ? const Color(0xFF223A5E)
+                                        : Colors.grey[800],
                           ),
                         ),
                       ],
@@ -699,8 +756,10 @@ class _HomeViewState extends State<HomeView> {
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: _currentIndex == 5
-                          ? const Color(
-                              0xFFE1F5FF) // Light blue background for selected item
+                          ? Theme.of(context).brightness == Brightness.dark
+                              ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                              : const Color(
+                                  0xFFE1F5FF) // Light blue for light mode
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -709,9 +768,11 @@ class _HomeViewState extends State<HomeView> {
                         Icon(
                           Icons.sensors,
                           size: 28,
-                          color: _currentIndex == 5
-                              ? const Color(0xFF223A5E)
-                              : Colors.grey[600],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : _currentIndex == 5
+                                  ? const Color(0xFF223A5E)
+                                  : Colors.grey[600],
                         ),
                         const SizedBox(width: 16),
                         Text(
@@ -719,9 +780,12 @@ class _HomeViewState extends State<HomeView> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: _currentIndex == 5
-                                ? const Color(0xFF223A5E)
-                                : Colors.grey[800],
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : _currentIndex == 5
+                                        ? const Color(0xFF223A5E)
+                                        : Colors.grey[800],
                           ),
                         ),
                       ],
@@ -746,8 +810,10 @@ class _HomeViewState extends State<HomeView> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: _currentIndex == 6
-                        ? const Color(
-                            0xFFE1F5FF) // Light blue background for selected item
+                        ? Theme.of(context).brightness == Brightness.dark
+                            ? Color(0xFF0D2B4E) // Dark blue for dark mode
+                            : const Color(
+                                0xFFE1F5FF) // Light blue for light mode
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -756,9 +822,11 @@ class _HomeViewState extends State<HomeView> {
                       Icon(
                         Icons.heat_pump_outlined,
                         size: 28,
-                        color: _currentIndex == 6
-                            ? const Color(0xFF223A5E)
-                            : Colors.grey[600],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : _currentIndex == 6
+                                ? const Color(0xFF223A5E)
+                                : Colors.grey[600],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -766,9 +834,11 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: _currentIndex == 6
-                              ? const Color(0xFF223A5E)
-                              : Colors.grey[800],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : _currentIndex == 6
+                                  ? const Color(0xFF223A5E)
+                                  : Colors.grey[800],
                         ),
                       ),
                     ],
@@ -809,7 +879,9 @@ class _HomeViewState extends State<HomeView> {
                             ? Icons.wb_sunny_outlined
                             : Icons.nightlight_round,
                         size: 28,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.grey[600],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -817,7 +889,9 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey[800],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.grey[800],
                         ),
                       ),
                     ],
@@ -847,7 +921,9 @@ class _HomeViewState extends State<HomeView> {
                       Icon(
                         Icons.help_outline,
                         size: 28,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.grey[600],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -855,7 +931,9 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey[800],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.grey[800],
                         ),
                       ),
                     ],
@@ -885,7 +963,9 @@ class _HomeViewState extends State<HomeView> {
                       Icon(
                         Icons.info_outline,
                         size: 28,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.grey[600],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -893,7 +973,9 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey[800],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.grey[800],
                         ),
                       ),
                     ],
@@ -928,7 +1010,9 @@ class _HomeViewState extends State<HomeView> {
                       Icon(
                         Icons.logout,
                         size: 28,
-                        color: Colors.red[400],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Color(0xFFEF9A9A) // Light red for dark mode
+                            : Colors.red[400],
                       ),
                       const SizedBox(width: 16),
                       Text(
@@ -936,7 +1020,9 @@ class _HomeViewState extends State<HomeView> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.red[400],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Color(0xFFEF9A9A) // Light red for dark mode
+                              : Colors.red[400],
                         ),
                       ),
                     ],

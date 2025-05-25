@@ -956,9 +956,17 @@ class _CamerasViewState extends State<CamerasView> {
                                 _toggleCameraStatus(mongoId, isActive);
                               },
                               activeColor: Colors.white,
-                              activeTrackColor: azulOscuro,
+                              activeTrackColor: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Color(
+                                      0xFF64B5F6) // Light blue for dark mode
+                                  : azulOscuro,
                               inactiveThumbColor: Colors.white,
-                              inactiveTrackColor: grisClaro,
+                              inactiveTrackColor: Theme.of(context)
+                                          .brightness ==
+                                      Brightness.dark
+                                  ? Color(0xFF424242) // Dark grey for dark mode
+                                  : grisClaro,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
                               splashRadius: 18,
@@ -966,9 +974,16 @@ class _CamerasViewState extends State<CamerasView> {
                             const SizedBox(width: 8),
                             Text(isActive ? 'Activo' : 'Inactivo',
                                 style: TextStyle(
-                                    color: isActive
-                                        ? azulOscuro
-                                        : Colors.red.shade700,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? isActive
+                                            ? Color(
+                                                0xFF81D4FA) // Lighter blue for "Activo" in dark mode
+                                            : Color(
+                                                0xFFEF9A9A) // Light red for "Inactivo" in dark mode
+                                        : isActive
+                                            ? azulOscuro
+                                            : Colors.red.shade700,
                                     fontWeight: FontWeight.w500)),
                           ],
                         )),
@@ -980,7 +995,11 @@ class _CamerasViewState extends State<CamerasView> {
                                 message: 'Editar Cámara',
                                 child: IconButton(
                                   icon: Icon(Icons.edit,
-                                      color: const Color(0xFF223A5E)),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Color(
+                                              0xFF81D4FA) // Light blue for dark mode
+                                          : const Color(0xFF223A5E)),
                                   iconSize: 22,
                                   padding: const EdgeInsets.all(8),
                                   tooltip: 'Editar',
@@ -993,7 +1012,11 @@ class _CamerasViewState extends State<CamerasView> {
                                 message: 'Eliminar Cámara',
                                 child: IconButton(
                                   icon: Icon(Icons.delete_outline,
-                                      color: Colors.red.shade600),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Color(
+                                              0xFFEF9A9A) // Light red for dark mode
+                                          : Colors.red.shade600),
                                   iconSize: 22,
                                   padding: const EdgeInsets.all(8),
                                   tooltip: 'Eliminar',

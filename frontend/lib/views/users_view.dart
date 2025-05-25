@@ -1220,9 +1220,19 @@ class _UsersViewState extends State<UsersView> {
                                                   user.id, user.isActive);
                                             },
                                       activeColor: Colors.white,
-                                      activeTrackColor: azulOscuro,
+                                      activeTrackColor: Theme.of(context)
+                                                  .brightness ==
+                                              Brightness.dark
+                                          ? Color(
+                                              0xFF64B5F6) // Light blue for dark mode
+                                          : azulOscuro,
                                       inactiveThumbColor: Colors.white,
-                                      inactiveTrackColor: grisClaro,
+                                      inactiveTrackColor: Theme.of(context)
+                                                  .brightness ==
+                                              Brightness.dark
+                                          ? Color(
+                                              0xFF424242) // Dark grey for dark mode
+                                          : grisClaro,
                                       materialTapTargetSize:
                                           MaterialTapTargetSize.shrinkWrap,
                                       splashRadius: 18,
@@ -1230,9 +1240,16 @@ class _UsersViewState extends State<UsersView> {
                               const SizedBox(width: 8),
                               Text(user.isActive ? 'Activo' : 'Inactivo',
                                   style: TextStyle(
-                                      color: user.isActive
-                                          ? azulOscuro
-                                          : Colors.red.shade700,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? user.isActive
+                                              ? Color(
+                                                  0xFF81D4FA) // Lighter blue for "Activo" in dark mode
+                                              : Color(
+                                                  0xFFEF9A9A) // Light red for "Inactivo" in dark mode
+                                          : user.isActive
+                                              ? azulOscuro
+                                              : Colors.red.shade700,
                                       fontWeight: FontWeight.w500)),
                             ],
                           ),
@@ -1248,7 +1265,11 @@ class _UsersViewState extends State<UsersView> {
                               message: 'Editar Usuario',
                               child: IconButton(
                                 icon: Icon(Icons.edit,
-                                    color: const Color(0xFF223A5E)),
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Color(
+                                            0xFF81D4FA) // Light blue for dark mode
+                                        : const Color(0xFF223A5E)),
                                 iconSize: 22,
                                 padding: const EdgeInsets.all(8),
                                 tooltip: 'Editar',
@@ -1261,7 +1282,11 @@ class _UsersViewState extends State<UsersView> {
                               message: 'Eliminar Usuario',
                               child: IconButton(
                                 icon: Icon(Icons.delete_outline,
-                                    color: Colors.red.shade600),
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Color(
+                                            0xFFEF9A9A) // Light red for dark mode
+                                        : Colors.red.shade600),
                                 iconSize: 22,
                                 padding: const EdgeInsets.all(8),
                                 tooltip: 'Eliminar',
@@ -1291,11 +1316,24 @@ class _UsersViewState extends State<UsersView> {
       label: Text(
         isActive ? 'Activo' : 'Inactivo',
         style: TextStyle(
-          color: isActive ? Colors.green.shade900 : Colors.grey.shade700,
+          color: theme.brightness == Brightness.dark
+              ? isActive
+                  ? Color(0xFF81D4FA) // Light blue for dark mode
+                  : Color(0xFFEF9A9A) // Light red for dark mode
+              : isActive
+                  ? Colors.green.shade900
+                  : Colors.grey.shade700,
           fontSize: 13,
         ),
       ),
-      backgroundColor: isActive ? Colors.green.shade100 : Colors.grey.shade300,
+      backgroundColor: theme.brightness == Brightness.dark
+          ? isActive
+              ? Color(0xFF0D47A1)
+                  .withOpacity(0.3) // Dark blue background for dark mode
+              : Color(0xFF424242) // Dark grey for inactivity in dark mode
+          : isActive
+              ? Colors.green.shade100
+              : Colors.grey.shade300,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );

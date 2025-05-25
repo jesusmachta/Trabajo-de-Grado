@@ -274,9 +274,18 @@ class _HeatmapViewState extends State<HeatmapView> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Color(0xFF0D2B4E).withOpacity(
+                                      0.3) // Dark blue background for dark mode
+                                  : Colors.blue.shade50,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.shade200),
+                              border: Border.all(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Color(
+                                          0xFF64B5F6) // Light blue for dark mode
+                                      : Colors.blue.shade200),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,21 +293,35 @@ class _HeatmapViewState extends State<HeatmapView> {
                                 Row(
                                   children: [
                                     Icon(Icons.info_outline,
-                                        color: Colors.blue.shade700),
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(
+                                                0xFF81D4FA) // Light blue for dark mode
+                                            : Colors.blue.shade700),
                                     const SizedBox(width: 8),
                                     Text(
                                       'Reglas de configuración',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.blue.shade900,
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(
+                                                0xFF81D4FA) // Light blue for dark mode
+                                            : Colors.blue.shade900,
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'Los umbrales deben seguir la regla: Bajo ≤ Medio ≤ Alto',
-                                  style: TextStyle(fontSize: 14),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors
+                                              .white // White text for dark mode
+                                          : Colors.black87),
                                 ),
                               ],
                             ),

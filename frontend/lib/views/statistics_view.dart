@@ -101,17 +101,26 @@ class StatisticsViewState extends State<StatisticsView> {
     setState(() {
       _selectedStat = stat;
       _isLoading = true;
+      _statisticsData = null; // Clear data before loading new statistic
+      _error = null; // Clear any previous errors
     });
 
-    // Navegar a la estadística seleccionada sin esperar a que carguen los datos
-    GoRouter.of(context).go('/statistics?stat=$stat');
+    // Use a microtask to ensure we don't block the UI
+    Future.microtask(() {
+      // Load the new statistics data
+      _loadStatisticsAsync();
+    });
   }
 
   // Versión asíncrona para no bloquear la UI
   Future<void> _loadStatisticsAsync() async {
+    // Prevent duplicate loading requests
+    if (_isLoading) return;
+
     // Establecer loading pero permitir que se muestre la interfaz actualizada
     setState(() {
       _isLoading = true;
+      _error = null; // Clear any previous errors
     });
 
     // Cargar los datos en segundo plano
@@ -132,60 +141,52 @@ class StatisticsViewState extends State<StatisticsView> {
         await _initAvailablePeriods();
       }
 
+      // Load the appropriate data based on the selected statistic
       if (_selectedStat == 'visited-categories-combined') {
         data = await _controller.getHistoricalVisitedCategoriesStatistics(
             token: token);
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
-        // --- ARREGLO PARA EL MENSUAL ---
-        if (_selectedCategoryPeriodType == 'month') {
-          // Buscar el mes más reciente disponible en _availableMonths
-          if (_availableMonths.isNotEmpty) {
-            _selectedMonthKey = _availableMonths.first;
-          } else {
-            _selectedMonthKey = null;
-          }
-        } else if (_selectedCategoryPeriodType == 'week') {
-          if (_availableWeeks.isNotEmpty) {
-            _selectedWeekKey = _availableWeeks.first;
-          } else {
-            _selectedWeekKey = null;
-          }
-        }
-        params = {'period': _selectedCategoryPeriodType};
-        if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
-          params['date'] = _selectedWeekKey!;
-        } else if (_selectedCategoryPeriodType == 'month' &&
-            _selectedMonthKey != null) {
-          final parts = _selectedMonthKey!.split('-');
-          params['year'] = parts[0];
-          params['month'] = parts[1];
+        if (_selectedCategoryPeriodType == 'month' &&
+            _selectedCategoryMonth != null) {
+          params = {
+            'period': _selectedCategoryPeriodType,
+            'year': _selectedCategoryMonth!.year.toString(),
+            'month': _selectedCategoryMonth!.month.toString(),
+          };
+        } else if (_selectedCategoryPeriodType == 'week' &&
+            _selectedCategoryWeek != null) {
+          params = {
+            'period': _selectedCategoryPeriodType,
+            'date': DateFormat('yyyy-MM-dd').format(_selectedCategoryWeek!),
+          };
+        } else {
+          params = {'period': _selectedCategoryPeriodType};
         }
         data = await _controller.getGenderAgeDistributionStatistics(
             params: params, token: token);
       } else if (_selectedStat == 'top-successful-categories') {
         data = await _controller.getTopSuccessfulCategories(token: token);
-      } else {
-        if (_requiresParams(_selectedStat)) {
-          params = {'period': _selectedPeriod};
-          if (_selectedPeriod == 'week') {
-            params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
-            if (_selectedStat == 'emotion-comparison' &&
-                _selectedEndDate != null) {
-              params['end_date'] =
-                  DateFormat('yyyy-MM-dd').format(_selectedEndDate!);
-            }
-          } else if (_selectedPeriod == 'month') {
-            params['month'] = _selectedMonth.toString();
-            params['year'] = _selectedYear.toString();
+      } else if (_requiresParams(_selectedStat)) {
+        params = {'period': _selectedPeriod};
+        if (_selectedPeriod == 'week') {
+          params['date'] = DateFormat('yyyy-MM-dd').format(_selectedDate);
+          if (_selectedStat == 'emotion-comparison' &&
+              _selectedEndDate != null) {
+            params['end_date'] =
+                DateFormat('yyyy-MM-dd').format(_selectedEndDate!);
           }
+        } else if (_selectedPeriod == 'month') {
+          params['month'] = _selectedMonth.toString();
+          params['year'] = _selectedYear.toString();
         }
         data = await _controller.getStatistics(_selectedStat,
             params: params, token: token);
+      } else {
+        data = await _controller.getStatistics(_selectedStat, token: token);
       }
 
-      // Actualizar la UI solo si el widget sigue montado
       if (mounted) {
         setState(() {
           _statisticsData = data;
@@ -193,7 +194,7 @@ class StatisticsViewState extends State<StatisticsView> {
         });
       }
     } catch (e) {
-      print('Error in _loadStatisticsAsync: $e');
+      print('Error loading statistics for $_selectedStat: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -231,17 +232,33 @@ class StatisticsViewState extends State<StatisticsView> {
     _selectedMonth = now.month;
     _selectedYear = now.year;
     _selectedCategoryPeriodType = 'historic'; // Inicia en histórico
+
+    // Initialize with the provided initialStat or default to 'peak-hours'
     _selectedStat = widget.initialStat ?? 'peak-hours';
+
+    // Initialize available periods and load category icons
     _initAvailablePeriods();
-    _loadStatisticsAsync();
     _loadCategoryIcons(); // Cargar iconos de categorías
+
+    // Load statistics with a slight delay to avoid UI blocking
+    Future.microtask(() {
+      if (mounted) {
+        _loadStatisticsAsync();
+      }
+    });
   }
 
   @override
   void didUpdateWidget(covariant StatisticsView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialStat != null && widget.initialStat != _selectedStat) {
-      updateSelectedStat(widget.initialStat!);
+    // If the initialStat has changed, update the selected stat and reload data
+    if (widget.initialStat != null &&
+        widget.initialStat != oldWidget.initialStat) {
+      setState(() {
+        _selectedStat = widget.initialStat!;
+        _statisticsData = null; // Clear previous data
+      });
+      _loadStatisticsAsync();
     }
   }
 
@@ -6231,13 +6248,15 @@ class StatisticsViewState extends State<StatisticsView> {
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
-        if (_selectedCategoryPeriodType == 'month') {
+        if (_selectedCategoryPeriodType == 'month' &&
+            _selectedCategoryMonth != null) {
           if (_availableMonths.isNotEmpty) {
             _selectedMonthKey = _availableMonths.first;
           } else {
             _selectedMonthKey = null;
           }
-        } else if (_selectedCategoryPeriodType == 'week') {
+        } else if (_selectedCategoryPeriodType == 'week' &&
+            _selectedCategoryWeek != null) {
           if (_availableWeeks.isNotEmpty) {
             _selectedWeekKey = _availableWeeks.first;
           } else {

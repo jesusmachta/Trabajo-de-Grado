@@ -215,40 +215,75 @@ class _MyAppState extends State<MyApp> {
           builder: (context) {
             return Theme(
               data: Theme.of(context).copyWith(
-                // Ensure dialogs are always white regardless of theme
-                dialogBackgroundColor: Colors.white,
-                // Ensure input fields are always light blue
-                inputDecorationTheme: InputDecorationTheme(
-                  filled: true,
-                  fillColor: lightBlue,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary, width: 2),
-                  ),
-                  labelStyle: const TextStyle(
-                    color: Colors.black87,
-                    height: 0.8,
-                  ),
-                  floatingLabelBehavior: FloatingLabelBehavior.auto,
-                  hintStyle: const TextStyle(color: Colors.black54),
-                  // Add more space when label floats
-                  floatingLabelStyle: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontSize: 16,
-                    height: 1.1,
-                  ),
-                ),
+                // Modificado: Respeta el tema actual para los diálogos
+                dialogBackgroundColor:
+                    Theme.of(context).brightness == Brightness.dark
+                        ? Color(0xFF1E1E1E)
+                        : Colors.white,
+                // Asegurarse que los campos de entrada sean del color correcto según el tema
+                inputDecorationTheme: Theme.of(context).brightness ==
+                        Brightness.dark
+                    ? InputDecorationTheme(
+                        filled: true,
+                        fillColor: Color(0xFF263238),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 18),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Color(0xFF64B5F6), width: 2),
+                        ),
+                        labelStyle: TextStyle(
+                          color: Colors.white70,
+                          height: 0.8,
+                        ),
+                        floatingLabelBehavior: FloatingLabelBehavior.auto,
+                        hintStyle: TextStyle(color: Colors.white54),
+                        floatingLabelStyle: TextStyle(
+                          color: Color(0xFF64B5F6),
+                          fontSize: 16,
+                          height: 1.1,
+                        ),
+                      )
+                    : InputDecorationTheme(
+                        filled: true,
+                        fillColor: lightBlue,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 18),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2),
+                        ),
+                        labelStyle: const TextStyle(
+                          color: Colors.black87,
+                          height: 0.8,
+                        ),
+                        floatingLabelBehavior: FloatingLabelBehavior.auto,
+                        hintStyle: const TextStyle(color: Colors.black54),
+                        floatingLabelStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 16,
+                          height: 1.1,
+                        ),
+                      ),
               ),
               child: Overlay(
                 initialEntries: [
@@ -465,14 +500,53 @@ class _MyAppState extends State<MyApp> {
         dividerTheme: DividerThemeData(
           color: Colors.white24,
         ),
-        // Configuración para diálogos - mantenemos fondo blanco incluso en modo oscuro
+        // Modificado: Configuración para diálogos en modo oscuro
         dialogTheme: DialogTheme(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: Color(0xFF1E1E1E),
+          surfaceTintColor: Color(0xFF1E1E1E),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 4,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+          contentTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        // Añadido: Estilos para inputs en modales en modo oscuro
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Color(0xFF263238),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Color(0xFF64B5F6), width: 2),
+          ),
+          labelStyle: TextStyle(
+            color: Colors.white70,
+            height: 0.8,
+          ),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+          hintStyle: TextStyle(color: Colors.white54),
+          floatingLabelStyle: TextStyle(
+            color: Color(0xFF64B5F6),
+            fontSize: 16,
+            height: 1.1,
+          ),
         ),
       ),
       themeMode: _themeMode,
