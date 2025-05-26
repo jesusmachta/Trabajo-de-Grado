@@ -111,6 +111,7 @@ class UserController with ChangeNotifier {
     User user, {
     String? password,
     String? securityAnswer,
+    String? securityQuestion,
   }) async {
     _isLoading = true;
     _error = null;
@@ -122,17 +123,23 @@ class UserController with ChangeNotifier {
         'full_name': user.fullName,
         'role': user.role,
         'is_active': user.isActive,
-        'profile_picture': user.profilePicture,
         'date_of_birth': user.dateOfBirth,
-        'security_question': user.securityQuestion,
       };
 
-      // Solo incluir la contraseña si se proporciona
+      // Always include profile_picture, even if it's an empty string (which means removal)
+      body['profile_picture'] = user.profilePicture;
+
+      // Only include security question if explicitly provided
+      if (securityQuestion != null && securityQuestion.isNotEmpty) {
+        body['security_question'] = securityQuestion;
+      }
+
+      // Only include password if explicitly provided
       if (password != null && password.isNotEmpty) {
         body['password'] = password;
       }
 
-      // Include security answer if provided
+      // Only include security answer if explicitly provided
       if (securityAnswer != null && securityAnswer.isNotEmpty) {
         body['security_answer'] = securityAnswer;
       }

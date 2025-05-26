@@ -14,6 +14,7 @@ class User {
   final bool isActive;
   final String? empresa;
   final String? rif;
+  final String? securityQuestion;
 
   User({
     required this.id,
@@ -25,6 +26,7 @@ class User {
     this.isActive = true,
     this.empresa,
     this.rif,
+    this.securityQuestion,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class User {
       isActive: json['is_active'] ?? true,
       empresa: json['empresa'],
       rif: json['rif'],
+      securityQuestion: json['security_question'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -173,6 +176,7 @@ class AuthController with ChangeNotifier {
             'created_at': _currentUser!.createdAt.toIso8601String(),
             'empresa': _currentUser!.empresa,
             'rif': _currentUser!.rif,
+            'security_question': _currentUser!.securityQuestion,
           }));
     }
   }
@@ -219,6 +223,7 @@ class AuthController with ChangeNotifier {
           createdAt: DateTime.now(),
           empresa: responseData['empresa'],
           rif: responseData['rif'],
+          securityQuestion: responseData['security_question'],
         );
 
         await _saveCredentials();
@@ -286,6 +291,7 @@ class AuthController with ChangeNotifier {
           createdAt: DateTime.now(),
           empresa: responseData['empresa'],
           rif: responseData['rif'],
+          securityQuestion: responseData['security_question'],
         );
 
         await _saveCredentials();
@@ -331,6 +337,7 @@ class AuthController with ChangeNotifier {
         profilePicture: _encodeProfilePictureUrl(newProfilePictureUrl),
         empresa: _currentUser!.empresa,
         rif: _currentUser!.rif,
+        securityQuestion: _currentUser!.securityQuestion,
       );
 
       // Save updated user to SharedPreferences
@@ -465,6 +472,7 @@ class AuthController with ChangeNotifier {
                 : _currentUser!.createdAt,
             empresa: userData['empresa'],
             rif: userData['rif'],
+            securityQuestion: userData['security_question'],
           );
 
           // Save updated user data

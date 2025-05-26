@@ -684,6 +684,14 @@ class _UsersViewState extends State<UsersView> {
                   final originalUser = userController.users
                       .firstWhere((u) => u.id == _editingUserId);
 
+                  // Handle the case when profile picture is removed
+                  // When _selectedProfilePicture is null but was previously set,
+                  // we want to explicitly set an empty string to remove it
+                  if (_selectedProfilePicture == null &&
+                      originalUser.profilePicture != null) {
+                    profilePictureUrl = ""; // Empty string to indicate removal
+                  }
+
                   final updatedUser = originalUser.copyWith(
                     email: email,
                     fullName: fullName,
@@ -700,6 +708,7 @@ class _UsersViewState extends State<UsersView> {
                     password: password.isNotEmpty ? password : null,
                     securityAnswer:
                         securityAnswer.isNotEmpty ? securityAnswer : null,
+                    securityQuestion: _selectedSecurityQuestion,
                   );
                 } else {
                   int? rifInt;
@@ -868,6 +877,7 @@ class _UsersViewState extends State<UsersView> {
 
     final updatedUser = user.copyWith(isActive: !currentStatus);
 
+    // Only passing status update, no security question info
     final success = await userController.updateUser(
       authController.token!,
       updatedUser,

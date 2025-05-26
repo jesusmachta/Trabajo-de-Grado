@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 from backend.aws import upload_image_to_s3
 from pydantic import BaseModel, EmailStr
+import bcrypt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,8 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     profile_picture: Optional[str] = None
     is_active: Optional[bool] = None
+    security_question: Optional[str] = None
+    security_answer: Optional[str] = None
 
 class ProfileUpdatePayload(BaseModel):
     """Model for profile update request"""
@@ -30,6 +33,10 @@ class ProfileUpdatePayload(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     current_password: Optional[str] = None
+    current_security_question: Optional[str] = None
+    current_security_answer: Optional[str] = None
+    new_security_question: Optional[str] = None
+    new_security_answer: Optional[str] = None
 
 class ProfilePicturePayload(BaseModel):
     """Model for profile picture upload"""
@@ -60,6 +67,10 @@ class UserUpdateManager:
         Update a user's profile information
         """
         try:
+            # Add detailed logging to help with debugging
+            logger.info(f"Update requested for user {user_id}")
+            logger.info(f"Update data keys: {list(update_data.keys())}")
+            
             # Convert user_id to integer if possible
             try:
                 user_id_int = int(user_id)
@@ -95,9 +106,15 @@ class UserUpdateManager:
             if "is_active" in update_data and update_data["is_active"] is not None:
                 clean_update_data["is_active"] = update_data["is_active"]
             
-            # Update profile picture if provided
-            if "profile_picture" in update_data and update_data["profile_picture"] is not None:
-                clean_update_data["profile_picture"] = update_data["profile_picture"]
+            # Check for profile picture update
+            if "profile_picture" in update_data:
+                # If empty string is provided, it means remove the profile picture
+                if update_data["profile_picture"] == "":
+                    clean_update_data["profile_picture"] = None
+                    logger.info(f"Removing profile picture for user {user_id}")
+                else:
+                    clean_update_data["profile_picture"] = update_data["profile_picture"]
+                    logger.info(f"Updating profile picture for user {user_id}")
             
             # Update password if provided
             if "password" in update_data and update_data["password"] is not None:
@@ -117,9 +134,57 @@ class UserUpdateManager:
                 
                 clean_update_data["password"] = hash_password(update_data["password"])
             
+            # Update security question/answer if provided
+            if (("new_security_question" in update_data and update_data["new_security_question"] is not None) and
+                ("new_security_answer" in update_data and update_data["new_security_answer"] is not None)):
+                
+                # Both fields must be provided
+                if not update_data.get("new_security_question") or not update_data.get("new_security_answer"):
+                    raise HTTPException(status_code=400, detail="Se requiere tanto la nueva pregunta como la nueva respuesta de seguridad")
+                
+                # Check if this is an admin updating security details
+                is_admin_update = update_data.get("admin_security_update", False)
+                
+                if not is_admin_update:
+                    # Regular user update flow - verify current question and answer
+                    # Verify current security question and answer
+                    if not update_data.get("current_security_question") or not update_data.get("current_security_answer"):
+                        logger.warning("Missing current security question or answer")
+                        raise HTTPException(status_code=400, detail="Se requiere la pregunta y respuesta de seguridad actuales")
+                    
+                    # Verify current security question matches
+                    if update_data["current_security_question"] != current_user.get("security_question"):
+                        logger.warning(f"Current security question mismatch. Provided: {update_data['current_security_question']}, Actual: {current_user.get('security_question')}")
+                        raise HTTPException(status_code=400, detail="La pregunta de seguridad actual es incorrecta")
+                    
+                    # Verify current security answer using bcrypt
+                    try:
+                        is_valid = bcrypt.checkpw(
+                            update_data["current_security_answer"].encode('utf-8'), 
+                            current_user["security_answer"].encode('utf-8')
+                        )
+                        if not is_valid:
+                            logger.warning("Invalid security answer provided")
+                            raise HTTPException(status_code=400, detail="La respuesta de seguridad actual es incorrecta")
+                    except Exception as e:
+                        logger.error(f"Error verifying security answer: {str(e)}")
+                        raise HTTPException(status_code=400, detail="Error al verificar la respuesta de seguridad")
+                else:
+                    # Admin update flow - just need current question for reference, no verification needed
+                    logger.info(f"Admin is updating security question/answer for user {user_id}")
+                
+                # Update security question and answer
+                logger.info(f"Updating security question to: {update_data['new_security_question']}")
+                clean_update_data["security_question"] = update_data["new_security_question"]
+                clean_update_data["security_answer"] = hash_password(update_data["new_security_answer"])
+            
             # Only proceed if there's something to update
             if not clean_update_data:
+                logger.info(f"No changes to update for user {user_id}")
                 return UserUpdateManager.get_updated_user(user_id_int)
+            
+            # Log the fields being updated
+            logger.info(f"Updating fields for user {user_id}: {list(clean_update_data.keys())}")
             
             # Update the user
             update_result = collections['Users'].update_one(
@@ -129,7 +194,10 @@ class UserUpdateManager:
             
             # Check if update was successful
             if update_result.matched_count == 0:
+                logger.warning(f"No user found with ID {user_id} during update")
                 raise HTTPException(status_code=404, detail="User not found")
+            
+            logger.info(f"User {user_id} successfully updated")
                 
             # Get and return the updated user
             return UserUpdateManager.get_updated_user(user_id_int)

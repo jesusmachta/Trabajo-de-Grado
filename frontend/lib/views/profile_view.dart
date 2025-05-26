@@ -42,15 +42,49 @@ class _ProfileViewState extends State<ProfileView>
   bool _isUploading = false;
   bool _isSaving = false;
   bool _isChangingPassword = false;
+  bool _isChangingSecurityQuestion = false;
   String? _errorMessage;
   String? _successMessage;
   String? _passwordErrorMessage;
   String? _passwordSuccessMessage;
+  String? _securityQuestionErrorMessage;
+  String? _securityQuestionSuccessMessage;
 
   // Password visibility toggles
   bool _currentPasswordVisible = false;
   bool _newPasswordVisible = false;
   bool _confirmPasswordVisible = false;
+
+  // Security question controllers
+  final TextEditingController _currentSecurityAnswerController =
+      TextEditingController();
+  final TextEditingController _newSecurityAnswerController =
+      TextEditingController();
+
+  // Security question form key
+  final _securityQuestionFormKey = GlobalKey<FormState>();
+
+  // Security answer visibility toggles
+  bool _currentSecurityAnswerVisible = false;
+  bool _newSecurityAnswerVisible = false;
+
+  // Selected security questions
+  String? _currentSecurityQuestion;
+  String? _newSecurityQuestion;
+
+  // List of security questions
+  final List<String> _securityQuestions = [
+    '¿Cuál es el nombre de tu primera mascota?',
+    '¿En qué ciudad naciste?',
+    '¿Cuál es el nombre de tu mejor amigo de la infancia?',
+    '¿Cuál fue tu primer carro/moto?',
+    '¿Cuál es tu película favorita?',
+    '¿Cuál es el segundo nombre de tu madre?',
+    '¿Cuál fue el nombre de tu primera escuela?',
+    '¿Cuál es tu comida favorita?',
+    '¿Cuál es tu equipo deportivo favorito?',
+    '¿Cuál es el nombre de la calle donde creciste?',
+  ];
 
   // For image selection
   XFile? _selectedImageFile;
@@ -60,7 +94,7 @@ class _ProfileViewState extends State<ProfileView>
   void initState() {
     super.initState();
     // Initialize tab controller
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
 
     // Initialize form fields with current user data
     _initializeFormFields();
@@ -108,6 +142,8 @@ class _ProfileViewState extends State<ProfileView>
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _currentSecurityAnswerController.dispose();
+    _newSecurityAnswerController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -126,6 +162,13 @@ class _ProfileViewState extends State<ProfileView>
       _firstNameController.text = firstName;
       _lastNameController.text = lastName;
       _emailController.text = currentUser.email;
+
+      // Set the current security question if available
+      if (currentUser.securityQuestion != null &&
+          currentUser.securityQuestion!.isNotEmpty) {
+        _currentSecurityQuestion = currentUser.securityQuestion;
+      }
+
       // Password fields are left empty for security
     }
   }
@@ -457,6 +500,92 @@ class _ProfileViewState extends State<ProfileView>
     }
   }
 
+  // Change security question
+  Future<void> _changeSecurityQuestion() async {
+    if (!_securityQuestionFormKey.currentState!.validate()) return;
+
+    setState(() {
+      _isChangingSecurityQuestion = true;
+      _securityQuestionErrorMessage = null;
+      _securityQuestionSuccessMessage = null;
+    });
+
+    try {
+      final authController =
+          Provider.of<AuthController>(context, listen: false);
+      final String? token = authController.token;
+
+      if (token == null) {
+        throw Exception('Usuario no autenticado');
+      }
+
+      if (_currentSecurityQuestion == null ||
+          _currentSecurityQuestion!.isEmpty) {
+        throw Exception('No se encontró tu pregunta de seguridad actual');
+      }
+
+      if (_newSecurityQuestion == null) {
+        throw Exception('Selecciona tu nueva pregunta de seguridad');
+      }
+
+      final apiUrl = 'http://localhost:8000/api/users/profile';
+
+      final response = await http.put(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'current_security_question': _currentSecurityQuestion,
+          'current_security_answer': _currentSecurityAnswerController.text,
+          'new_security_question': _newSecurityQuestion,
+          'new_security_answer': _newSecurityAnswerController.text,
+        }),
+      );
+
+      // Ensure proper UTF-8 decoding for Spanish characters
+      final responseData = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _securityQuestionSuccessMessage =
+              'Pregunta de seguridad actualizada correctamente';
+          _currentSecurityQuestion = null;
+          _currentSecurityAnswerController.clear();
+          _newSecurityQuestion = null;
+          _newSecurityAnswerController.clear();
+        });
+
+        // Show toast notification
+        ToastService.showSuccess(
+            context, 'Pregunta de seguridad actualizada correctamente');
+      } else {
+        setState(() {
+          _securityQuestionErrorMessage = responseData['detail'] ??
+              'Error al actualizar la pregunta de seguridad';
+        });
+
+        // Show toast notification
+        ToastService.showError(
+            context,
+            responseData['detail'] ??
+                'Error al actualizar la pregunta de seguridad');
+      }
+    } catch (e) {
+      setState(() {
+        _securityQuestionErrorMessage = 'Error: $e';
+      });
+
+      // Show toast notification
+      ToastService.showError(context, 'Error: $e');
+    } finally {
+      setState(() {
+        _isChangingSecurityQuestion = false;
+      });
+    }
+  }
+
   // Validate password
   bool _validatePassword(String value) {
     // Minimum 6 characters
@@ -779,6 +908,17 @@ class _ProfileViewState extends State<ProfileView>
                     child: TabBar(
                       controller: _tabController,
                       indicatorSize: TabBarIndicatorSize.tab,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.center,
+                      overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                        (Set<MaterialState> states) {
+                          // Return transparent for hover state to remove the gray hover effect
+                          if (states.contains(MaterialState.hovered)) {
+                            return Colors.transparent;
+                          }
+                          return null; // Use default overlay color for other states
+                        },
+                      ),
                       indicator: BoxDecoration(
                         color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(50),
@@ -793,25 +933,56 @@ class _ProfileViewState extends State<ProfileView>
                       dividerColor: Colors.transparent,
                       labelColor: theme.colorScheme.primary,
                       unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                      tabs: const [
-                        Tab(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.person),
-                              SizedBox(width: 8),
-                              Text('Datos personales'),
-                            ],
+                      tabs: [
+                        SizedBox(
+                          height: 48,
+                          child: Tab(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.person),
+                                  SizedBox(width: 8),
+                                  Text('Datos personales'),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        Tab(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.lock),
-                              SizedBox(width: 8),
-                              Text('Cambiar contraseña'),
-                            ],
+                        SizedBox(
+                          height: 48,
+                          child: Tab(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.lock),
+                                  SizedBox(width: 8),
+                                  Text('Cambiar contraseña'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 48,
+                          child: Tab(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.security),
+                                  SizedBox(width: 8),
+                                  Text('Pregunta de seguridad'),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -832,6 +1003,9 @@ class _ProfileViewState extends State<ProfileView>
 
                       // Tab 2: Change Password
                       _buildChangePasswordTab(theme),
+
+                      // Tab 3: Security Question
+                      _buildSecurityQuestionTab(theme),
                     ],
                   ),
                 ),
@@ -1093,6 +1267,167 @@ class _ProfileViewState extends State<ProfileView>
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: _isChangingPassword
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Guardar Cambios'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecurityQuestionTab(ThemeData theme) {
+    return Form(
+      key: _securityQuestionFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Current security question (read-only text field)
+          TextFormField(
+            initialValue: _currentSecurityQuestion,
+            readOnly: true,
+            enabled: false,
+            decoration: const InputDecoration(
+              labelText: 'Pregunta de seguridad actual',
+              prefixIcon: Icon(Icons.question_answer),
+              hintText: 'Tu pregunta de seguridad actual',
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Current security answer
+          TextFormField(
+            controller: _currentSecurityAnswerController,
+            decoration: InputDecoration(
+              labelText: 'Respuesta de seguridad actual',
+              prefixIcon: const Icon(Icons.security),
+              hintText:
+                  'Escribe la respuesta a tu pregunta de seguridad actual...',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _currentSecurityAnswerVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _currentSecurityAnswerVisible =
+                        !_currentSecurityAnswerVisible;
+                  });
+                },
+              ),
+            ),
+            obscureText: !_currentSecurityAnswerVisible,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Por favor ingresa la respuesta a tu pregunta de seguridad actual';
+              }
+              return null;
+            },
+          ),
+
+          const Divider(height: 32),
+          const Text(
+            'Nueva pregunta de seguridad',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+
+          // New security question
+          DropdownButtonFormField<String>(
+            value: _newSecurityQuestion,
+            decoration: const InputDecoration(
+              labelText: 'Nueva pregunta de seguridad',
+              prefixIcon: Icon(Icons.question_answer),
+              hintText: 'Selecciona tu nueva pregunta de seguridad',
+            ),
+            items: _securityQuestions.map((String question) {
+              return DropdownMenuItem<String>(
+                value: question,
+                child: Text(
+                  question,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                _newSecurityQuestion = newValue;
+              });
+            },
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Por favor selecciona tu nueva pregunta de seguridad';
+              }
+              return null;
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          // New security answer
+          TextFormField(
+            controller: _newSecurityAnswerController,
+            decoration: InputDecoration(
+              labelText: 'Nueva respuesta de seguridad',
+              prefixIcon: const Icon(Icons.security),
+              hintText:
+                  'Escribe la respuesta a tu nueva pregunta de seguridad...',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _newSecurityAnswerVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _newSecurityAnswerVisible = !_newSecurityAnswerVisible;
+                  });
+                },
+              ),
+            ),
+            obscureText: !_newSecurityAnswerVisible,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Por favor ingresa la respuesta a tu nueva pregunta de seguridad';
+              }
+              return null;
+            },
+          ),
+
+          // Error and success messages for security question change
+          if (_securityQuestionErrorMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _securityQuestionErrorMessage!,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ],
+
+          if (_securityQuestionSuccessMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _securityQuestionSuccessMessage!,
+              style: TextStyle(color: Colors.green),
+            ),
+          ],
+
+          // Save button for security question
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed:
+                  _isChangingSecurityQuestion ? null : _changeSecurityQuestion,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _isChangingSecurityQuestion
                     ? const SizedBox(
                         width: 20,
                         height: 20,

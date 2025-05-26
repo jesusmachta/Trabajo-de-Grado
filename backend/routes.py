@@ -24,7 +24,7 @@ from backend.sensorSettings.create_sensorsetting import create_sensor_setting
 from backend.sensorSettings.read_sensorsetting import get_sensor_setting_by_empresa
 from backend.sensorSettings.update_sensorsetting import update_sensor_setting
 import re
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Path, Body, File, UploadFile, Form, Request
 from pydantic import BaseModel, EmailStr, Field # Added Field
 from backend.aws import analyze_image, upload_image_to_s3
 from datetime import datetime, timedelta
@@ -659,6 +659,23 @@ async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: d
         if payload.current_password is not None:
             update_data["current_password"] = payload.current_password
     
+    # Handle security question update
+    if payload.new_security_question is not None or payload.new_security_answer is not None:
+        # Include security question fields in update data
+        if payload.current_security_question is not None:
+            update_data["current_security_question"] = payload.current_security_question
+        if payload.current_security_answer is not None:
+            update_data["current_security_answer"] = payload.current_security_answer
+        if payload.new_security_question is not None:
+            update_data["new_security_question"] = payload.new_security_question
+        if payload.new_security_answer is not None:
+            update_data["new_security_answer"] = payload.new_security_answer
+            
+        # Add detailed debug logging for security question updates
+        logger.info(f"Security question update requested by user {user_id}")
+        logger.info(f"Current security question: {payload.current_security_question}")
+        logger.info(f"New security question: {payload.new_security_question}")
+    
     # Use the update_user_profile function from the model
     updated_user = update_user_profile(user_id, update_data)
     
@@ -672,7 +689,7 @@ async def update_user_endpoint(
     user_id: str,
     user_data: UserUpdate,
     current_user: dict = Depends(get_current_user),
-    empresa: str = Depends(get_empresa)
+    empresa: str = Depends(get_empresa),
 ):
     """
     Endpoint to update a user. Admin or self only, filtered by company.
@@ -712,6 +729,17 @@ async def update_user_endpoint(
         # Incluir el campo is_active si se proporciona
         if user_data.is_active is not None:
             update_data["is_active"] = user_data.is_active
+            
+        # Check for security question and answer updates - only include if both are provided
+        if user_data.security_question is not None and user_data.security_answer is not None:
+            # Only include security fields if both question and answer are provided
+            update_data["new_security_question"] = user_data.security_question
+            update_data["new_security_answer"] = user_data.security_answer
+            
+            # For admin updates, bypass security answer verification
+            if current_user.get("role") == "admin":
+                update_data["admin_security_update"] = True
+                update_data["current_security_question"] = user.get("security_question")
 
         # Use the update_user_profile function from the model
         updated_user = update_user_profile(user_id, update_data)
