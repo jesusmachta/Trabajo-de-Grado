@@ -1111,14 +1111,6 @@ class _UsersViewState extends State<UsersView> {
                               ],
                             ),
             ),
-            // Footer Text (optional)
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-              child: Center(
-                  child: Text('Lista de usuarios y sus estados',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.secondary))),
-            )
           ],
         ),
       ),

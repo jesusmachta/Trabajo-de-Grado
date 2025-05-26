@@ -3,6 +3,7 @@ import logging
 from fastapi import HTTPException
 from typing import Optional, Dict, Any
 from backend.auth.create_user import hash_password, validate_password
+from backend.auth.login_user import verify_password
 import base64
 import os
 from datetime import datetime
@@ -28,6 +29,7 @@ class ProfileUpdatePayload(BaseModel):
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    current_password: Optional[str] = None
 
 class ProfilePicturePayload(BaseModel):
     """Model for profile picture upload"""
@@ -65,6 +67,11 @@ class UserUpdateManager:
                 # If not possible, keep as string
                 user_id_int = user_id
                 
+            # Get current user data
+            current_user = collections['Users'].find_one({"_id": user_id_int})
+            if not current_user:
+                raise HTTPException(status_code=404, detail="User not found")
+                
             # Prepare update data
             clean_update_data = {}
             
@@ -98,6 +105,16 @@ class UserUpdateManager:
                 is_valid, error_message = validate_password(update_data["password"])
                 if not is_valid:
                     raise HTTPException(status_code=400, detail=error_message)
+                
+                # Verify current password if provided
+                if "current_password" in update_data and update_data["current_password"] is not None:
+                    # Check if current password is correct
+                    if not verify_password(update_data["current_password"], current_user["password"]):
+                        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+                else:
+                    # If we're changing password, current password must be provided
+                    raise HTTPException(status_code=400, detail="Se requiere la contraseña actual para cambiar la contraseña")
+                
                 clean_update_data["password"] = hash_password(update_data["password"])
             
             # Only proceed if there's something to update

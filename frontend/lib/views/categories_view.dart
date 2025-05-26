@@ -1086,15 +1086,6 @@ class _CategoriesViewState extends State<CategoriesView> {
                           : _buildCategoriesTable(),
                     ),
             ),
-
-            // Optional footer text
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-              child: Center(
-                  child: Text('Lista de categorías y sus estados',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.secondary))),
-            ),
           ],
         ),
       ),

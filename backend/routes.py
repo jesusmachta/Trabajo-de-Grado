@@ -655,6 +655,9 @@ async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: d
     
     if payload.password is not None:
         update_data["password"] = payload.password
+        # Include current password for validation
+        if payload.current_password is not None:
+            update_data["current_password"] = payload.current_password
     
     # Use the update_user_profile function from the model
     updated_user = update_user_profile(user_id, update_data)

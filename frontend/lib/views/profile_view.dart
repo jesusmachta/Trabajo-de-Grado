@@ -47,6 +47,11 @@ class _ProfileViewState extends State<ProfileView>
   String? _passwordErrorMessage;
   String? _passwordSuccessMessage;
 
+  // Password visibility toggles
+  bool _currentPasswordVisible = false;
+  bool _newPasswordVisible = false;
+  bool _confirmPasswordVisible = false;
+
   // For image selection
   XFile? _selectedImageFile;
   Uint8List? _selectedImagePreview;
@@ -227,7 +232,7 @@ class _ProfileViewState extends State<ProfileView>
       }
 
       // Process the response
-      final responseData = jsonDecode(response.body);
+      final responseData = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200) {
         // Update auth controller with new profile picture URL
@@ -322,7 +327,8 @@ class _ProfileViewState extends State<ProfileView>
           body: jsonEncode(updateData),
         );
 
-        final responseData = jsonDecode(response.body);
+        // Ensure proper UTF-8 decoding for Spanish characters
+        final responseData = jsonDecode(utf8.decode(response.bodyBytes));
 
         if (response.statusCode == 200) {
           // Update auth controller with new user data
@@ -413,7 +419,8 @@ class _ProfileViewState extends State<ProfileView>
         }),
       );
 
-      final responseData = jsonDecode(response.body);
+      // Ensure proper UTF-8 decoding for Spanish characters
+      final responseData = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200) {
         setState(() {
@@ -944,12 +951,24 @@ class _ProfileViewState extends State<ProfileView>
           // Current password
           TextFormField(
             controller: _currentPasswordController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Contraseña actual',
-              prefixIcon: Icon(Icons.lock_outline),
+              prefixIcon: const Icon(Icons.lock_outline),
               hintText: 'Escribe tu contraseña actual...',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _currentPasswordVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _currentPasswordVisible = !_currentPasswordVisible;
+                  });
+                },
+              ),
             ),
-            obscureText: true,
+            obscureText: !_currentPasswordVisible,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Por favor ingresa tu contraseña actual';
@@ -963,12 +982,22 @@ class _ProfileViewState extends State<ProfileView>
           // New password
           TextFormField(
             controller: _newPasswordController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Nueva contraseña',
-              prefixIcon: Icon(Icons.lock),
+              prefixIcon: const Icon(Icons.lock),
               hintText: 'Escribe tu nueva contraseña...',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _newPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _newPasswordVisible = !_newPasswordVisible;
+                  });
+                },
+              ),
             ),
-            obscureText: true,
+            obscureText: !_newPasswordVisible,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Por favor ingresa una nueva contraseña';
@@ -1009,12 +1038,24 @@ class _ProfileViewState extends State<ProfileView>
           // Confirm password
           TextFormField(
             controller: _confirmPasswordController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Confirmar contraseña',
-              prefixIcon: Icon(Icons.lock),
+              prefixIcon: const Icon(Icons.lock),
               hintText: 'Confirma tu contraseña...',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _confirmPasswordVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _confirmPasswordVisible = !_confirmPasswordVisible;
+                  });
+                },
+              ),
             ),
-            obscureText: true,
+            obscureText: !_confirmPasswordVisible,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Por favor confirma tu nueva contraseña';

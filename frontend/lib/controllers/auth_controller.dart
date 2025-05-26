@@ -205,7 +205,7 @@ class AuthController with ChangeNotifier {
         }),
       );
 
-      final responseData = jsonDecode(response.body);
+      final responseData = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         _token = responseData['access_token'];
@@ -256,7 +256,7 @@ class AuthController with ChangeNotifier {
         }),
       );
 
-      final responseData = jsonDecode(response.body);
+      final responseData = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200) {
         final isActive = responseData['is_active'] ?? true;
@@ -390,7 +390,7 @@ class AuthController with ChangeNotifier {
         // Para otros códigos de error (500, etc.), asumimos que es un error temporal
         // y no invalidamos el token automáticamente
         print(
-            'Error validando token: ${response.statusCode} - ${response.body}');
+            'Error validando token: ${response.statusCode} - ${utf8.decode(response.bodyBytes)}');
         return true; // Mantenemos al usuario como autenticado en caso de errores del servidor
       }
     } catch (e) {
@@ -433,7 +433,7 @@ class AuthController with ChangeNotifier {
       print('User data refresh response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
+        final responseData = jsonDecode(utf8.decode(response.bodyBytes));
         print('User data response: $responseData');
 
         final userData = responseData['data'];

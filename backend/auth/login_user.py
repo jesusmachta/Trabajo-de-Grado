@@ -42,12 +42,12 @@ class UserAuthManager:
             user = collections['Users'].find_one({"email": email})
             if user is None:
                 logger.warning(f"Login attempt with non-existent email: {email}")
-                raise HTTPException(status_code=401, detail="Invalid email or password")
+                raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
             
             # Verify password
             if not UserAuthManager.verify_password(password, user["password"]):
                 logger.warning(f"Failed login attempt for user: {email}")
-                raise HTTPException(status_code=401, detail="Invalid email or password")
+                raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
             
             empresa = user.get("empresa")
             if not empresa: 
