@@ -203,6 +203,17 @@ class _UsersViewState extends State<UsersView> {
     return null;
   }
 
+  // Add method to check if user is at least 18 years old
+  bool _isAtLeast18YearsOld(DateTime birthDate) {
+    final DateTime today = DateTime.now();
+    final DateTime adultDate = DateTime(
+      birthDate.year + 18,
+      birthDate.month,
+      birthDate.day,
+    );
+    return adultDate.compareTo(today) <= 0;
+  }
+
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -226,6 +237,12 @@ class _UsersViewState extends State<UsersView> {
       },
     );
     if (picked != null && picked != _selectedDate) {
+      // Validate that the user is at least 18 years old
+      if (!_isAtLeast18YearsOld(picked)) {
+        ToastService.showWarning(
+            context, 'El usuario debe tener al menos 18 años de edad.');
+        return;
+      }
       setState(() {
         _selectedDate = picked;
       });
@@ -346,6 +363,25 @@ class _UsersViewState extends State<UsersView> {
                       if (value == null || value.isEmpty) {
                         return 'Por favor ingresa un nombre';
                       }
+
+                      // Split the name to validate first and last names
+                      List<String> nameParts = value.split(' ');
+                      if (nameParts.isNotEmpty) {
+                        // Validate first name starts with letters
+                        if (!RegExp(r'^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]')
+                            .hasMatch(nameParts[0])) {
+                          return 'El nombre debe comenzar con letras';
+                        }
+
+                        // If there's a last name, validate it too
+                        if (nameParts.length > 1) {
+                          if (!RegExp(r'^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]')
+                              .hasMatch(nameParts[1])) {
+                            return 'El apellido debe comenzar con letras';
+                          }
+                        }
+                      }
+
                       return null;
                     },
                   ),
@@ -606,6 +642,13 @@ class _UsersViewState extends State<UsersView> {
           ElevatedButton(
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
+                // Validate age before proceeding
+                if (!_isAtLeast18YearsOld(_selectedDate)) {
+                  ToastService.showWarning(context,
+                      'El usuario debe tener al menos 18 años de edad.');
+                  return;
+                }
+
                 final authController =
                     Provider.of<AuthController>(context, listen: false);
                 final userController =

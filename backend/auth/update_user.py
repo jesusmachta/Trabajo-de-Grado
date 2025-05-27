@@ -2,7 +2,7 @@ from backend.database import collections
 import logging
 from fastapi import HTTPException
 from typing import Optional, Dict, Any
-from backend.auth.create_user import hash_password, validate_password
+from backend.auth.create_user import hash_password, validate_password, validate_name
 from backend.auth.login_user import verify_password
 import base64
 import os
@@ -94,9 +94,47 @@ class UserUpdateManager:
                     raise HTTPException(status_code=400, detail="Email already registered")
                 clean_update_data["email"] = update_data["email"]
             
-            # Check for name update
+            # Check for name update - either full_name or first_name/last_name
             if "full_name" in update_data and update_data["full_name"] is not None:
+                # Validate that names start with letters
+                name_parts = update_data["full_name"].split()
+                if len(name_parts) > 0:
+                    # Validate first name
+                    is_valid, error_message = validate_name(name_parts[0])
+                    if not is_valid:
+                        raise HTTPException(status_code=400, detail=f"Nombre: {error_message}")
+                    
+                    # If there's a last name, validate it too
+                    if len(name_parts) > 1:
+                        is_valid, error_message = validate_name(name_parts[1])
+                        if not is_valid:
+                            raise HTTPException(status_code=400, detail=f"Apellido: {error_message}")
+                
                 clean_update_data["full_name"] = update_data["full_name"]
+            elif "first_name" in update_data or "last_name" in update_data:
+                # Handle separate first/last name fields
+                current_full_name = current_user.get("full_name", "")
+                name_parts = current_full_name.split(" ", 1)
+                
+                current_first = name_parts[0] if len(name_parts) > 0 else ""
+                current_last = name_parts[1] if len(name_parts) > 1 else ""
+                
+                new_first = update_data.get("first_name") if update_data.get("first_name") is not None else current_first
+                new_last = update_data.get("last_name") if update_data.get("last_name") is not None else current_last
+                
+                # Validate first name if it's being updated
+                if update_data.get("first_name") is not None:
+                    is_valid, error_message = validate_name(new_first)
+                    if not is_valid:
+                        raise HTTPException(status_code=400, detail=f"Nombre: {error_message}")
+                
+                # Validate last name if it's being updated
+                if update_data.get("last_name") is not None:
+                    is_valid, error_message = validate_name(new_last)
+                    if not is_valid:
+                        raise HTTPException(status_code=400, detail=f"Apellido: {error_message}")
+                
+                clean_update_data["full_name"] = f"{new_first} {new_last}".strip()
             
             # Check for role update (only if admin)
             if "role" in update_data and update_data["role"] is not None:

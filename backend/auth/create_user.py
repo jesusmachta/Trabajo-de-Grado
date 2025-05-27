@@ -67,6 +67,21 @@ class UserCreationManager:
         return True, ""
 
     @staticmethod
+    def validate_name(name: str) -> tuple[bool, str]:
+        """
+        Validates that a name starts with a word (letters), not with numbers or special characters.
+        
+        Returns:
+        - (True, "") if name is valid
+        - (False, error_message) if not valid
+        """
+        # Check if the name starts with at least one letter
+        if not re.match(r'^[a-zA-Z]', name):
+            return False, "El nombre debe comenzar con letras, no con números o caracteres especiales"
+        
+        return True, ""
+
+    @staticmethod
     def get_next_sequence_value(sequence_name):
         """Get next sequence value from the counters collection."""
         try:
@@ -99,6 +114,20 @@ class UserCreationManager:
             is_valid, error_message = UserCreationManager.validate_password(password)
             if not is_valid:
                 raise HTTPException(status_code=400, detail=error_message)
+            
+            # Validate full name - ensure first and last names start with letters
+            name_parts = full_name.split()
+            if len(name_parts) > 0:
+                # Validate first name
+                is_valid, error_message = UserCreationManager.validate_name(name_parts[0])
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=f"Nombre: {error_message}")
+                
+                # If there's a last name, validate it too
+                if len(name_parts) > 1:
+                    is_valid, error_message = UserCreationManager.validate_name(name_parts[1])
+                    if not is_valid:
+                        raise HTTPException(status_code=400, detail=f"Apellido: {error_message}")
             
             # Create new user
             user_id = UserCreationManager.get_next_sequence_value("user_id")
@@ -146,5 +175,6 @@ class UserCreationManager:
 # Export functions directly for backward compatibility
 hash_password = UserCreationManager.hash_password
 validate_password = UserCreationManager.validate_password
+validate_name = UserCreationManager.validate_name
 get_next_sequence_value = UserCreationManager.get_next_sequence_value
 create_user = UserCreationManager.create_user 

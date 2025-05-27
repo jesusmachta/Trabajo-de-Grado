@@ -651,14 +651,21 @@ async def update_profile_endpoint(payload: ProfileUpdatePayload, current_user: d
         new_first = payload.first_name if payload.first_name is not None else current_first
         new_last = payload.last_name if payload.last_name is not None else current_last
         
-        update_data["full_name"] = f"{new_first} {new_last}".strip()
+        # Use first_name and last_name directly so they get validated in update_user_profile
+        if payload.first_name is not None:
+            update_data["first_name"] = payload.first_name
+        
+        if payload.last_name is not None:
+            update_data["last_name"] = payload.last_name
     
     if payload.password is not None:
         update_data["password"] = payload.password
         # Include current password for validation
         if payload.current_password is not None:
             update_data["current_password"] = payload.current_password
-    
+        else:
+            raise HTTPException(status_code=400, detail="Current password is required to change password")
+
     # Handle security question update
     if payload.new_security_question is not None or payload.new_security_answer is not None:
         # Include security question fields in update data

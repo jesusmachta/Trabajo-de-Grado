@@ -3,7 +3,7 @@ import logging
 from fastapi import HTTPException
 from datetime import datetime
 import re
-from backend.auth.create_user import create_user
+from backend.auth.create_user import create_user, validate_name
 from backend.statistics.incremental_stats import initialize_statistics
 from pydantic import BaseModel, EmailStr
 
@@ -44,6 +44,22 @@ class CompanyCreationManager:
                 raise HTTPException(
                     status_code=400,
                     detail="El formato del correo electrónico es inválido"
+                )
+                
+            # Validate nombre_responsable - must start with letters
+            is_valid, error_message = validate_name(nombre_responsable)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Nombre del responsable: {error_message}"
+                )
+                
+            # Validate apellido_responsable - must start with letters
+            is_valid, error_message = validate_name(apellido_responsable)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Apellido del responsable: {error_message}"
                 )
             
             # Check if company already exists by name

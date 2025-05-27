@@ -100,8 +100,14 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
   String? _validateName(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Este campo es obligatorio';
+      return 'Este campo es requerido';
     }
+
+    // Verify that name starts with a letter, not with numbers or special characters
+    if (!RegExp(r'^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]').hasMatch(value)) {
+      return 'Debe comenzar con letras, no con números o caracteres especiales';
+    }
+
     return null;
   }
 

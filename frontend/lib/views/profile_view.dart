@@ -1034,6 +1034,10 @@ class _ProfileViewState extends State<ProfileView>
               if (value == null || value.isEmpty) {
                 return 'Por favor ingresa tu nombre';
               }
+              // Verify name starts with letters
+              if (!RegExp(r'^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]').hasMatch(value)) {
+                return 'Debe comenzar con letras, no con números o caracteres especiales';
+              }
               return null;
             },
           ),
@@ -1050,6 +1054,10 @@ class _ProfileViewState extends State<ProfileView>
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Por favor ingresa tu apellido';
+              }
+              // Verify name starts with letters
+              if (!RegExp(r'^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]').hasMatch(value)) {
+                return 'Debe comenzar con letras, no con números o caracteres especiales';
               }
               return null;
             },
