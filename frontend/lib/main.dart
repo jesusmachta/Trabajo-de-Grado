@@ -312,7 +312,7 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(
           seedColor: lightBlue,
           brightness: Brightness.light,
-          primary: Color(0xFF0277BD),
+          primary: Color(0xFF223A5E),
           primaryContainer: lightBlue,
           surface: Colors.white,
           background: Colors.white,
@@ -345,7 +345,7 @@ class _MyAppState extends State<MyApp> {
         // Configuración para los botones
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFF0277BD),
+            backgroundColor: Color(0xFF223A5E),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
@@ -355,7 +355,7 @@ class _MyAppState extends State<MyApp> {
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: Color(0xFF0277BD),
+            backgroundColor: Color(0xFF223A5E),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
@@ -365,7 +365,7 @@ class _MyAppState extends State<MyApp> {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            foregroundColor: Color(0xFF0277BD),
+            foregroundColor: Color(0xFF223A5E),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -374,7 +374,7 @@ class _MyAppState extends State<MyApp> {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: lightBlue.withOpacity(0.5),
-          indicatorColor: Color(0xFF0277BD).withOpacity(0.2),
+          indicatorColor: Color(0xFF223A5E).withOpacity(0.2),
         ),
         // Configuración para diálogos
         dialogTheme: DialogTheme(

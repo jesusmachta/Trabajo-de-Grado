@@ -32,11 +32,16 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
   // Lista de preguntas de seguridad
   static const List<String> securityQuestions = [
-    "¿Cuál es el nombre de tu primera mascota?",
-    "¿En qué ciudad naciste?",
-    "¿Cuál fue el nombre de tu escuela primaria?",
-    "¿Cuál es el segundo nombre de tu madre?",
-    "¿Cuál fue tu primer trabajo?",
+    '¿Cuál es el nombre de tu primera mascota?',
+    '¿En qué ciudad naciste?',
+    '¿Cuál es el nombre de tu mejor amigo de la infancia?',
+    '¿Cuál fue tu primer carro/moto?',
+    '¿Cuál es tu película favorita?',
+    '¿Cuál es el segundo nombre de tu madre?',
+    '¿Cuál fue el nombre de tu primera escuela?',
+    '¿Cuál es tu comida favorita?',
+    '¿Cuál es tu equipo deportivo favorito?',
+    '¿Cuál es el nombre de la calle donde creciste?',
   ];
 
   @override
@@ -224,9 +229,11 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recuperar contraseña'),
-        backgroundColor: const Color(0xFF0277BD),
-        foregroundColor: Colors.white,
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text('StoreSense'),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: Center(
@@ -418,7 +425,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
         ElevatedButton(
           onPressed: _isLoading ? null : _verifySecurityInfo,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0277BD),
+            backgroundColor: const Color(0xFF223A5E),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
@@ -546,7 +553,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
         ElevatedButton(
           onPressed: _isLoading ? null : _resetPassword,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0277BD),
+            backgroundColor: const Color(0xFF223A5E),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
@@ -607,7 +614,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
             Navigator.of(context).pop(); // Volver a la pantalla de login
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0277BD),
+            backgroundColor: const Color(0xFF223A5E),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(

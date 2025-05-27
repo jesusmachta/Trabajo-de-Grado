@@ -243,7 +243,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                                 ElevatedButton(
                                   onPressed: _nextStep,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0277BD),
+                                    backgroundColor: const Color(0xFF223A5E),
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 32, vertical: 16),

@@ -303,7 +303,9 @@ class _HomeViewState extends State<HomeView> {
                           encodedProfilePictureUrl.isEmpty
                       ? Icon(Icons.person,
                           size: 28,
-                          color: Theme.of(context).colorScheme.primary)
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Theme.of(context).colorScheme.primary
+                              : const Color(0xFF223A5E))
                       : null,
                   onBackgroundImageError: encodedProfilePictureUrl != null
                       ? (exception, stackTrace) {

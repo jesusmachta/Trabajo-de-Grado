@@ -689,12 +689,16 @@ class _ProfileViewState extends State<ProfileView>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('StoreSense'),
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text('StoreSense'),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -795,7 +799,9 @@ class _ProfileViewState extends State<ProfileView>
                                   encodedProfilePictureUrl.isEmpty))
                           ? Icon(Icons.person,
                               size: 80,
-                              color: theme.colorScheme.primary.withOpacity(0.7))
+                              color: theme.brightness == Brightness.dark
+                                  ? theme.colorScheme.primary.withOpacity(0.7)
+                                  : const Color(0xFF223A5E))
                           : null,
                       onBackgroundImageError: encodedProfilePictureUrl !=
                                   null &&

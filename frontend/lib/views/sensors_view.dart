@@ -1641,10 +1641,20 @@ class _SensorsViewState extends State<SensorsView> {
                   _fetchAvailableCategories(),
                 ]);
               },
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                children: [_buildSensorsTable()],
-              ),
+              child: _filteredSensors.isEmpty
+                  ? Center(
+                      child: Text(
+                        _searchTerm.isEmpty &&
+                                _selectedStatus == SensorStatusFilter.todos
+                            ? 'No hay sensores disponibles.'
+                            : 'No se encontraron sensores que coincidan con los filtros.',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      children: [_buildSensorsTable()],
+                    ),
             ),
           ),
         ],

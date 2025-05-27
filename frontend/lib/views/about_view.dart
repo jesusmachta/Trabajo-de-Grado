@@ -279,7 +279,9 @@ class AboutView extends StatelessWidget {
                   ? Icon(
                       Icons.person,
                       size: 30,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.primary
+                          : const Color(0xFF223A5E),
                     )
                   : null,
             ),
@@ -332,6 +334,10 @@ class AboutView extends StatelessWidget {
       icon: Icon(icon),
       label: Text(label),
       style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.primary
+            : const Color(0xFF223A5E),
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
     );

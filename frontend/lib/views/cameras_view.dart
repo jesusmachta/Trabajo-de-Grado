@@ -1075,7 +1075,9 @@ class _CamerasViewState extends State<CamerasView> {
                         : null,
                     tooltip: 'Primera página',
                     color: _currentPage > 0
-                        ? const Color(0xFF0277BD)
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.primary
+                            : const Color(0xFF223A5E))
                         : Colors.grey,
                   ),
                   IconButton(
@@ -1089,7 +1091,9 @@ class _CamerasViewState extends State<CamerasView> {
                         : null,
                     tooltip: 'Página anterior',
                     color: _currentPage > 0
-                        ? const Color(0xFF0277BD)
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.primary
+                            : const Color(0xFF223A5E))
                         : Colors.grey,
                   ),
                   Container(
@@ -1119,7 +1123,9 @@ class _CamerasViewState extends State<CamerasView> {
                         : null,
                     tooltip: 'Página siguiente',
                     color: endIndex < _filteredCameras.length
-                        ? const Color(0xFF0277BD)
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.primary
+                            : const Color(0xFF223A5E))
                         : Colors.grey,
                   ),
                   IconButton(
@@ -1133,7 +1139,9 @@ class _CamerasViewState extends State<CamerasView> {
                         : null,
                     tooltip: 'Última página',
                     color: _currentPage < totalPages - 1
-                        ? const Color(0xFF0277BD)
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.primary
+                            : const Color(0xFF223A5E))
                         : Colors.grey,
                   ),
                 ],
@@ -1328,10 +1336,20 @@ class _CamerasViewState extends State<CamerasView> {
                   _fetchActiveCategories(),
                 ]);
               },
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                children: [_buildCamerasTable()],
-              ),
+              child: _filteredCameras.isEmpty
+                  ? Center(
+                      child: Text(
+                        _searchTerm.isEmpty &&
+                                _selectedStatus == CameraStatusFilter.todos
+                            ? 'No hay cámaras disponibles.'
+                            : 'No se encontraron cámaras que coincidan con los filtros.',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      children: [_buildCamerasTable()],
+                    ),
             ),
           ),
         ],

@@ -341,8 +341,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Horas con mayor afluencia de clientes',
         icon: Icons.insights_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 400,
       );
     }
@@ -355,8 +354,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Horas con mayor afluencia de clientes',
         icon: Icons.insights_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 400,
       );
     }
@@ -616,8 +614,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Horas con menor afluencia de clientes',
         icon: Icons.trending_down,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 400,
       );
     }
@@ -630,8 +627,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Horas con menor afluencia de clientes',
         icon: Icons.trending_down,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 400,
       );
     }
@@ -892,8 +888,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Emociones detectadas',
         icon: Icons.emoji_emotions_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 340,
       );
     }
@@ -906,8 +901,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Emociones detectadas',
         icon: Icons.emoji_emotions_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 340,
       );
     }
@@ -1034,8 +1028,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Días de la semana con más y menos afluencia',
         icon: Icons.calendar_month_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 400,
       );
     }
@@ -1048,8 +1041,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Días de la semana con más y menos afluencia',
         icon: Icons.calendar_month_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 400,
       );
     }
@@ -1397,8 +1389,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Categorías visitadas',
         icon: Icons.category_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 300,
       );
     }
@@ -1411,8 +1402,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Categorías visitadas',
         icon: Icons.category_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 300,
       );
     }
@@ -1588,8 +1578,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Categorías preferidas por sexo',
         icon: Icons.category_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 300,
       );
     }
@@ -1601,8 +1590,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Categorías preferidas por sexo',
         icon: Icons.category_outlined,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 300,
       );
     }
@@ -1675,8 +1663,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Top Categorías Mejor Evaluadas',
         icon: Icons.star_outline,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 300,
       );
     }
@@ -1689,8 +1676,7 @@ class _DashboardViewState extends State<DashboardView> {
       return _buildEmptyStateCard(
         title: 'Top Categorías Mejor Evaluadas',
         icon: Icons.star_outline,
-        message:
-            'Aún no hay datos para mostrar.\nSube tu primera imagen para comenzar.',
+        message: 'Instala, agrega y asocia tu primera cámara a una categoría.',
         height: 300,
       );
     }

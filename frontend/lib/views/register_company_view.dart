@@ -49,11 +49,16 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
   // Security questions list
   static const List<String> securityQuestions = [
-    "¿Cuál es el nombre de tu primera mascota?",
-    "¿En qué ciudad naciste?",
-    "¿Cuál fue el nombre de tu escuela primaria?",
-    "¿Cuál es el segundo nombre de tu madre?",
-    "¿Cuál fue tu primer trabajo?",
+    '¿Cuál es el nombre de tu primera mascota?',
+    '¿En qué ciudad naciste?',
+    '¿Cuál es el nombre de tu mejor amigo de la infancia?',
+    '¿Cuál fue tu primer carro/moto?',
+    '¿Cuál es tu película favorita?',
+    '¿Cuál es el segundo nombre de tu madre?',
+    '¿Cuál fue el nombre de tu primera escuela?',
+    '¿Cuál es tu comida favorita?',
+    '¿Cuál es tu equipo deportivo favorito?',
+    '¿Cuál es el nombre de la calle donde creciste?',
   ];
 
   @override
@@ -217,7 +222,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: const Color(0xFF0277BD), // Header background color
+              primary: const Color(0xFF223A5E), // Header background color
               onPrimary: Colors.white, // Header text color
               onSurface: Theme.of(context)
                   .textTheme
@@ -370,7 +375,12 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('StoreSense'),
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text('StoreSense'),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -412,7 +422,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                       value: (_currentTab + 1) / 3,
                       backgroundColor: Colors.grey[300],
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        const Color(0xFF0277BD),
+                        const Color(0xFF223A5E),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -499,7 +509,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 12),
-                            backgroundColor: const Color(0xFF0277BD),
+                            backgroundColor: const Color(0xFF223A5E),
                             foregroundColor: Colors.white,
                           ),
                           child: _isLoading
@@ -536,7 +546,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
           height: 40,
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF0277BD)
+                ? const Color(0xFF223A5E)
                 : (isCompleted ? Colors.green : Colors.grey[300]),
             shape: BoxShape.circle,
           ),
@@ -556,7 +566,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
         Text(
           _tabs[step - 1].split(' ').last,
           style: TextStyle(
-            color: isActive ? const Color(0xFF0277BD) : Colors.grey[600],
+            color: isActive ? const Color(0xFF223A5E) : Colors.grey[600],
             fontSize: 12,
           ),
         ),

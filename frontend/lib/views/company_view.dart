@@ -104,7 +104,12 @@ class _CompanyViewState extends State<CompanyView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Información de la Empresa'),
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Informacion de la empresa'),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -219,15 +224,18 @@ class _CompanyViewState extends State<CompanyView> {
                           ),
                           const SizedBox(height: 16),
                           if (!_showDeleteConfirmation) ...[
-                            ElevatedButton.icon(
-                              onPressed: _isLoading ? null : _showDeleteDialog,
-                              icon: const Icon(Icons.delete_forever,
-                                  color: Colors.white),
-                              label: const Text('Eliminar Empresa',
-                                  style: TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
+                            Center(
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    _isLoading ? null : _showDeleteDialog,
+                                icon: const Icon(Icons.delete_forever,
+                                    color: Colors.white),
+                                label: const Text('Eliminar Empresa',
+                                    style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                ),
                               ),
                             ),
                           ] else ...[

@@ -55,11 +55,16 @@ class _UsersViewState extends State<UsersView> {
 
   // Security questions list
   static const List<String> securityQuestions = [
-    "¿Cuál es el nombre de tu primera mascota?",
-    "¿En qué ciudad naciste?",
-    "¿Cuál fue el nombre de tu escuela primaria?",
-    "¿Cuál es el segundo nombre de tu madre?",
-    "¿Cuál fue tu primer trabajo?",
+    '¿Cuál es el nombre de tu primera mascota?',
+    '¿En qué ciudad naciste?',
+    '¿Cuál es el nombre de tu mejor amigo de la infancia?',
+    '¿Cuál fue tu primer carro/moto?',
+    '¿Cuál es tu película favorita?',
+    '¿Cuál es el segundo nombre de tu madre?',
+    '¿Cuál fue el nombre de tu primera escuela?',
+    '¿Cuál es tu comida favorita?',
+    '¿Cuál es tu equipo deportivo favorito?',
+    '¿Cuál es el nombre de la calle donde creciste?',
   ];
 
   bool _isEditMode = false;
@@ -506,7 +511,7 @@ class _UsersViewState extends State<UsersView> {
                                   ? const Icon(
                                       Icons.person,
                                       size: 60,
-                                      color: Colors.grey,
+                                      color: Color(0xFF223A5E),
                                     )
                                   : null,
                             ),
@@ -1385,7 +1390,9 @@ class _UsersViewState extends State<UsersView> {
   }
 
   Widget _buildPaginationControls(ThemeData theme, int totalItems) {
-    final Color primaryColor = const Color(0xFF0277BD);
+    final Color primaryColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.primary
+        : const Color(0xFF223A5E);
 
     // Calculate current range being displayed
     int startItem = (_currentPage - 1) * _itemsPerPage + 1;

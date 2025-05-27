@@ -223,7 +223,7 @@ class _LoginViewState extends State<LoginView> {
                     ElevatedButton(
                       onPressed: authController.isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0277BD),
+                        backgroundColor: const Color(0xFF223A5E),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         shape: RoundedRectangleBorder(
