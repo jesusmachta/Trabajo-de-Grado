@@ -22,6 +22,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   // Controllers for all fields
   final _companyNameController = TextEditingController();
@@ -161,6 +162,17 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
     return null;
   }
 
+  // Add method to check if user is at least 18 years old
+  bool _isAtLeast18YearsOld(DateTime birthDate) {
+    final DateTime today = DateTime.now();
+    final DateTime adultDate = DateTime(
+      birthDate.year + 18,
+      birthDate.month,
+      birthDate.day,
+    );
+    return adultDate.compareTo(today) <= 0;
+  }
+
   // Validate current tab before proceeding
   bool _validateCurrentTab() {
     switch (_currentTab) {
@@ -174,7 +186,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
         return _validateCompanyName(_companyNameController.text) == null &&
             _validateRif(_rifController.text) == null;
       case 2: // Security information
-        return _validateSecurityAnswer(_securityAnswerController.text) == null;
+        return _validateSecurityAnswer(_securityAnswerController.text) ==
+                null &&
+            _isAtLeast18YearsOld(_selectedDate);
       default:
         return false;
     }
@@ -216,6 +230,12 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
       },
     );
     if (picked != null && picked != _selectedDate) {
+      // Validate that the user is at least 18 years old
+      if (!_isAtLeast18YearsOld(picked)) {
+        ToastService.showWarning(
+            context, 'El usuario debe tener al menos 18 años de edad.');
+        return;
+      }
       setState(() {
         _selectedDate = picked;
       });
@@ -225,6 +245,13 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
   Future<void> _registerCompany() async {
     // Validate all tabs
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // Validate age before proceeding
+    if (!_isAtLeast18YearsOld(_selectedDate)) {
+      ToastService.showWarning(
+          context, 'El usuario debe tener al menos 18 años de edad.');
       return;
     }
 
@@ -613,12 +640,22 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
           TextFormField(
             controller: _confirmPasswordController,
-            obscureText: _obscurePassword,
-            decoration: const InputDecoration(
+            obscureText: _obscureConfirmPassword,
+            decoration: InputDecoration(
               labelText: 'Confirmar contraseña',
               hintText: 'Vuelve a ingresar tu contraseña',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.lock_outline),
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureConfirmPassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined),
+                onPressed: () {
+                  setState(() {
+                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                  });
+                },
+              ),
             ),
             validator: _validateConfirmPassword,
             onChanged: (_) => setState(() {}),
