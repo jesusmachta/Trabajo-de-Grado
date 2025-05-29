@@ -539,6 +539,8 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
   // Step indicator widget
   Widget _buildStepIndicator(int step, bool isActive, bool isCompleted) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
         Container(
@@ -546,8 +548,10 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
           height: 40,
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF223A5E)
-                : (isCompleted ? Colors.green : Colors.grey[300]),
+                ? Theme.of(context).colorScheme.primary
+                : (isCompleted
+                    ? Colors.green
+                    : (isDarkMode ? Colors.grey[700] : Colors.grey[300])),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -556,7 +560,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                 : Text(
                     step.toString(),
                     style: TextStyle(
-                      color: isActive ? Colors.white : Colors.black87,
+                      color: isActive
+                          ? (isDarkMode ? Colors.black : Colors.white)
+                          : (isDarkMode ? Colors.white : Colors.black87),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -566,7 +572,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
         Text(
           _tabs[step - 1].split(' ').last,
           style: TextStyle(
-            color: isActive ? const Color(0xFF223A5E) : Colors.grey[600],
+            color: isActive
+                ? Theme.of(context).colorScheme.primary
+                : (isDarkMode ? Colors.white70 : Colors.grey[600]),
             fontSize: 12,
           ),
         ),
@@ -576,11 +584,23 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
   // Tab 1: Admin Information
   Widget _buildAdminInfoTab() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Admin Information Fields
+          Text(
+            'Información personal',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+
           TextFormField(
             controller: _firstNameController,
             decoration: const InputDecoration(
@@ -606,6 +626,16 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
+
+          Text(
+            'Datos de la cuenta',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
 
           TextFormField(
             controller: _emailController,
@@ -642,6 +672,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
               helperText:
                   'Debe tener al menos 6 caracteres, incluyendo mayúscula, minúscula, número y carácter especial',
               helperMaxLines: 2,
+              helperStyle: TextStyle(
+                color: isDarkMode ? Colors.white70 : Colors.black54,
+              ),
             ),
             validator: _validatePassword,
             onChanged: (_) => setState(() {}),
@@ -677,11 +710,23 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
   // Tab 2: Company Information
   Widget _buildCompanyInfoTab() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Company Information Fields
+          Text(
+            'Datos de la empresa',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+
           TextFormField(
             controller: _companyNameController,
             decoration: const InputDecoration(
@@ -694,6 +739,16 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
+
+          Text(
+            'Identificación fiscal',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
 
           TextFormField(
             controller: _rifController,
@@ -714,11 +769,23 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
 
   // Tab 3: Security Information
   Widget _buildSecurityInfoTab() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Security Information Fields
+          Text(
+            'Fecha de nacimiento',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+
           InkWell(
             onTap: () => _selectDate(context),
             child: InputDecorator(
@@ -732,7 +799,10 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                 children: [
                   Text(
                     DateFormat('dd/MM/yyyy').format(_selectedDate),
-                    style: const TextStyle(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
                   ),
                   const Icon(Icons.arrow_drop_down),
                 ],
@@ -740,6 +810,16 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
             ),
           ),
           const SizedBox(height: 16),
+
+          Text(
+            'Pregunta de seguridad',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // Security question dropdown
           DropdownButtonFormField<String>(
@@ -755,6 +835,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                 child: Text(
                   question,
                   overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
                 ),
               );
             }).toList(),
@@ -765,8 +848,19 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
                 });
               }
             },
+            dropdownColor: isDarkMode ? const Color(0xFF263238) : Colors.white,
           ),
           const SizedBox(height: 16),
+
+          Text(
+            'Respuesta de seguridad',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // Security answer field
           TextFormField(
