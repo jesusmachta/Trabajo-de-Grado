@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/toast_notification.dart';
 
@@ -169,6 +170,25 @@ class _CompanyViewState extends State<CompanyView> {
                                       .withOpacity(0.7),
                                 ),
                               ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final Uri url = Uri.parse(
+                                    'https://sites.google.com/farmatodo.com/storesense/p%C3%A1gina-principal');
+                                if (!await launchUrl(url,
+                                    mode: LaunchMode.externalApplication)) {
+                                  ToastService.showError(
+                                      context, 'No se pudo abrir el enlace');
+                                }
+                              },
+                              icon: const Icon(Icons.search),
+                              label:
+                                  const Text('Búsqueda acerca de la empresa'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
                           ],
                         ),
                       ),

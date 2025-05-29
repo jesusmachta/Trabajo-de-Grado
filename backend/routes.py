@@ -77,6 +77,7 @@ from backend.sensor.create_sensor import create_sensor
 from backend.sensor.read_sensor import get_sensors_with_details, get_sensor_by_id, get_available_categories
 from backend.sensor.update_sensor import update_sensor
 from backend.sensor.delete_sensor import delete_sensor
+from backend.scripts.sync_to_bigquery import sync_data_to_bigquery, reset_sync_status
 
 
 
@@ -1288,3 +1289,31 @@ async def update_sensor_settings_endpoint(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
+
+# BigQuery Sync Endpoints
+@router.post("/sync/bigquery", tags=["sync"])
+async def trigger_bigquery_sync(background_tasks: BackgroundTasks):
+    """
+    Inicia una sincronización incremental de datos de Persona_AR a BigQuery.
+    La sincronización se ejecuta en segundo plano.
+    """
+    background_tasks.add_task(sync_data_to_bigquery)
+    return {"success": True, "message": "Sincronización iniciada en segundo plano"}
+
+@router.post("/sync/bigquery/full", tags=["sync"])
+async def trigger_full_bigquery_sync(background_tasks: BackgroundTasks):
+    """
+    Inicia una sincronización completa de datos de Persona_AR a BigQuery.
+    La sincronización se ejecuta en segundo plano.
+    """
+    background_tasks.add_task(sync_data_to_bigquery, force_full_sync=True)
+    return {"success": True, "message": "Sincronización completa iniciada en segundo plano"}
+
+@router.post("/sync/bigquery/reset", tags=["sync"])
+async def reset_bigquery_sync():
+    """
+    Reinicia el estado de sincronización de BigQuery para forzar una sincronización completa
+    en la próxima ejecución.
+    """
+    result = reset_sync_status()
+    return result
