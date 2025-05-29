@@ -155,3 +155,17 @@ def get_emotion_comparison(empresa: str, period: str = "week", date: Optional[st
     except Exception as e:
         logger.error(f"Error fetching emotion comparison for company '{empresa}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching emotion comparison: {str(e)}")
+    
+
+def get_emotion_comparison_dates(empresa: str) -> Dict[str, list]: 
+    stats = collections["Estadisticas"].find_one({"_id": f"emotion_comparison:{empresa}"})
+    if not stats:
+        raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+
+    weekly = list(stats.get("weekly", {}).keys())
+    monthly = list(stats.get("monthly", {}).keys())
+
+    return {
+        "weekly": sorted(weekly),
+        "monthly": sorted(monthly)
+    }

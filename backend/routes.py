@@ -54,7 +54,7 @@ from backend.statistics.age_distribution import get_age_distribution, get_availa
 from backend.statistics.gender_distribution import get_gender_distribution
 from backend.statistics.most_visited_category_historical import get_most_visited_category_historical
 from backend.statistics.least_visited_category_historical import get_least_visited_category_historical
-from backend.statistics.emotion_comparison import get_emotion_comparison
+from backend.statistics.emotion_comparison import get_emotion_comparison, get_emotion_comparison_dates
 from backend.statistics.preferred_category_by_gender import get_preferred_category_by_gender
 from backend.statistics.top_successful_categories import get_top_successful_categories as calculate_top_categories_by_visits
 from backend.statistics.emotional_differences_by_category import get_emotional_differences_by_category
@@ -497,6 +497,16 @@ def emotion_comparison_endpoint(period: str = "week", date: Optional[str] = None
         print(f"Exception in emotion_comparison endpoint: {e}")
         import traceback
         traceback.print_exc()
+        return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/emotion-comparison/dates")
+def emotion_comparison_dates_endpoint(empresa: str = Depends(get_empresa)): 
+    try:
+        data = get_emotion_comparison_dates(empresa)
+        return {"message": "Success", "data": data}
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
         return {"message": "Error", "error": str(e)}
 
 @router.get("/statistics/preferred-category-by-gender/")

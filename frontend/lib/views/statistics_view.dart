@@ -106,6 +106,13 @@ class StatisticsViewState extends State<StatisticsView> {
       _error = null; // Clear any previous errors
     });
 
+    if (stat == 'gender-age-combined') {
+      _selectedCategoryPeriodType = 'historic';
+    }
+    if (stat == 'visited-categories-combined') {
+      _selectedCategoryPeriodType = 'historic';
+    }
+
     // Use a microtask to ensure we don't block the UI
     Future.microtask(() {
       // Load the new statistics data
@@ -240,6 +247,8 @@ class StatisticsViewState extends State<StatisticsView> {
   final List<Map<String, String>> _categoryPeriodOptions = [
     {'value': 'week', 'label': 'Semana'},
     {'value': 'month', 'label': 'Mes'},
+    {'value': 'historic', 'label': 'Histórico'},
+    {'value': 'day', 'label': 'Día'},
   ];
 
   // NUEVO: Listas de semanas y meses disponibles para gender-age-combined
