@@ -63,3 +63,20 @@ def get_age_distribution(empresa: str, period: Optional[str] = None, date: Optio
     except Exception as e:
         logger.error(f"Error fetching age distribution for company '{empresa}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching age distribution: {str(e)}")
+    
+
+def get_available_age_distribution_dates(empresa: str) -> Dict[str, list]:
+    """
+    Devuelve las semanas y meses disponibles para la distribución por edad.
+    """
+    stats = collections["Estadisticas"].find_one({"_id": f"age_distribution:{empresa}"})
+    if not stats:
+        raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+
+    weekly = list(stats.get("weekly", {}).keys())
+    monthly = list(stats.get("monthly", {}).keys())
+
+    return {
+        "weekly": sorted(weekly),
+        "monthly": sorted(monthly)
+    }

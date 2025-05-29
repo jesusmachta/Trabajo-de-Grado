@@ -144,8 +144,33 @@ class StatisticsViewState extends State<StatisticsView> {
 
       // Load the appropriate data based on the selected statistic
       if (_selectedStat == 'visited-categories-combined') {
-        data = await _controller.getHistoricalVisitedCategoriesStatistics(
-            token: token);
+        if (_selectedCategoryPeriodType == 'historic') {
+          // Llama al endpoint histórico correcto, sin parámetros de período
+          data = await _controller.getHistoricalVisitedCategoriesStatistics(
+              token: token);
+        } else {
+          Map<String, String> params = {};
+          if (_selectedCategoryPeriodType == 'day' && _selectedDayKey != null) {
+            params['period'] = 'day';
+            params['date'] = _selectedDayKey!;
+          } else if (_selectedCategoryPeriodType == 'week' &&
+              _selectedWeekKey != null) {
+            params['period'] = 'week';
+            params['date'] = _selectedWeekKey!;
+          } else if (_selectedCategoryPeriodType == 'month' &&
+              _selectedMonthKey != null) {
+            params['period'] = 'month';
+            final parts = _selectedMonthKey!.split('-');
+            if (parts.length == 2) {
+              params['year'] = parts[0];
+              params['month'] = parts[1];
+            }
+          }
+          data = await _controller.getVisitedCategoriesStatistics(
+            params: params,
+            token: token,
+          );
+        }
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
@@ -220,8 +245,10 @@ class StatisticsViewState extends State<StatisticsView> {
   // NUEVO: Listas de semanas y meses disponibles para gender-age-combined
   List<String> _availableWeeks = [];
   List<String> _availableMonths = [];
+  List<String> _availableDays = [];
   String? _selectedWeekKey;
   String? _selectedMonthKey;
+  String? _selectedDayKey;
 
   @override
   void initState() {
@@ -265,16 +292,20 @@ class StatisticsViewState extends State<StatisticsView> {
 
   // NUEVO: Inicializar semanas y meses disponibles
   Future<void> _initAvailablePeriods() async {
-    if (_selectedStat == 'gender-age-combined') {
+    if (_selectedStat == 'gender-age-combined' ||
+        _selectedStat == 'visited-categories-combined') {
       final authController =
           Provider.of<AuthController>(context, listen: false);
       final token = authController.token;
       if (token == null) return;
+      final days = await _controller.getAvailableDays(token: token);
       final weeks = await _controller.getAvailableWeeks(token: token);
       final months = await _controller.getAvailableMonths(token: token);
       setState(() {
+        _availableDays = days;
         _availableWeeks = weeks;
         _availableMonths = months;
+        _selectedDayKey = days.isNotEmpty ? days.first : null;
         _selectedWeekKey = weeks.isNotEmpty ? weeks.first : null;
         _selectedMonthKey = months.isNotEmpty ? months.first : null;
       });
@@ -723,8 +754,163 @@ class StatisticsViewState extends State<StatisticsView> {
 
             // --- CONTROLES DE FILTRO ---
             // Mostrar selectores de período específico para visited-categories-combined
+            // if (_selectedStat == 'visited-categories-combined') ...[
+            //   // Remove the period selectors - only showing historical data
+            //   const SizedBox(height: 8),
+            // ],
             if (_selectedStat == 'visited-categories-combined') ...[
-              // Remove the period selectors - only showing historical data
+              const SizedBox(height: 16),
+              Text(
+                'Filtrar por período:',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(height: 8),
+              // Toggle de período
+              Row(
+                children: [
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment<String>(
+                        value: 'day',
+                        label: Text('Día'),
+                        icon: Icon(Icons.calendar_today),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'week',
+                        label: Text('Semana'),
+                        icon: Icon(Icons.view_week),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'month',
+                        label: Text('Mes'),
+                        icon: Icon(Icons.calendar_month),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'historic',
+                        label: Text('Histórico'),
+                        icon: Icon(Icons.history),
+                      ),
+                    ],
+                    selected: {_selectedCategoryPeriodType},
+                    onSelectionChanged: (Set<String> newSelection) async {
+                      if (newSelection.isNotEmpty &&
+                          newSelection.first != _selectedCategoryPeriodType) {
+                        setState(() {
+                          _selectedCategoryPeriodType = newSelection.first;
+                          _statisticsData = null;
+                        });
+                        await _initAvailablePeriods();
+                        _loadStatistics();
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Dropdown debajo del toggle
+              if (_selectedCategoryPeriodType == 'day')
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedDayKey,
+                    decoration: InputDecoration(
+                      labelText: 'Seleccionar día',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.calendar_today),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                    ),
+                    items: _availableDays.map((dayKey) {
+                      return DropdownMenuItem(
+                        value: dayKey,
+                        child: Text(DateFormat('dd/MM/yyyy')
+                            .format(DateTime.parse(dayKey))),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      if (newValue != null && newValue != _selectedDayKey) {
+                        setState(() {
+                          _selectedDayKey = newValue;
+                          _statisticsData = null;
+                        });
+                        _loadStatistics();
+                      }
+                    },
+                  ),
+                ),
+              if (_selectedCategoryPeriodType == 'week')
+                SizedBox(
+                  width: 300,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedWeekKey,
+                    decoration: InputDecoration(
+                      labelText: 'Seleccionar semana',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.calendar_view_week),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                    ),
+                    items: _availableWeeks.map((weekKey) {
+                      return DropdownMenuItem(
+                        value: weekKey,
+                        child: Text(_formatWeekLabel(weekKey)),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      if (newValue != null && newValue != _selectedWeekKey) {
+                        setState(() {
+                          _selectedWeekKey = newValue;
+                          _statisticsData = null;
+                        });
+                        _loadStatistics();
+                      }
+                    },
+                  ),
+                )
+              else if (_selectedCategoryPeriodType == 'month')
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedMonthKey,
+                    decoration: InputDecoration(
+                      labelText: 'Seleccionar mes',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.calendar_month),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                    ),
+                    items: _availableMonths.map((monthKey) {
+                      final parts = monthKey.split('-');
+                      String label = monthKey;
+                      if (parts.length == 2) {
+                        final year = parts[0];
+                        final month = int.tryParse(parts[1]) ?? 1;
+                        label = '${_formatMonthName(month).capitalize()} $year';
+                      }
+                      return DropdownMenuItem(
+                        value: monthKey,
+                        child: Text(label),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      if (newValue != null && newValue != _selectedMonthKey) {
+                        setState(() {
+                          _selectedMonthKey = newValue;
+                          _statisticsData = null;
+                        });
+                        _loadStatistics();
+                      }
+                    },
+                  ),
+                ),
               const SizedBox(height: 8),
             ],
 
@@ -738,38 +924,125 @@ class StatisticsViewState extends State<StatisticsView> {
                     color: Theme.of(context).colorScheme.primary),
               ),
               const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: [
-                  ButtonSegment<String>(
-                    value: 'week',
-                    label: Text('Semana'),
-                    icon: Icon(Icons.view_week),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'month',
-                    label: Text('Mes'),
-                    icon: Icon(Icons.calendar_month),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'historic',
-                    label: Text('Histórico'),
-                    icon: Icon(Icons.history),
+              // ...existing code...
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment<String>(
+                        value: 'week',
+                        label: Text('Semana'),
+                        icon: Icon(Icons.view_week),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'month',
+                        label: Text('Mes'),
+                        icon: Icon(Icons.calendar_month),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'historic',
+                        label: Text('Histórico'),
+                        icon: Icon(Icons.history),
+                      ),
+                    ],
+                    selected: {_selectedCategoryPeriodType},
+                    onSelectionChanged: (Set<String> newSelection) async {
+                      if (newSelection.isNotEmpty &&
+                          newSelection.first != _selectedCategoryPeriodType) {
+                        setState(() {
+                          _selectedCategoryPeriodType = newSelection.first;
+                          _statisticsData = null;
+                        });
+                        await _initAvailablePeriods();
+                        _loadStatistics();
+                      }
+                    },
                   ),
                 ],
-                selected: {_selectedCategoryPeriodType},
-                onSelectionChanged: (Set<String> newSelection) async {
-                  if (newSelection.isNotEmpty &&
-                      newSelection.first != _selectedCategoryPeriodType) {
-                    setState(() {
-                      _selectedCategoryPeriodType = newSelection.first;
-                      _statisticsData = null;
-                    });
-                    await _initAvailablePeriods();
-                    _loadStatistics();
-                  }
-                },
               ),
               const SizedBox(height: 8),
+
+// Agrega este bloque justo aquí:
+              // ...después del SegmentedButton y antes del siguiente SizedBox...
+              // ...después del SegmentedButton y antes del siguiente SizedBox...
+              if (_selectedCategoryPeriodType == 'week')
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width:
+                        280, // Ajusta este valor según lo que prefieras (ej: 220, 250, etc)
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedWeekKey,
+                      decoration: InputDecoration(
+                        labelText: 'Seleccionar semana',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.calendar_view_week),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                      ),
+                      items: _availableWeeks.map((weekKey) {
+                        return DropdownMenuItem(
+                          value: weekKey,
+                          child: Text(_formatWeekLabel(weekKey)),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) {
+                        if (newValue != null && newValue != _selectedWeekKey) {
+                          setState(() {
+                            _selectedWeekKey = newValue;
+                            _statisticsData = null;
+                          });
+                          _loadStatistics();
+                        }
+                      },
+                    ),
+                  ),
+                )
+              else if (_selectedCategoryPeriodType == 'month')
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: 220, // Puedes ajustar el ancho aquí también
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedMonthKey,
+                      decoration: InputDecoration(
+                        labelText: 'Seleccionar mes',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.calendar_month),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                      ),
+                      items: _availableMonths.map((monthKey) {
+                        final parts = monthKey.split('-');
+                        String label = monthKey;
+                        if (parts.length == 2) {
+                          final year = parts[0];
+                          final month = int.tryParse(parts[1]) ?? 1;
+                          label =
+                              '${_formatMonthName(month).capitalize()} $year';
+                        }
+                        return DropdownMenuItem(
+                          value: monthKey,
+                          child: Text(label),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) {
+                        if (newValue != null && newValue != _selectedMonthKey) {
+                          setState(() {
+                            _selectedMonthKey = newValue;
+                            _statisticsData = null;
+                          });
+                          _loadStatistics();
+                        }
+                      },
+                    ),
+                  ),
+                ),
             ],
 
             // Mostrar selectores adicionales si es necesario
@@ -4994,14 +5267,14 @@ class StatisticsViewState extends State<StatisticsView> {
           const SizedBox(height: 24),
 
           // Show that this is historical data
-          Text(
-            'Datos históricos acumulados',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-            textAlign: TextAlign.center,
-          ),
+          // Text(
+          //   'Datos históricos acumulados',
+          //   style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          //         fontStyle: FontStyle.italic,
+          //         color: Theme.of(context).colorScheme.secondary,
+          //       ),
+          //   textAlign: TextAlign.center,
+          // ),
         ],
       ),
     );
@@ -5325,17 +5598,17 @@ class StatisticsViewState extends State<StatisticsView> {
           children: [
             // Eliminado el título principal
             // Solo mostramos el período seleccionado
-            Center(
-              child: Text(
-                periodTitle,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-              ),
-            ),
+            // Center(
+            //   child: Text(
+            //     periodTitle,
+            //     style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            //           fontStyle: FontStyle.italic,
+            //           color: Theme.of(context).colorScheme.secondary,
+            //         ),
+            //   ),
+            // ),
 
-            const SizedBox(height: 24),
+            // const SizedBox(height: 24),
 
             // -- SECCIÓN DE GÉNERO --
             if (hasGenderData) ...[
@@ -6360,37 +6633,72 @@ class StatisticsViewState extends State<StatisticsView> {
       dynamic data;
 
       if (_selectedStat == 'visited-categories-combined') {
-        data = await _controller.getHistoricalVisitedCategoriesStatistics(
-            token: token);
+        if (_selectedCategoryPeriodType == 'historic') {
+          // Llama al endpoint histórico correcto, sin parámetros de período
+          data = await _controller.getHistoricalVisitedCategoriesStatistics(
+              token: token);
+        } else {
+          Map<String, String> params = {};
+          if (_selectedCategoryPeriodType == 'day' && _selectedDayKey != null) {
+            params['period'] = 'day';
+            params['date'] = _selectedDayKey!;
+          } else if (_selectedCategoryPeriodType == 'week' &&
+              _selectedWeekKey != null) {
+            params['period'] = 'week';
+            params['date'] = _selectedWeekKey!;
+          } else if (_selectedCategoryPeriodType == 'month' &&
+              _selectedMonthKey != null) {
+            params['period'] = 'month';
+            final parts = _selectedMonthKey!.split('-');
+            if (parts.length == 2) {
+              params['year'] = parts[0];
+              params['month'] = parts[1];
+            }
+          }
+          data = await _controller.getVisitedCategoriesStatistics(
+            params: params,
+            token: token,
+          );
+        }
       } else if (_selectedStat == 'busy-days-combined') {
         data = await _controller.getBusyDaysStatistics(token: token);
       } else if (_selectedStat == 'gender-age-combined') {
-        if (_selectedCategoryPeriodType == 'month' &&
-            _selectedCategoryMonth != null) {
-          if (_availableMonths.isNotEmpty) {
-            _selectedMonthKey = _availableMonths.first;
-          } else {
-            _selectedMonthKey = null;
-          }
-        } else if (_selectedCategoryPeriodType == 'week' &&
-            _selectedCategoryWeek != null) {
-          if (_availableWeeks.isNotEmpty) {
-            _selectedWeekKey = _availableWeeks.first;
-          } else {
-            _selectedWeekKey = null;
-          }
-        }
-        params = {'period': _selectedCategoryPeriodType};
+        // if (_selectedCategoryPeriodType == 'month' &&
+        //     _selectedCategoryMonth != null) {
+        //   if (_availableMonths.isNotEmpty) {
+        //     _selectedMonthKey = _availableMonths.first;
+        //   } else {
+        //     _selectedMonthKey = null;
+        //   }
+        // } else if (_selectedCategoryPeriodType == 'week' &&
+        //     _selectedCategoryWeek != null) {
+        //   if (_availableWeeks.isNotEmpty) {
+        //     _selectedWeekKey = _availableWeeks.first;
+        //   } else {
+        //     _selectedWeekKey = null;
+        //   }
+        // }
+        Map<String, String> params = {};
+
         if (_selectedCategoryPeriodType == 'week' && _selectedWeekKey != null) {
-          params['date'] = _selectedWeekKey!;
+          params['period'] = 'week';
+          params['date'] = _selectedWeekKey!; // yyyy-MM-dd
         } else if (_selectedCategoryPeriodType == 'month' &&
             _selectedMonthKey != null) {
+          params['period'] = 'month';
           final parts = _selectedMonthKey!.split('-');
-          params['year'] = parts[0];
-          params['month'] = parts[1];
+          if (parts.length == 2) {
+            params['year'] = parts[0];
+            params['month'] = parts[1];
+          }
+        } else if (_selectedCategoryPeriodType == 'historic') {
+          params['period'] = 'historic';
         }
+
         data = await _controller.getGenderAgeDistributionStatistics(
-            params: params, token: token);
+          params: params,
+          token: token,
+        );
       } else if (_selectedStat == 'top-successful-categories') {
         data = await _controller.getTopSuccessfulCategories(token: token);
       } else {
@@ -6426,6 +6734,64 @@ class StatisticsViewState extends State<StatisticsView> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  // Llama este método cuando el usuario selecciona "Semana"
+  Future<void> _showWeeksDialog(BuildContext context) async {
+    if (_availableWeeks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay semanas disponibles')),
+      );
+      return;
+    }
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Selecciona una semana'),
+        children: _availableWeeks.map((week) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, week),
+            child: Text(_formatWeekLabel(week)),
+          );
+        }).toList(),
+      ),
+    );
+    if (selected != null && selected != _selectedWeekKey) {
+      setState(() {
+        _selectedWeekKey = selected;
+        _statisticsData = null;
+      });
+      _loadStatistics();
+    }
+  }
+
+// Llama este método cuando el usuario selecciona "Mes"
+  Future<void> _showMonthsDialog(BuildContext context) async {
+    if (_availableMonths.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay meses disponibles')),
+      );
+      return;
+    }
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Selecciona un mes'),
+        children: _availableMonths.map((month) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, month),
+            child: Text(_formatMonthLabel(month)),
+          );
+        }).toList(),
+      ),
+    );
+    if (selected != null && selected != _selectedMonthKey) {
+      setState(() {
+        _selectedMonthKey = selected;
+        _statisticsData = null;
+      });
+      _loadStatistics();
     }
   }
 }

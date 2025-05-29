@@ -47,10 +47,10 @@ from backend.statistics.least_busy_hours import get_least_busy_hours
 from backend.statistics.most_busy_day import get_most_busy_day
 from backend.statistics.least_busy_day import get_least_busy_day
 from backend.statistics.least_visited_category import get_least_visited_category
-from backend.statistics.most_visited_category import get_most_visited_category
+from backend.statistics.most_visited_category import get_available_most_visited_category_dates, get_most_visited_category
 from backend.statistics.emotion_percentage_by_category import get_emotion_percentage_by_category
 from backend.statistics.most_frequent_emotions import get_most_frequent_emotions
-from backend.statistics.age_distribution import get_age_distribution
+from backend.statistics.age_distribution import get_age_distribution, get_available_age_distribution_dates
 from backend.statistics.gender_distribution import get_gender_distribution
 from backend.statistics.most_visited_category_historical import get_most_visited_category_historical
 from backend.statistics.least_visited_category_historical import get_least_visited_category_historical
@@ -348,6 +348,22 @@ def most_visited_category_endpoint(period: str, date: Optional[str] = None, empr
         raise http_exc
     except Exception as e:
         return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/most-visited/dates")
+def most_visited_category_dates_endpoint(empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para obtener las fechas disponibles (días, semanas y meses) de categorías más visitadas.
+    """
+    try:
+        # Call model function to get data
+        data = get_available_most_visited_category_dates(empresa)
+        return {"message": "Success", "data": data}
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Error fetching most visited category dates for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching most visited category dates.")
+
 
 @router.get("/statistics/most-visited-historical/")
 def most_visited_category_historical_endpoint(empresa: str = Depends(get_empresa)):
@@ -433,6 +449,22 @@ def age_distribution_endpoint(period: str = None, date: Optional[str] = None, en
         raise http_exc
     except Exception as e:
         return {"message": "Error", "error": str(e)}
+    
+@router.get("/statistics/age-distribution/dates")
+def age_distribution_dates_endpoint(empresa: str = Depends(get_empresa)):
+    """
+    Endpoint para obtener las fechas disponibles (semanas y meses) de distribución de edad.
+    """
+    try:
+        data = get_available_age_distribution_dates(empresa)
+        return {"message": "Success", "data": data}
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        return {"message": "Error", "error": str(e)}
+    
+
+
 
 @router.get("/statistics/gender-distribution/")
 def gender_distribution_endpoint(period: str = None, date: Optional[str] = None, end_date: Optional[str] = None, 

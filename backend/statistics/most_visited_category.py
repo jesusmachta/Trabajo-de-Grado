@@ -62,3 +62,20 @@ def get_most_visited_category(empresa: str, period: str, date: Optional[str] = N
     except Exception as e:
         logger.error(f"Error fetching most visited category for company '{empresa}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching most visited category: {str(e)}")
+    
+def get_available_most_visited_category_dates(empresa: str) -> Dict[str,list]: 
+    stats = collections["Estadisticas"].find_one({"_id": f"most_visited_category:{empresa}"})
+    if not stats:
+        raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+
+    daily = list(stats.get("daily", {}).keys())
+    weekly = list(stats.get("weekly", {}).keys())
+    monthly = list(stats.get("monthly", {}).keys())
+    return{
+        "daily": sorted(daily),
+        "weekly": sorted(weekly),
+        "monthly": sorted(monthly)
+    }
+
+
+
