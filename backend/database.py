@@ -12,7 +12,8 @@ collections = {
     "Estadisticas": db['Estadisticas'],
     "Empresas": db['Empresas'],
     "Sensors": db['Sensors'],
-    "SensorsSettings": db['SensorsSettings']
+    "SensorsSettings": db['SensorsSettings'],
+    "BigQuerySync": db['BigQuerySync']
 }
 
 # Inicializar el contador si no existe

@@ -25,7 +25,7 @@ class _OnboardingViewState extends State<OnboardingView> {
         children: [
           const SizedBox(height: 16),
           const Text('¿Qué puedes hacer en StoreSense?',
-              style: TextStyle(fontSize: 16, color: Colors.black54)),
+              style: TextStyle(fontSize: 16)),
           const SizedBox(height: 12),
           _OnboardingListItem(
             title: '1. Estadísticas y métricas',
@@ -59,7 +59,7 @@ class _OnboardingViewState extends State<OnboardingView> {
         children: [
           const SizedBox(height: 16),
           const Text('¿Qué tipo de estadísticas tendrás disponibles?',
-              style: TextStyle(fontSize: 16, color: Colors.black54)),
+              style: TextStyle(fontSize: 16)),
           const SizedBox(height: 12),
           _OnboardingListText('Categorías más vistas por día y hora'),
           _OnboardingListText('Emociones predominantes por categoría'),
@@ -78,7 +78,7 @@ class _OnboardingViewState extends State<OnboardingView> {
         children: [
           const SizedBox(height: 16),
           const Text('¿Qué puedes hacer desde aquí?',
-              style: TextStyle(fontSize: 16, color: Colors.black54)),
+              style: TextStyle(fontSize: 16)),
           const SizedBox(height: 12),
           _OnboardingListText('Crear nuevas categorías personalizadas'),
           _OnboardingListText('Editar nombres e íconos'),
@@ -98,7 +98,7 @@ class _OnboardingViewState extends State<OnboardingView> {
         children: [
           const SizedBox(height: 16),
           const Text('¿Qué puedes hacer desde aquí?',
-              style: TextStyle(fontSize: 16, color: Colors.black54)),
+              style: TextStyle(fontSize: 16)),
           const SizedBox(height: 12),
           _OnboardingListText('Asignar cámaras a categorías específicas'),
           _OnboardingListText(
@@ -118,7 +118,7 @@ class _OnboardingViewState extends State<OnboardingView> {
         children: [
           const SizedBox(height: 16),
           const Text('¿Qué puedes hacer desde aquí?',
-              style: TextStyle(fontSize: 16, color: Colors.black54)),
+              style: TextStyle(fontSize: 16)),
           const SizedBox(height: 12),
           _OnboardingListText('Crear y gestionar usuarios'),
           _OnboardingListText('Asignar roles'),
@@ -151,6 +151,7 @@ class _OnboardingViewState extends State<OnboardingView> {
   Widget build(BuildContext context) {
     final step = _steps[_currentStep];
     final progress = (_currentStep + 1) / _steps.length;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -171,9 +172,10 @@ class _OnboardingViewState extends State<OnboardingView> {
               width: 300, // Fixed width for the progress bar
               child: LinearProgressIndicator(
                 value: progress,
-                backgroundColor: Colors.grey[300],
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(Color(0xFF0277BD)),
+                backgroundColor:
+                    isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary),
                 minHeight: 6,
               ),
             ),
@@ -197,16 +199,25 @@ class _OnboardingViewState extends State<OnboardingView> {
                           children: [
                             Text(
                               step.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.color,
                               ),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               step.subtitle,
-                              style: const TextStyle(
-                                  fontSize: 18, color: Colors.black87),
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.color,
+                              ),
                             ),
                             step.content,
                             if (_currentStep == 0) ...[
@@ -217,9 +228,13 @@ class _OnboardingViewState extends State<OnboardingView> {
                                   onPressed: () {
                                     Navigator.of(context).pop();
                                   },
-                                  child: const Text(
+                                  child: Text(
                                     'Volver al inicio de sesión',
-                                    style: TextStyle(fontSize: 16),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -231,8 +246,12 @@ class _OnboardingViewState extends State<OnboardingView> {
                                   ElevatedButton(
                                     onPressed: _previousStep,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey[400],
-                                      foregroundColor: Colors.white,
+                                      backgroundColor: isDarkMode
+                                          ? Colors.grey[700]
+                                          : Colors.grey[400],
+                                      foregroundColor: isDarkMode
+                                          ? Colors.white
+                                          : Colors.white,
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 32, vertical: 16),
                                     ),
@@ -243,14 +262,17 @@ class _OnboardingViewState extends State<OnboardingView> {
                                 ElevatedButton(
                                   onPressed: _nextStep,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF223A5E),
-                                    foregroundColor: Colors.white,
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.primary,
+                                    foregroundColor: isDarkMode
+                                        ? Colors.white
+                                        : Colors.white,
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 32, vertical: 16),
                                   ),
                                   child: Text(
                                       _currentStep == _steps.length - 1
-                                          ? 'Siguiente'
+                                          ? 'Finalizar'
                                           : 'Siguiente',
                                       style: const TextStyle(fontSize: 16)),
                                 ),
@@ -305,18 +327,26 @@ class _OnboardingListItem extends StatelessWidget {
   const _OnboardingListItem({required this.title, required this.description});
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(fontSize: 16, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
           children: [
             TextSpan(
                 text: '$title\n',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(
                 text: description,
-                style: const TextStyle(fontSize: 15, color: Colors.black54)),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                )),
           ],
         ),
       ),
@@ -329,12 +359,17 @@ class _OnboardingListText extends StatelessWidget {
   const _OnboardingListText(this.text);
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Text(
         text,
-        style: const TextStyle(
-            fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          fontSize: 16,
+          color: isDarkMode ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
