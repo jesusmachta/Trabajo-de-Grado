@@ -7,10 +7,10 @@ import '../widgets/toast_notification.dart';
 import '../controllers/cameras_controller.dart'; // Importar el nuevo controller
 import 'categories_view.dart'; // Importar directamente la vista de categorías
 import 'package:go_router/go_router.dart';
+import '../config.dart'; // Import the config file
 
-// Define the base URL for the API
-const String _apiBaseUrl =
-    'http://127.0.0.1:8000/api'; // Using default FastAPI port
+// Define the base URL for the API using AppConfig
+String get _apiBaseUrl => AppConfig.apiBaseUrl + '/api';
 
 // Add enum for camera status filter similar to user filter
 enum CameraStatusFilter { todos, activo, inactivo }

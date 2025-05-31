@@ -6,9 +6,10 @@ import '../controllers/auth_controller.dart';
 import '../widgets/toast_notification.dart';
 import '../controllers/sensors_controller.dart';
 import 'categories_view.dart'; // Import the categories view directly
+import '../config.dart'; // Import the config file
 
-// Define the base URL for the API
-const String _apiBaseUrl = 'http://127.0.0.1:8000/api';
+// Define the base URL for the API using AppConfig
+String get _apiBaseUrl => AppConfig.apiBaseUrl + '/api';
 
 // Add enum for sensor status filter
 enum SensorStatusFilter { todos, activo, inactivo }

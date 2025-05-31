@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:frontend/views/login_view.dart';
+import '../config.dart'; // Import the config file
 
 class ForgotPasswordView extends StatefulWidget {
   final Function toggleTheme;
@@ -53,7 +55,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
     super.dispose();
   }
 
-  Future<void> _verifySecurityInfo() async {
+  Future<void> _verifyIdentity() async {
     // Validar el formulario primero
     if (!_formKey.currentState!.validate()) {
       return;
@@ -66,7 +68,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/api/forgot-password/verify'),
+        Uri.parse(AppConfig.getApiUrl('forgot-password/verify')),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -114,7 +116,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/api/reset-password'),
+        Uri.parse(AppConfig.getApiUrl('reset-password')),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -423,7 +425,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
         // Continue button
         ElevatedButton(
-          onPressed: _isLoading ? null : _verifySecurityInfo,
+          onPressed: _isLoading ? null : _verifyIdentity,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF223A5E),
             foregroundColor: Colors.white,

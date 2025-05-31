@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config.dart'; // Import the config file
 
 class SensorsController {
   static final SensorsController _instance = SensorsController._internal();
@@ -10,8 +11,8 @@ class SensorsController {
 
   SensorsController._internal();
 
-  // URL base para llamadas a la API
-  final String baseUrl = 'http://127.0.0.1:8000';
+  // URL base para llamadas a la API - use AppConfig
+  String get baseUrl => AppConfig.apiBaseUrl;
 
   // Cliente HTTP para las llamadas a la API
   final http.Client _client = http.Client();

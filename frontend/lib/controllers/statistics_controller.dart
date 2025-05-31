@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import '../config.dart'; // Import the config file
 
 class StatisticsController {
   static final StatisticsController _instance =
@@ -12,8 +13,8 @@ class StatisticsController {
 
   StatisticsController._internal();
 
-  // Base URL for API calls
-  final String baseUrl = 'http://127.0.0.1:8000';
+  // Base URL for API calls - use AppConfig
+  String get baseUrl => AppConfig.apiBaseUrl;
 
   // Improved client with timeout
   final http.Client _client = http.Client();

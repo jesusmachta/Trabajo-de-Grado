@@ -2,14 +2,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import '../config.dart'; // Import the config file
 
 class UserController with ChangeNotifier {
   List<User> _users = [];
   bool _isLoading = false;
   String? _error;
 
-  // API base URL - change this to match your backend
-  final String _baseUrl = 'http://127.0.0.1:8000/api';
+  // API base URL - use AppConfig
+  String get _baseUrl => AppConfig.apiBaseUrl + '/api';
 
   // Getters
   List<User> get users => [..._users];
@@ -24,7 +25,7 @@ class UserController with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/users'),
+        Uri.parse('${AppConfig.apiBaseUrl}/api/users'),
         headers: {
           'Authorization': 'Bearer $token', // Agregar el token JWT aquí
         },
