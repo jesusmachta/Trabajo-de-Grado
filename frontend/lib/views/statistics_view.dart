@@ -164,14 +164,20 @@ class StatisticsViewState extends State<StatisticsView> {
               _selectedWeekKey != null) {
             params['period'] = 'week';
             params['date'] = _selectedWeekKey!;
-          } else if (_selectedCategoryPeriodType == 'month' &&
+          }
+          // } else if (_selectedCategoryPeriodType == 'month' &&
+          //     _selectedMonthKey != null) {
+          //   params['period'] = 'month';
+          //   final parts = _selectedMonthKey!.split('-');
+          //   if (parts.length == 2) {
+          //     params['year'] = parts[0];
+          //     params['month'] = parts[1];
+          //   }
+          // }
+          else if (_selectedCategoryPeriodType == 'month' &&
               _selectedMonthKey != null) {
             params['period'] = 'month';
-            final parts = _selectedMonthKey!.split('-');
-            if (parts.length == 2) {
-              params['year'] = parts[0];
-              params['month'] = parts[1];
-            }
+            params['date'] = _selectedMonthKey!; // 'YYYY-MM'
           }
           data = await _controller.getVisitedCategoriesStatistics(
             params: params,
@@ -6655,14 +6661,20 @@ class StatisticsViewState extends State<StatisticsView> {
               _selectedWeekKey != null) {
             params['period'] = 'week';
             params['date'] = _selectedWeekKey!;
-          } else if (_selectedCategoryPeriodType == 'month' &&
+          }
+          // else if (_selectedCategoryPeriodType == 'month' &&
+          //     _selectedMonthKey != null) {
+          //   params['period'] = 'month';
+          //   final parts = _selectedMonthKey!.split('-');
+          //   if (parts.length == 2) {
+          //     params['year'] = parts[0];
+          //     params['month'] = parts[1];
+          //   }
+          // }
+          else if (_selectedCategoryPeriodType == 'month' &&
               _selectedMonthKey != null) {
             params['period'] = 'month';
-            final parts = _selectedMonthKey!.split('-');
-            if (parts.length == 2) {
-              params['year'] = parts[0];
-              params['month'] = parts[1];
-            }
+            params['date'] = _selectedMonthKey!; // 'YYYY-MM'
           }
           data = await _controller.getVisitedCategoriesStatistics(
             params: params,
