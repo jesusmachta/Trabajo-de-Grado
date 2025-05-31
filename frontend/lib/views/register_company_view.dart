@@ -1,11 +1,13 @@
+import 'dart:convert';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../controllers/auth_controller.dart';
 import 'home_view.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:frontend/widgets/toast_notification.dart';
+import '../config.dart'; // Import the config file
 
 class RegisterCompanyView extends StatefulWidget {
   final Function toggleTheme;
@@ -268,9 +270,9 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
     try {
       // Make API call to register company
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/register-company'),
+        Uri.parse(AppConfig.getApiUrl('register-company')),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
+        body: jsonEncode({
           'nombre_empresa': _companyNameController.text,
           'rif': _rifController.text,
           'nombre_responsable': _firstNameController.text,
@@ -283,7 +285,7 @@ class _RegisterCompanyViewState extends State<RegisterCompanyView>
         }),
       );
 
-      final data = json.decode(response.body);
+      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Registration successful - update auth state and navigate

@@ -3554,127 +3554,145 @@ class StatisticsViewState extends State<StatisticsView> {
             // Create a card with pie chart for this category
             categoryCharts.add(
               SizedBox(
-                width: 320, // Increased from 240 to make charts larger
-                height: 320, // Increased from 240 to make charts larger
-                child: Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.all(8), // Increased margin
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Category title
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16), // Larger padding
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.1),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                          ),
-                        ),
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            fontSize: 16, // Increased font size
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                width: 320, // Fixed width
+                // Using LayoutBuilder to adapt height based on content
+                child: LayoutBuilder(builder: (context, constraints) {
+                  // Calculate approximate height needed for labels
+                  // Base height (title + chart) + estimated height for labels
+                  int numLabels = chartData.length;
+                  // Calculate rows needed (assuming ~4 labels per row on average)
+                  int estimatedRows = (numLabels / 3).ceil();
+                  // Each row is ~24 height + spacing
+                  double labelsHeight = estimatedRows * 30.0;
+                  // Minimum height of 320, or more if needed for labels
+                  double cardHeight = max(320, 220 + labelsHeight);
 
-                      // Pie chart
-                      SizedBox(
-                        height: 180, // Increased from 130 to make chart larger
-                        child: SfCircularChart(
-                          margin: EdgeInsets.zero,
-                          legend: Legend(isVisible: false),
-                          series: <CircularSeries>[
-                            DoughnutSeries<EmotionPercentageData, String>(
-                              dataSource: chartData,
-                              xValueMapper: (EmotionPercentageData data, _) =>
-                                  _translateEmotion(data.emotion),
-                              yValueMapper: (EmotionPercentageData data, _) =>
-                                  data.percentage,
-                              pointColorMapper:
-                                  (EmotionPercentageData data, _) =>
-                                      _getEmotionColorForChart(data.emotion),
-                              dataLabelSettings:
-                                  const DataLabelSettings(isVisible: false),
-                              enableTooltip: true,
-                              innerRadius: '60%',
+                  return SizedBox(
+                    height: cardHeight,
+                    child: Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.all(8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Category title
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.1),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-
-                      // Legend text below
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                              left: 8,
-                              right: 8,
-                              bottom: 8,
-                              top: 0), // Adjusted padding
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 4, // More spacing
-                            runSpacing: 4, // More spacing
-                            children: chartData.map((data) {
-                              final emotionColor =
-                                  _getEmotionColorForChart(data.emotion);
-
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 3), // More padding
-                                margin: const EdgeInsets.only(bottom: 2),
-                                decoration: BoxDecoration(
-                                  color: emotionColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: emotionColor.withOpacity(0.5),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 8, // Slightly larger dot
-                                      height: 8, // Slightly larger dot
-                                      decoration: BoxDecoration(
-                                        color: emotionColor,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${_translateEmotion(data.emotion)}: ${data.percentage.toStringAsFixed(0)}%',
-                                      style: const TextStyle(
-                                        fontSize: 12, // Increased font size
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
+
+                          // Pie chart
+                          SizedBox(
+                            height: 180,
+                            child: SfCircularChart(
+                              margin: EdgeInsets.zero,
+                              legend: Legend(isVisible: false),
+                              series: <CircularSeries>[
+                                DoughnutSeries<EmotionPercentageData, String>(
+                                  dataSource: chartData,
+                                  xValueMapper:
+                                      (EmotionPercentageData data, _) =>
+                                          _translateEmotion(data.emotion),
+                                  yValueMapper:
+                                      (EmotionPercentageData data, _) =>
+                                          data.percentage,
+                                  pointColorMapper: (EmotionPercentageData data,
+                                          _) =>
+                                      _getEmotionColorForChart(data.emotion),
+                                  dataLabelSettings:
+                                      const DataLabelSettings(isVisible: false),
+                                  enableTooltip: true,
+                                  innerRadius: '60%',
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Legend text below - Scrollable container to prevent overflow
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 4, right: 4, bottom: 8, top: 0),
+                                child: Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: 3, // Reduced spacing
+                                  runSpacing: 3, // Reduced spacing
+                                  children: chartData.map((data) {
+                                    final emotionColor =
+                                        _getEmotionColorForChart(data.emotion);
+
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 2), // Smaller padding
+                                      margin: const EdgeInsets.only(bottom: 2),
+                                      decoration: BoxDecoration(
+                                        color: emotionColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: emotionColor.withOpacity(0.5),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: emotionColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(
+                                              width: 2), // Reduced spacing
+                                          Text(
+                                            '${_translateEmotion(data.emotion)}: ${data.percentage.toStringAsFixed(0)}%',
+                                            style: const TextStyle(
+                                              fontSize: 11, // Smaller font
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                }),
               ),
             );
           }

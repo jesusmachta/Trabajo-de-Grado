@@ -1,0 +1,258 @@
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 23ms
+    create-variant-model 10ms
+    create-ARMEABI_V7A-model 30ms
+    [gap of 37ms]
+    create-variant-model 10ms
+    create-ARMEABI_V7A-model 11ms
+    [gap of 18ms]
+  create-initial-cxx-model completed in 144ms
+  [gap of 22ms]
+create_cxx_tasks completed in 172ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 42ms
+create_cxx_tasks completed in 44ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 14ms
+    [gap of 10ms]
+    create-ARMEABI_V7A-model 21ms
+    [gap of 48ms]
+  create-initial-cxx-model completed in 94ms
+  [gap of 13ms]
+create_cxx_tasks completed in 112ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 33ms
+create_cxx_tasks completed in 35ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 21ms
+    [gap of 12ms]
+    create-ARMEABI_V7A-model 38ms
+    [gap of 51ms]
+  create-initial-cxx-model completed in 122ms
+  [gap of 15ms]
+create_cxx_tasks completed in 142ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 14ms
+    [gap of 10ms]
+    create-ARMEABI_V7A-model 20ms
+    [gap of 33ms]
+    create-X86-model 10ms
+  create-initial-cxx-model completed in 90ms
+  [gap of 13ms]
+create_cxx_tasks completed in 107ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 31ms
+create_cxx_tasks completed in 34ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 26ms
+create_cxx_tasks completed in 28ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 28ms
+create_cxx_tasks completed in 31ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 26ms
+create_cxx_tasks completed in 28ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 25ms
+create_cxx_tasks completed in 27ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 33ms
+create_cxx_tasks completed in 36ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 19ms
+    [gap of 10ms]
+    create-ARMEABI_V7A-model 21ms
+    [gap of 41ms]
+  create-initial-cxx-model completed in 91ms
+  [gap of 15ms]
+create_cxx_tasks completed in 111ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 41ms
+create_cxx_tasks completed in 43ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 23ms
+create_cxx_tasks completed in 25ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 22ms
+create_cxx_tasks completed in 23ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 19ms
+create_cxx_tasks completed in 20ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 18ms
+create_cxx_tasks completed in 19ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 17ms
+create_cxx_tasks completed in 18ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 29ms
+create_cxx_tasks completed in 31ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 24ms
+    create-variant-model 10ms
+    create-ARMEABI_V7A-model 31ms
+    [gap of 38ms]
+    create-variant-model 12ms
+    [gap of 16ms]
+  create-initial-cxx-model completed in 135ms
+  [gap of 20ms]
+create_cxx_tasks completed in 161ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    [gap of 30ms]
+    create-ARMEABI_V7A-model 20ms
+    [gap of 39ms]
+  create-initial-cxx-model completed in 89ms
+create_cxx_tasks completed in 96ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 52ms
+create_cxx_tasks completed in 55ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-variant-model 10ms
+    create-ARMEABI_V7A-model 12ms
+    create-X86-model 54ms
+    [gap of 40ms]
+  create-initial-cxx-model completed in 124ms
+create_cxx_tasks completed in 128ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-variant-model 10ms
+    create-ARMEABI_V7A-model 12ms
+    [gap of 19ms]
+  create-initial-cxx-model completed in 51ms
+create_cxx_tasks completed in 52ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 18ms
+    create-variant-model 10ms
+    create-ARMEABI_V7A-model 28ms
+    [gap of 12ms]
+    create-X86_64-model 11ms
+    [gap of 51ms]
+  create-initial-cxx-model completed in 131ms
+  [gap of 66ms]
+create_cxx_tasks completed in 202ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    [gap of 15ms]
+    create-X86-model 11ms
+    [gap of 11ms]
+  create-initial-cxx-model completed in 37ms
+create_cxx_tasks completed in 38ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    [gap of 27ms]
+    create-ARM64_V8A-model 10ms
+  create-initial-cxx-model completed in 44ms
+create_cxx_tasks completed in 46ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 26ms
+    create-variant-model 36ms
+    create-ARMEABI_V7A-model 64ms
+    create-ARM64_V8A-model 12ms
+    [gap of 18ms]
+    create-ARMEABI_V7A-model 10ms
+    [gap of 37ms]
+    create-ARM64_V8A-model 12ms
+    create-X86_64-model 22ms
+  create-initial-cxx-model completed in 252ms
+  [gap of 25ms]
+create_cxx_tasks completed in 308ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 14ms
+    [gap of 10ms]
+    create-ARMEABI_V7A-model 32ms
+    [gap of 37ms]
+    create-X86-model 10ms
+    create-X86_64-model 13ms
+    [gap of 23ms]
+  create-initial-cxx-model completed in 140ms
+  [gap of 14ms]
+create_cxx_tasks completed in 161ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model
+    create-module-model 10ms
+    [gap of 11ms]
+    create-ARMEABI_V7A-model 21ms
+    [gap of 61ms]
+    create-ARM64_V8A-model 15ms
+    create-X86-model 13ms
+  create-initial-cxx-model completed in 135ms
+  [gap of 18ms]
+create_cxx_tasks completed in 160ms
+
+# C/C++ build system timings
+create_cxx_tasks
+  create-initial-cxx-model 39ms
+create_cxx_tasks completed in 42ms
+

@@ -11,6 +11,7 @@ import 'package:intl/intl.dart'; // For date formatting
 import 'package:image_picker/image_picker.dart';
 import '../utils/image_picker_helper.dart';
 import 'dart:typed_data';
+import '../config.dart'; // Import the config file
 
 class UsersView extends StatefulWidget {
   final Function toggleTheme;
@@ -703,8 +704,8 @@ class _UsersViewState extends State<UsersView> {
 
                     // Subir la imagen al servidor
                     final response = await http.post(
-                      Uri.parse(
-                          'http://localhost:8000/api/users/profile/picture/upload/web'),
+                      Uri.parse(AppConfig.getApiUrl(
+                          'users/profile/picture/upload/web')),
                       headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ${authController.token}',

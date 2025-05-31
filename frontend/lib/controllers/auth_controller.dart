@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../views/login_view.dart';
+import '../config.dart'; // Import the config file
 
 class User {
   final String id;
@@ -54,8 +55,8 @@ class AuthController with ChangeNotifier {
   bool _isInitializing = true;
   String? _error;
 
-  // API base URL - change this to match your backend
-  final String _baseUrl = 'http://localhost:8000/api';
+  // Get API base URL dynamically from AppConfig
+  String get _baseUrl => AppConfig.apiBaseUrl + '/api';
 
   // Getters
   User? get currentUser => _currentUser;

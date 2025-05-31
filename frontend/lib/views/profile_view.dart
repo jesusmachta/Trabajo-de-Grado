@@ -13,6 +13,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import '../utils/image_picker_helper.dart';
 import '../widgets/toast_notification.dart';
+import '../config.dart'; // Import the config file
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -229,8 +230,7 @@ class _ProfileViewState extends State<ProfileView>
       if (kIsWeb) {
         // For web platform, convert the image back to base64
         // Web doesn't have direct file access
-        final apiUrl =
-            'http://localhost:8000/api/users/profile/picture/upload/web';
+        final apiUrl = AppConfig.getApiUrl('users/profile/picture/upload/web');
         response = await http.post(
           Uri.parse(apiUrl),
           headers: {
@@ -244,7 +244,7 @@ class _ProfileViewState extends State<ProfileView>
         );
       } else {
         // For mobile platforms, use multipart form
-        final apiUrl = 'http://localhost:8000/api/users/profile/picture/upload';
+        final apiUrl = AppConfig.getApiUrl('users/profile/picture/upload');
         // Create a multipart request for file upload
         final request = http.MultipartRequest('POST', Uri.parse(apiUrl));
 
@@ -359,7 +359,7 @@ class _ProfileViewState extends State<ProfileView>
 
       // Only proceed if there are changes
       if (updateData.isNotEmpty) {
-        final apiUrl = 'http://localhost:8000/api/users/profile';
+        final apiUrl = AppConfig.getApiUrl('users/profile');
 
         final response = await http.put(
           Uri.parse(apiUrl),
@@ -448,7 +448,7 @@ class _ProfileViewState extends State<ProfileView>
         return;
       }
 
-      final apiUrl = 'http://localhost:8000/api/users/profile';
+      final apiUrl = AppConfig.getApiUrl('users/profile');
 
       final response = await http.put(
         Uri.parse(apiUrl),
@@ -528,7 +528,7 @@ class _ProfileViewState extends State<ProfileView>
         throw Exception('Selecciona tu nueva pregunta de seguridad');
       }
 
-      final apiUrl = 'http://localhost:8000/api/users/profile';
+      final apiUrl = AppConfig.getApiUrl('users/profile');
 
       final response = await http.put(
         Uri.parse(apiUrl),

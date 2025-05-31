@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/toast_notification.dart';
+import '../config.dart'; // Import the config file
 
 class CompanyView extends StatefulWidget {
   const CompanyView({Key? key}) : super(key: key);
@@ -51,7 +52,7 @@ class _CompanyViewState extends State<CompanyView> {
 
     try {
       final response = await http.delete(
-        Uri.parse('http://localhost:8000/api/delete-company'),
+        Uri.parse(AppConfig.getApiUrl('delete-company')),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

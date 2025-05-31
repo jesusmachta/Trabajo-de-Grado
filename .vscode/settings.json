@@ -1,5 +1,6 @@
 {
     "conventionalCommits.scopes": [
         "backend"
-    ]
+    ],
+    "cmake.sourceDirectory": "/Users/jesusmachta/Desktop/Tesis/Trabajo-de-Grado/frontend/windows"
 }

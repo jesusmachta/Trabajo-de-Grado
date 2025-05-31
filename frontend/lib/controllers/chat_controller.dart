@@ -70,7 +70,7 @@ class ChatController extends ChangeNotifier {
               _messages.length - historyLimit - 1, _messages.length - 1);
 
       final response = await http.post(
-        Uri.parse('${AppConfig.baseUrl}/api/chat/ai'),
+        Uri.parse(AppConfig.getApiUrl('chat/ai')),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
           'Authorization': 'Bearer $token',
