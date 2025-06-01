@@ -108,7 +108,7 @@ class _CompanyViewState extends State<CompanyView> {
       appBar: AppBar(
         title: const Align(
           alignment: Alignment.centerLeft,
-          child: Text('Informacion de la empresa'),
+          child: Text('Información de la empresa'),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -276,14 +276,17 @@ class _CompanyViewState extends State<CompanyView> {
                               controller: _confirmController,
                               decoration: InputDecoration(
                                 labelText: 'Nombre de la empresa',
-                                hintText:
-                                    'Ingrese el nombre exacto para confirmar',
+                                hintText: currentUser.empresa ?? '',
                                 border: const OutlineInputBorder(),
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 18,
                                 ),
                               ),
+                              onChanged: (value) {
+                                // Force update to enable/disable confirm button based on text match
+                                setState(() {});
+                              },
                             ),
                             const SizedBox(height: 24),
                             Row(
