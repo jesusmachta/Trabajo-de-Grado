@@ -171,7 +171,7 @@ class _HeatmapViewState extends State<HeatmapView> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Configuración del Mapa de Calor'),
+                const Text('Configuración del Monitor de Afluencia'),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.of(context).pop(),
@@ -482,7 +482,7 @@ class _HeatmapViewState extends State<HeatmapView> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Mapa de Calor',
+                                  'Monitor de Afluencia',
                                   style:
                                       theme.textTheme.headlineMedium?.copyWith(
                                     fontWeight: FontWeight.bold,

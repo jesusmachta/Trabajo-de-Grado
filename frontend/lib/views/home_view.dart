@@ -123,7 +123,7 @@ class _HomeViewState extends State<HomeView> {
       if (isAdmin) CategoriesView(toggleTheme: widget.toggleTheme),
       if (isAdmin) CamerasView(toggleTheme: widget.toggleTheme),
       if (isAdmin) SensorsView(toggleTheme: widget.toggleTheme),
-      const HeatmapView(), // Mapa de Calor view
+      const HeatmapView(), // Monitor de Afluencia view
     ];
     _titles = [
       'Dashboard',
@@ -132,7 +132,7 @@ class _HomeViewState extends State<HomeView> {
       if (isAdmin) 'Categorías',
       if (isAdmin) 'Gestión de Cámaras',
       if (isAdmin) 'Gestión de Sensores',
-      'Mapa de Calor',
+      'Monitor de Afluencia',
     ];
     // Si el usuario no es admin y el índice actual es > 1, volver al dashboard
     if (!isAdmin && _currentIndex > 1) {
@@ -832,7 +832,7 @@ class _HomeViewState extends State<HomeView> {
                       ),
                       const SizedBox(width: 16),
                       Text(
-                        'Mapa de Calor',
+                        'Monitor de Afluencia',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
