@@ -1,5 +1,9 @@
 import os
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Deshabilitar el uso del proxy
 os.environ['http_proxy'] = ''

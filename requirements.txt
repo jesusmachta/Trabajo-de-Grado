@@ -21,3 +21,4 @@ python-multipart
 apscheduler
 python-jose[cryptography]
 google-cloud-bigquery>=3.11.0
+python-dotenv

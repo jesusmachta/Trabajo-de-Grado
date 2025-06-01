@@ -1,9 +1,15 @@
+import os
 from pymongo import MongoClient
 from datetime import datetime
 from pytz import timezone
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Conexión a la base de datos
-client = MongoClient("mongodb+srv://jesusmachta:tesisjesus@tesiscluster.rxp2l.mongodb.net/?retryWrites=true&w=majority&ssl=true&tlsAllowInvalidCertificates=true")
+mongo_uri = os.environ.get("MONGODB_URI")
+client = MongoClient(mongo_uri)
 db = client['TesisBD']
 
 # Zona horaria de Venezuela (UTC-4)

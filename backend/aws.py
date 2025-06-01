@@ -1,13 +1,37 @@
+import os
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-rekognition = boto3.client('rekognition', region_name='us-west-2')
-s3 = boto3.client('s3', region_name='us-west-2')
-s3_resource = boto3.resource('s3', region_name='us-west-2')
+# Use environment variables for AWS credentials
+rekognition = boto3.client(
+    'rekognition', 
+    region_name='us-west-2',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+)
+
+s3 = boto3.client(
+    's3', 
+    region_name='us-west-2',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+)
+
+s3_resource = boto3.resource(
+    's3', 
+    region_name='us-west-2',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+)
+
 bucket_name = 'tesislospomelos'
 
 def analyze_image(image_bytes):

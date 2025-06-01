@@ -5,11 +5,16 @@ import requests
 import json
 import logging
 import pymongo
+import os
 from datetime import datetime
 from bson import json_util
+from dotenv import load_dotenv
 
 from backend.auth.dependencies import get_current_user
 from backend.database import collections
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,8 +30,8 @@ class ChatRequest(BaseModel):
     history: Optional[List[ChatMessage]] = Field(default_factory=list)
 
 # Gemini API configuration
-GEMINI_API_KEY = "AIzaSyAVNc67HMNDH4rjZCi55DteVXOWwp8OZP4"
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_API_URL = os.environ.get("GEMINI_API_URL")
 
 # Create the router
 chat_router = APIRouter()

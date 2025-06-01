@@ -1,6 +1,13 @@
+import os
 from pymongo import MongoClient
+from dotenv import load_dotenv
 
-client = MongoClient("mongodb+srv://jesusmachta:tesisjesus@tesiscluster.rxp2l.mongodb.net/?retryWrites=true&w=majority&ssl=true&tlsAllowInvalidCertificates=true")
+# Load environment variables from .env file
+load_dotenv()
+
+# Use environment variables
+mongo_uri = os.environ.get("MONGODB_URI")
+client = MongoClient(mongo_uri)
 db = client['TesisBD']
 collections = {
     "Persona_AR": db['Persona_AR'],

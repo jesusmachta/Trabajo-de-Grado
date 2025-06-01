@@ -9,3 +9,6 @@ backend/statistics/__pycache__
 # Ignorar archivos compilados de Python y carpetas __pycache__
 *.pyc
 __pycache__/
+
+# Environment variables
+.env
