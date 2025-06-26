@@ -378,10 +378,12 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
           value: _selectedSecurityQuestion,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.security),
+            suffixIcon: const Icon(Icons.arrow_drop_down),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
+          icon: const SizedBox.shrink(), // Oculta la flecha por defecto
           items: securityQuestions.map((String question) {
             return DropdownMenuItem<String>(
               value: question,

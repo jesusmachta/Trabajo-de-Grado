@@ -3,11 +3,11 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"flutter_bootstrap.js": "3ab131eb542bffb143b09bc529f653bc",
+const RESOURCES = {"flutter_bootstrap.js": "e167f10cec7fc34377e5f418eb977218",
 "version.json": "2b521e10dfa0f067561de489a19d6620",
 "index.html": "a69a5f700912ac1d17494afa6f957056",
 "/": "a69a5f700912ac1d17494afa6f957056",
-"main.dart.js": "2fa8ba3f07042ae9acaf417eaf5c358a",
+"main.dart.js": "6bf825472837895acae746abfe3585ee",
 "flutter.js": "76f08d47ff9f5715220992f993002504",
 "favicon.png": "5897b01970dc2953a582ce6114ae29ec",
 "icons/Icon-192.png": "76efdc6c23cb7e9ce3b3253c4cfc5773",
@@ -23,7 +23,7 @@ const RESOURCES = {"flutter_bootstrap.js": "3ab131eb542bffb143b09bc529f653bc",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
 "assets/AssetManifest.bin": "d2c1d7488ff107b53de78061a48658b3",
 "assets/fonts/MaterialIcons-Regular.otf": "543e869d7aa4865f6eed6447b7afd732",
-"assets/assets/images/storesense_logo.png": "1eebb708ef56fef0f6b68d707da3b19f",
+"assets/assets/images/storesense_logo.png": "635e3f98af89f229306c251fd877f3d8",
 "assets/assets/images/google_icon.svg": "8475db7965554aa9c38656c8f0ff776d",
 "assets/assets/images/google_logo.svg": "0c12721ff0f289a1636d85419a47bacb",
 "assets/assets/images/onboarding/Dashboard.png": "32e81357b2ef35e9d5b3bf46086cddda",
