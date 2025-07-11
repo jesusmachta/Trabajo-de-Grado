@@ -2,3 +2,13 @@
 enhanced_images
 analysis_result.json
 backend/statistics/__pycache__
+# Comentar estas líneas
+# build/
+# web/
+
+# Ignorar archivos compilados de Python y carpetas __pycache__
+*.pyc
+__pycache__/
+
+# Environment variables
+.env

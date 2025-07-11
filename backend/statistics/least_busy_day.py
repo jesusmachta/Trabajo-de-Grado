@@ -1,60 +1,37 @@
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
-from typing import Optional
+from fastapi import HTTPException
+from typing import Dict, Any
 from backend.database import collections  
+import logging
 
-collection = collections["Persona_AR"]
+logger = logging.getLogger(__name__)
 
-app = FastAPI()
-
-@app.get("/least-busy-day/")
-def get_least_busy_day(start_date: Optional[str] = None):
+def get_least_busy_day(empresa: str) -> Dict[str, Any]:
     """
-    Encuentra el día de la semana con el menor flujo de personas.
-    Si no se especifica un lunes, se calcula desde el lunes de la semana actual hasta el día actual.
-    :param start_date: Fecha inicial (lunes) en formato "YYYY-MM-DD".
-    :return: JSON con el día de la semana con el menor flujo de personas.
+    Obtiene el día menos concurrido de la semana desde la colección Estadisticas.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        
+    Returns:
+        Dictionary containing the least busy day data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
     """
     try:
-        if start_date:
-            # Convertir la fecha inicial a un objeto datetime
-            start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
-        else:
-            # Calcular el lunes de la semana actual
-            today = datetime.now()
-            start_date_obj = today - timedelta(days=today.weekday())  # Restar días para llegar al lunes
-
-        # Calcular el último día a revisar (hoy si no se especifica)
-        end_date_obj = datetime.now()
-
-        # Diccionario para almacenar el conteo total de personas por día
-        daily_counts = {}
-
-        # Iterar sobre los días desde el lunes hasta el día actual
-        current_date = start_date_obj
-        while current_date <= end_date_obj:
-            day_of_week = current_date.strftime("%A")  # Obtener el día de la semana (Monday, Tuesday, etc.)
-
-            # Filtrar los documentos de la colección por la fecha actual
-            personas = collection.find({"date": current_date.strftime("%Y-%m-%d")}, {"time": 1})
-
-            # Contar el total de personas para el día actual
-            total_count = 0
-            for persona in personas:
-                total_count += 1
-
-            # Guardar el conteo en el diccionario
-            daily_counts[day_of_week] = total_count
-
-            # Pasar al siguiente día
-            current_date += timedelta(days=1)
-
-        # Encontrar el día con el menor flujo de personas
-        least_busy_day = min(daily_counts, key=daily_counts.get)
-
-        return {"least_busy_day": least_busy_day}
-
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use 'YYYY-MM-DD'.")
+        # Buscar el documento de estadísticas de esta empresa
+        stats = collections["Estadisticas"].find_one({"_id": f"least_busy_day:{empresa}"})
+        if not stats:
+            logger.error(f"Least busy day statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas no encontradas para esta empresa")
+        
+        # Obtener los datos del día menos concurrido
+        data = stats.get("data", {})
+        return data
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error fetching least busy day for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching least busy days.")

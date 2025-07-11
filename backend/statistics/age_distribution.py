@@ -1,69 +1,82 @@
 from datetime import datetime, timedelta
+from fastapi import HTTPException
+from typing import Optional, Dict, Any
 from backend.database import collections
+import logging
 
-persona_collection = collections["Persona_AR"]
+logger = logging.getLogger(__name__)
 
-def get_age_distribution(period: str, date: str = None):
+def get_age_distribution(empresa: str, period: Optional[str] = None, date: Optional[str] = None, 
+                         month: Optional[int] = None, year: Optional[int] = None) -> Dict[str, Any]:
     """
-    Calcula la distribución de visitantes por rango de edad en un período (semana o mes).
-    :param period: Puede ser "week" o "month".
-    :param date: Fecha inicial en formato "YYYY-MM-DD". Si no se especifica, se usa la fecha actual.
-    :return: JSON con la distribución de visitantes por rango de edad.
+    Obtiene la distribución de visitantes por edad desde la colección Estadisticas.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        period: Período de tiempo (week)
+        date: Fecha específica para periodo semanal
+        month: Mes específico (1-12) para filtrar por mes
+        year: Año específico para filtrar por mes
+        
+    Returns:
+        Dictionary containing age distribution data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
     """
     try:
-        # Validar el período
-        if period not in ["week", "month"]:
-            raise ValueError("Invalid period. Use 'week' or 'month'.")
-
-        # Usar la fecha actual si no se proporciona
-        if date:
-            start_date = datetime.strptime(date, "%Y-%m-%d")
-        else:
-            start_date = datetime.now()
-
-        # Calcular el rango de fechas según el período
-        if period == "week":
-            end_date = start_date + timedelta(days=6)
-        elif period == "month":
-            next_month = start_date.replace(day=28) + timedelta(days=4)  # Ir al próximo mes
-            end_date = next_month.replace(day=1) - timedelta(days=1)  # Último día del mes actual
-
-        # Filtrar los documentos de Persona_AR en el rango de fechas
-        personas = persona_collection.find(
-            {"date": {"$gte": start_date.strftime("%Y-%m-%d"), "$lte": end_date.strftime("%Y-%m-%d")}},
-            {"age_range": 1}
-        )
-
-        # Diccionario para contar visitantes por rango de edad
-        age_distribution = {
-            "0-18": 0,
-            "19-25": 0,
-            "26-35": 0,
-            "36-50": 0,
-            "51+": 0
-        }
-
-        # Contar las visitas por rango de edad
-        for persona in personas:
-            age_range = persona.get("age_range", {})
-            low = age_range.get("low")
-            high = age_range.get("high")
-
-            if low is not None and high is not None:
-                if high <= 18:
-                    age_distribution["0-18"] += 1
-                elif 19 <= low <= 25:
-                    age_distribution["19-25"] += 1
-                elif 26 <= low <= 35:
-                    age_distribution["26-35"] += 1
-                elif 36 <= low <= 50:
-                    age_distribution["36-50"] += 1
-                elif low >= 51:
-                    age_distribution["51+"] += 1
-
-        return age_distribution
-
-    except ValueError as ve:
-        raise ValueError(f"Error: {ve}")
+        stats = collections["Estadisticas"].find_one({"_id": f"age_distribution:{empresa}"})
+        if not stats:
+            logger.error(f"Age distribution statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas de edad no encontradas")
+        
+        # Determinar qué datos retornar según los parámetros recibidos
+        if period is None and month is None:
+            return stats.get("overall", {})
+            
+        if period == "week" and date:
+            try:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+                if monday in stats.get("weekly", {}):
+                    return stats["weekly"][monday]
+                return {}
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
+                
+        elif month is not None:
+            if not 1 <= month <= 12:
+                raise HTTPException(status_code=400, detail="El mes debe estar entre 1 y 12")
+                
+            if year is None:
+                year = datetime.now().year
+                
+            month_key = f"{year}-{month:02d}"
+            if month_key in stats.get("monthly", {}):
+                return stats["monthly"][month_key]
+            return {}
+            
+        return stats.get("overall", {})
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
     except Exception as e:
-        raise Exception(f"Unexpected error: {e}")
+        logger.error(f"Error fetching age distribution for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching age distribution: {str(e)}")
+    
+
+def get_available_age_distribution_dates(empresa: str) -> Dict[str, list]:
+    """
+    Devuelve las semanas y meses disponibles para la distribución por edad.
+    """
+    stats = collections["Estadisticas"].find_one({"_id": f"age_distribution:{empresa}"})
+    if not stats:
+        raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+
+    weekly = list(stats.get("weekly", {}).keys())
+    monthly = list(stats.get("monthly", {}).keys())
+
+    return {
+        "weekly": sorted(weekly),
+        "monthly": sorted(monthly)
+    }

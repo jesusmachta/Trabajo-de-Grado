@@ -1,70 +1,81 @@
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
-from typing import Optional
-from backend.database import collections  
+from fastapi import HTTPException
+from typing import Optional, Dict, Any
+from backend.database import collections
+import logging
 
-persona_collection = collections["Persona_AR"]
-tipo_producto_collection = collections["Tipo_Producto"]
+logger = logging.getLogger(__name__)
 
-app = FastAPI()
-
-@app.get("/most-visited-category/")
-def get_most_visited_category(period: str, date: Optional[str] = None):
+def get_most_visited_category(empresa: str, period: str, date: Optional[str] = None) -> Dict[str, Any]:
     """
-    Calcula la categoría de producto más visitada en un rango de tiempo (día, semana o mes).
-    :param period: Puede ser "day", "week" o "month".
-    :param date: Fecha inicial en formato "YYYY-MM-DD". Si no se especifica, se usa la fecha actual.
-    :return: JSON con la categoría de producto más visitada.
+    Obtiene la categoría de producto más visitada desde la colección Estadisticas.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        period: Período de tiempo (day, week, month)
+        date: Fecha específica (opcional)
+        
+    Returns:
+        Dictionary containing the most visited category data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
     """
     try:
-        # Validar el período
-        if period not in ["day", "week", "month"]:
-            raise HTTPException(status_code=400, detail="Invalid period. Use 'day', 'week', or 'month'.")
-
-        # Usar la fecha actual si no se proporciona
-        if date:
-            start_date = datetime.strptime(date, "%Y-%m-%d")
-        else:
-            start_date = datetime.now()
-
-        # Calcular el rango de fechas según el período
+        stats = collections["Estadisticas"].find_one({"_id": f"most_visited_category:{empresa}"})
+        if not stats:
+            logger.error(f"Most visited category statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+        
+        # Determinar qué período usar
         if period == "day":
-            end_date = start_date
+            date_key = date if date else datetime.now().strftime("%Y-%m-%d")
+            data = stats.get("daily", {}).get(date_key)
         elif period == "week":
-            end_date = start_date + timedelta(days=6)
+            if date:
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+            else:
+                date_obj = datetime.now()
+            monday = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
+            data = stats.get("weekly", {}).get(monday)
         elif period == "month":
-            next_month = start_date.replace(day=28) + timedelta(days=4)  # Ir al próximo mes
-            end_date = next_month.replace(day=1) - timedelta(days=1)  # Último día del mes actual
-
-        # Obtener todas las categorías disponibles de Tipo_Producto
-        categorias = tipo_producto_collection.find({}, {"Categoria_Producto": 1, "_id": 0})
-        categorias = [categoria["Categoria_Producto"] for categoria in categorias]
-
-        # Diccionario para contar las visitas por categoría
-        category_counts = {categoria: 0 for categoria in categorias}
-
-        # Filtrar los documentos de Persona_AR en el rango de fechas
-        personas = persona_collection.find(
-            {"date": {"$gte": start_date.strftime("%Y-%m-%d"), "$lte": end_date.strftime("%Y-%m-%d")}},
-            {"categoria_producto": 1}
-        )
-
-        # Contar las visitas por categoría
-        for persona in personas:
-            category_name = persona.get("categoria_producto")
-            if category_name in category_counts:
-                category_counts[category_name] += 1
-
-        # Verificar si hay datos
-        if all(count == 0 for count in category_counts.values()):
-            return {"most_visited_category": None, "message": "No data available for the specified period."}
-
-        # Encontrar la categoría más visitada
-        most_visited_category = max(category_counts, key=category_counts.get)
-
-        return {"most_visited_category": most_visited_category, "count": category_counts[most_visited_category]}
-
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use 'YYYY-MM-DD'.")
+            if date:
+                month_key = date[:7]
+            else:
+                month_key = datetime.now().strftime("%Y-%m")
+            data = stats.get("monthly", {}).get(month_key)
+        else:
+            raise HTTPException(status_code=400, detail="Período no válido. Use 'day', 'week', o 'month'.")
+            
+        if not data:
+            data = stats.get("category_counts", {})
+            if data:
+                most_cat = max(data.items(), key=lambda x: x[1]) if data else ("", 0)
+                data = {"category": most_cat[0], "count": most_cat[1]}
+            else:
+                data = {"category": None, "count": 0}
+                
+        return {"most_visited_category": data.get("category"), "count": data.get("count")}
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error fetching most visited category for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching most visited category: {str(e)}")
+    
+def get_available_most_visited_category_dates(empresa: str) -> Dict[str,list]: 
+    stats = collections["Estadisticas"].find_one({"_id": f"most_visited_category:{empresa}"})
+    if not stats:
+        raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+
+    daily = list(stats.get("daily", {}).keys())
+    weekly = list(stats.get("weekly", {}).keys())
+    monthly = list(stats.get("monthly", {}).keys())
+    return{
+        "daily": sorted(daily),
+        "weekly": sorted(weekly),
+        "monthly": sorted(monthly)
+    }
+
+
+

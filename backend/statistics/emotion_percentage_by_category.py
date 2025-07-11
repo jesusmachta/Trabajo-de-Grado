@@ -1,13 +1,42 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 from backend.database import collections  
+from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 persona_collection = collections["Persona_AR"]
 tipo_producto_collection = collections["Tipo_Producto"]
 
-app = FastAPI()
+def get_emotion_percentage_by_category(empresa: str) -> Dict[str, Any]:
+    """
+    Obtiene el porcentaje de emociones por categoría desde la colección Estadisticas.
+    
+    Args:
+        empresa: Identificador de la empresa para la que se obtienen las estadísticas
+        
+    Returns:
+        Dictionary containing emotion percentage by category data
+        
+    Raises:
+        HTTPException: If statistics not found or error fetching data
+    """
+    try:
+        stats = collections["Estadisticas"].find_one({"_id": f"emotion_percentage_by_category:{empresa}"})
+        if not stats:
+            logger.error(f"Emotion percentage by category statistics not found for company '{empresa}'")
+            raise HTTPException(status_code=404, detail="Estadísticas no encontradas")
+        
+        data = stats.get("data", {})
+        return data
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Error fetching emotion percentage by category for company '{empresa}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching emotion percentage.")
 
-@app.get("/emotion-percentage-by-category/")
-def get_emotion_percentage_by_category():
+def get_emotion_percentage_by_category_old():
     """
     Calcula la relación entre emociones detectadas y categorías de producto en términos de porcentajes.
     :return: JSON con las categorías de producto y el porcentaje de emociones detectadas.
